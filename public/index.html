@@ -2,42 +2,96 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="icon" href="%PUBLIC_URL%/logo.png" type="image/png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
+    <meta name="description" content="Connecting Chamar's in Abroad Countries" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <!-- Google Web Fonts (from template) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@200;300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Icon Fonts (from template) -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+
+    <!-- Libraries Stylesheet -->
+    <link href="/template/lib/animate/animate.min.css" rel="stylesheet" />
+    <link href="/template/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet" />
+
+    <!-- Bootstrap & Template Styles -->
+    <link rel="stylesheet" href="/template/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/template/css/style.css" />
+   
+
+    <title>Ravidassia Abroad</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+    <!-- Core JS (local copies under public/template) -->
+    <script src="/template/js/jquery.min.js"></script>
+    <script src="/template/js/bootstrap.bundle.min.js"></script>
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <!-- Template vendor libraries -->
+    <script src="/template/lib/wow/wow.min.js"></script>
+    <script src="/template/lib/easing/easing.min.js"></script>
+    <script src="/template/lib/waypoints/waypoints.min.js"></script>
+    <script src="/template/lib/counterup/counterup.min.js"></script>
+    <script src="/template/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Optional: template main.js if you copied it -->
+    <script src="/template/js/main.js"></script> 
+
+    <script>
+      // Idempotent init so it's safe on every route change (and StrictMode double effects)
+      window.__initLegacy = function () {
+        try {
+          // WOW animations
+          if (window.WOW && !window.__wowInited) {
+            new window.WOW().init();
+            window.__wowInited = true;
+          }
+
+          // Owl carousels
+          if (window.$ && window.$(".owl-carousel").length && window.$(".owl-carousel").owlCarousel) {
+            window.$(".owl-carousel").each(function () {
+              const $el = window.$(this);
+              // Prevent double-init by checking data
+              if (!$el.data("owl.carousel")) {
+                $el.owlCarousel({ autoplay: true, loop: true, items: 1 });
+              }
+            });
+          }
+
+          // CounterUp (expects elements with .counter-value)
+          if (window.$ && window.$.fn && window.$.fn.counterUp && window.waypoints) {
+            window.$(".counter-value").each(function () {
+              const $el = window.$(this);
+              if (!$el.data("__counterInited")) {
+                $el.counterUp({ delay: 10, time: 2000 });
+                $el.data("__counterInited", true);
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("Legacy init error:", e);
+        }
+
+        // Hide spinner if present
+        const sp = document.getElementById("spinner");
+        if (sp) sp.classList.remove("show");
+      };
+    </script>
   </body>
 </html>
