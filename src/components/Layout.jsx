@@ -23,38 +23,36 @@ export default function Layout() {
             <div className="d-flex">
               <a href="#" className="text-muted me-4">
                 <i className="fas fa-envelope text-secondary me-2"></i>
-                Example@gmail.com
+                RavidassiaAbroad@gmail.com
               </a>
-              <a href="#" className="text-muted me-0">
+              {/* <a href="#" className="text-muted me-0">
                 <i className="fas fa-phone-alt text-secondary me-2"></i>
                 +01234567890
-              </a>
+              </a> */}
             </div>
           </div>
           <div className="col-lg-3 row-cols-1 text-center mb-2 mb-lg-0">
             <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
+              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://x.com/ravidassiabroad" target="blank">
                 <i className="fab fa-twitter fw-normal text-secondary"></i>
               </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
+              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://www.facebook.com/RavidassiaAbroad" target="blank">
                 <i className="fab fa-facebook-f fw-normal text-secondary"></i>
               </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
+              {/* <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
                 <i className="fab fa-linkedin-in fw-normal text-secondary"></i>
-              </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
+              </a> */}
+              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://www.instagram.com/ravidassiaabroad/" target="blank">
                 <i className="fab fa-instagram fw-normal text-secondary"></i>
               </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle" href="">
+              <a className="btn btn-sm btn-outline-light btn-square rounded-circle" href="https://www.youtube.com/c/TheAmbedkarBrand" target="blank">
                 <i className="fab fa-youtube fw-normal text-secondary"></i>
               </a>
             </div>
           </div>
           <div className="col-lg-4 text-center text-lg-end">
             <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
-              <a href="#" className="text-muted me-2"> Help</a><small> / </small>
-              <a href="#" className="text-muted mx-2"> Support</a><small> / </small>
-              <a href="#" className="text-muted ms-2"> Contact</a>
+              <a href="#" className="text-muted me-2"> Want to Add/Remove Content ?</a>
             </div>
           </div>
         </div>
@@ -64,11 +62,11 @@ export default function Layout() {
       {/* Navbar Start */}
       <div className="container-fluid nav-bar p-0">
         <nav className="navbar navbar-expand-lg navbar-light bg-white px-4 px-lg-5 py-3 py-lg-0">
-          <Link to="/" className="navbar-brand p-0">
-            <h1 className="display-5 text-secondary m-0">
+          <Link to="/" className="navbar-brand d-flex align-items-center gap-2 p-0">
+  
               <img src="/template/img/brand-logo.png" className="img-fluid" alt="Ravidassia Community" />
-              Ravidassia Abroad
-            </h1>
+    
+          
           </Link>
 
           <button
@@ -112,7 +110,7 @@ export default function Layout() {
             </button>
 
             <a href="#" className="btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0">
-              Get A Quote
+              Get Involved
             </a>
           </div>
         </nav>
@@ -147,52 +145,53 @@ export default function Layout() {
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Info</h4>
-                <a href=""><i className="fa fa-map-marker-alt me-2"></i> 123 Street, New York, USA</a>
-                <a href=""><i className="fas fa-envelope me-2"></i> info@example.com</a>
-                <a href=""><i className="fas fa-phone me-2"></i> +012 345 67890</a>
-                <a href="" className="mb-3"><i className="fas fa-print me-2"></i> +012 345 67890</a>
+                <a href=""><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</a>
+                <a href=""><i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com</a>
+                <a href=""><i className="fas fa-phone me-2"></i> — </a>
+                <a href="" className="mb-3"><i className="fas fa-print me-2"></i> — </a>
                 <div className="d-flex align-items-center">
                   <i className="fas fa-share fa-2x text-secondary me-2"></i>
-                  <a className="btn mx-1" href=""><i className="fab fa-facebook-f"></i></a>
-                  <a className="btn mx-1" href=""><i className="fab fa-twitter"></i></a>
-                  <a className="btn mx-1" href=""><i className="fab fa-instagram"></i></a>
-                  <a className="btn mx-1" href=""><i className="fab fa-linkedin-in"></i></a>
+                  <a className="btn mx-1" href="https://www.facebook.com/RavidassiaAbroad" target="blank"><i className="fab fa-facebook-f"></i></a>
+                  <a className="btn mx-1" href="https://x.com/ravidassiabroad" target="blank"><i className="fab fa-twitter"></i></a>
+                  <a className="btn mx-1" href="https://www.instagram.com/ravidassiaabroad/" target="blank"><i className="fab fa-instagram"></i></a>
+                  <a className="btn mx-1" href="https://www.youtube.com/c/TheAmbedkarBrand" target="blank"><i className="fab fa-linkedin-in"></i></a>
                 </div>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
-                <h4 className="text-secondary mb-4">Opening Time</h4>
+                <h4 className="text-secondary mb-4">Contact Hours</h4>
                 <div className="mb-3">
-                  <h6 className="text-muted mb-0">Mon - Friday:</h6>
-                  <p className="text-white mb-0">09.00 am to 07.00 pm</p>
+                  <h6 className="text-muted mb-0">Mon – Fri:</h6>
+                  <p className="text-white mb-0">10:00 am – 6:00 pm (AST)</p>
                 </div>
                 <div className="mb-3">
-                  <h6 className="text-muted mb-0">Satday:</h6>
-                  <p className="text-white mb-0">10.00 am to 05.00 pm</p>
+                  <h6 className="text-muted mb-0">Saturday:</h6>
+                  <p className="text-white mb-0">Community Events</p>
                 </div>
                 <div className="mb-3">
-                  <h6 className="text-muted mb-0">Vacation:</h6>
-                  <p className="text-white mb-0">All Sunday is our vacation</p>
+                  <h6 className="text-muted mb-0">Sunday:</h6>
+                  <p className="text-white mb-0">Closed</p>
                 </div>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
-                <h4 className="text-secondary mb-4">Our Services</h4>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Business</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Evaluation</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Migrate</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Study</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Counselling</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Work / Career</a>
+                <h4 className="text-secondary mb-4">Site Links</h4>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Teachings</a>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> History</a>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Temples & Centers</a>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Festivals & Events</a>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Youth Programs</a>
+                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Contact</a>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item">
                 <h4 className="text-secondary mb-4">Newsletter</h4>
                 <p className="text-white mb-3">
-                  Dolor amet sit justo amet elitr clita ipsum elitr est.Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                  Get monthly updates on Guru Ravidass Ji’s teachings, global Sangat news,
+                  festivals, and new community resources.
                 </p>
                 <div className="position-relative mx-auto rounded-pill">
                   <input className="form-control border-0 rounded-pill w-100 py-3 ps-4 pe-5" type="text" placeholder="Enter your email" />
@@ -213,8 +212,8 @@ export default function Layout() {
               <span className="text-white">
                 <a href="#" className="border-bottom text-white">
                   <i className="fas fa-copyright text-light me-2"></i>
-                  Your Site Name
-                </a>, All right reserved.
+                  Ravidassia Abroad
+                </a>, All rights reserved.
               </span>
             </div>
             <div className="col-md-6 text-center text-md-end text-white">

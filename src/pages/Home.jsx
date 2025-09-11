@@ -1,11 +1,25 @@
 // src/pages/Home.jsx
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { Carousel } from "bootstrap";
 
 export default function Home() {
+  const carouselRef = useRef(null);
+  const [carousel, setCarousel] = useState(null);
+
   useEffect(() => {
     document.title = "Ravidassia Abroad";
-    // Re-init legacy plugins (Owl Carousel, WOW, counters...) after mount
-    if (window.__initLegacy) window.__initLegacy();
+
+    if (carouselRef.current) {
+      // create (or reuse) the Bootstrap instance from the module API
+      const instance =
+        Carousel.getInstance(carouselRef.current) ||
+        new Carousel(carouselRef.current, {
+          interval: 5000,
+          pause: "hover",
+          wrap: true,
+        });
+      setCarousel(instance);
+    }
   }, []);
 
   return (
@@ -28,117 +42,111 @@ export default function Home() {
 
       {/* ===== Carousel Start ===== */}
       <div className="carousel-header">
-        <div id="carouselId" className="carousel slide" data-bs-ride="carousel">
-          <ol className="carousel-indicators">
-            <li
+        <div
+          id="carouselId"
+          className="carousel slide"
+          data-bs-ride="carousel"
+          ref={carouselRef}
+        >
+          <div className="carousel-indicators">
+            <button
+              type="button"
               data-bs-target="#carouselId"
               data-bs-slide-to="0"
               className="active"
-            ></li>
-            <li data-bs-target="#carouselId" data-bs-slide-to="1"></li>
-          </ol>
-          <div className="carousel-inner" role="listbox">
+              aria-current="true"
+              aria-label="Slide 1"
+            />
+            <button
+              type="button"
+              data-bs-target="#carouselId"
+              data-bs-slide-to="1"
+              aria-label="Slide 2"
+            />
+          </div>
+
+          <div className="carousel-inner">
+            {/* Slide 1 */}
             <div className="carousel-item active">
               <img
                 src="/template/img/carousel-1.png"
-                className="img-fluid"
-                alt="Image"
+                className="d-block w-100"
+                alt="Ravidassia Abroad global community"
               />
               <div className="carousel-caption">
                 <div className="text-center p-4" style={{ maxWidth: "900px" }}>
-                  <h4
-                    className="text-white text-uppercase fw-bold mb-3 mb-md-4 wow fadeInUp"
-                    data-wow-delay="0.1s"
-                  >
-                    Chamar Community{" "}
+                  <h4 className="text-white text-uppercase fw-bold mb-3 mb-md-4">
+                    Ravidassia Abroad
                   </h4>
-                  <h1
-                    className="display-1 text-capitalize text-white mb-3 mb-md-4 wow fadeInUp"
-                    data-wow-delay="0.3s"
-                  >
-                    A Global Platform for Ravidassia Community
+                  <h1 className="display-1 text-capitalize text-white mb-3 mb-md-4">
+                    A Global Platform for Chamar Community
                   </h1>
-                  <p
-                    className="text-white mb-4 mb-md-5 fs-5 wow fadeInUp"
-                    data-wow-delay="0.5s"
-                  >
+                  <p className="text-white mb-4 mb-md-5 fs-5">
                     Connecting Ravidassia abroad with culture, history,
-                    teachings & unity.
+                    teachings &amp; unity.
                   </p>
                   <a
-                    className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5 wow fadeInUp"
-                    data-wow-delay="0.7s"
+                    className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
                     href="#"
                   >
-                    More Details
+                    Guru Ravidass Maharaj{" "}
                   </a>
                 </div>
               </div>
             </div>
+
+            {/* Slide 2 */}
             <div className="carousel-item">
               <img
-                src="/template/img/carousel-2.jpg"
-                className="img-fluid"
-                alt="Image"
+                src="/template/img/carousel-2.png"
+                className="d-block w-100"
+                alt="Ravidassia news and events abroad"
               />
               <div className="carousel-caption">
                 <div className="text-center p-4" style={{ maxWidth: "900px" }}>
-                  <h5
-                    className="text-white text-uppercase fw-bold mb-3 mb-md-4 wow fadeInUp"
-                    data-wow-delay="0.1s"
-                  >
-                    Solution For All Type Of Visas
+                  <h5 className="text-white text-uppercase fw-bold mb-3 mb-md-4">
+                    Ravidassia Abroad{" "}
                   </h5>
-                  <h1
-                    className="display-1 text-capitalize text-white mb-3 mb-md-4 wow fadeInUp"
-                    data-wow-delay="0.3s"
-                  >
-                    Best Visa Immigrations Services
+                  <h1 className="display-1 text-capitalize text-white mb-3 mb-md-4">
+                    News, Events &amp; Sangat Abroad{" "}
                   </h1>
-                  <p
-                    className="text-white mb-4 mb-md-5 fs-5 wow fadeInUp"
-                    data-wow-delay="0.5s"
-                  >
-                    Lorem Ipsum is simply dummy text of the printing and
-                    typesetting industry. Lorem Ipsum has been the industry's
-                    standard dummy text ever since the 1500s,
+                  <p className="text-white mb-4 mb-md-5 fs-5">
+                    From Canada to the UK, USA and beyond—stay updated with our
+                    global presence.
                   </p>
                   <a
-                    className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5 wow fadeInUp"
-                    data-wow-delay="0.7s"
+                    className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
                     href="#"
                   >
-                    More Details
+                    DR Ambedkar{" "}
                   </a>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Controls — call the instance directly */}
           <button
             className="carousel-control-prev"
             type="button"
-            data-bs-target="#carouselId"
-            data-bs-slide="prev"
+            onClick={(e) => {
+              e.preventDefault();
+              carousel && carousel.prev();
+            }}
           >
-            <span
-              className="carousel-control-prev-icon bg-secondary wow fadeInLeft"
-              data-wow-delay="0.2s"
-              aria-hidden="false"
-            ></span>
-            <span className="visually-hidden-focusable">Previous</span>
+            <span className="carousel-control-prev-icon" aria-hidden="true" />
+            <span className="visually-hidden">Previous</span>
           </button>
           <button
             className="carousel-control-next"
             type="button"
-            data-bs-target="#carouselId"
-            data-bs-slide="next"
+            onClick={(e) => {
+              e.preventDefault();
+              carousel && carousel.next();
+            }}
           >
-            <span
-              className="carousel-control-next-icon bg-secondary wow fadeInRight"
-              data-wow-delay="0.2s"
-              aria-hidden="false"
-            ></span>
-            <span className="visually-hidden-focusable">Next</span>
+            <span className="carousel-control-next-icon" aria-hidden="true" />
+            <span className="visually-hidden">Next</span>
           </button>
         </div>
       </div>
@@ -196,7 +204,7 @@ export default function Home() {
                   src="/template/img/about-2.png"
                   className="img-fluid w-100"
                   style={{ marginBottom: "-7px" }}
-                  alt="Image"
+                  alt="Ravidassia Abroad community"
                 />
                 <img
                   src="/template/img/about-3.jpg"
@@ -205,27 +213,28 @@ export default function Home() {
                     borderTopRightRadius: "300px",
                     borderTopLeftRadius: "300px",
                   }}
-                  alt="Image"
+                  alt="Global Sangat"
                 />
               </div>
             </div>
             <div className="col-xl-7 wow fadeInRight" data-wow-delay="0.3s">
-              <h5 className="sub-title pe-3">About the company</h5>
+              <h5 className="sub-title pe-3">About the Community</h5>
               <h1 className="display-5 mb-4">About Ravidassia Abroad</h1>
               <p className="mb-4">
-                Ravidassia Abroad is a community platform dedicated to
-                connecting Ravidassia people worldwide. We share teachings of
-                Guru Ravidass Ji, promote unity, and preserve our rich culture
-                and traditions across the globe.
+                Ravidassia Abroad is a volunteer-run platform for our global
+                Sangat. We preserve and share the teachings of Guru Ravidass Ji,
+                highlight our history and personalities, list temples &amp;
+                centers, and support youth and families staying connected to our
+                roots—wherever they live.
               </p>
               <div className="row gy-4 align-items-center">
                 <div className="col-12 col-sm-6 d-flex align-items-center">
                   <i className="fas fa-map-marked-alt fa-3x text-secondary"></i>
-                  <h5 className="ms-4">Best Immigration Resources</h5>
+                  <h5 className="ms-4">Canada Based</h5>
                 </div>
                 <div className="col-12 col-sm-6 d-flex align-items-center">
                   <i className="fas fa-passport fa-3x text-secondary"></i>
-                  <h5 className="ms-4">Return Visas Availabile</h5>
+                  <h5 className="ms-4">Uniting Globally</h5>
                 </div>
                 <div className="col-4 col-md-3">
                   <div className="bg-light text-center rounded p-3">
@@ -240,15 +249,15 @@ export default function Home() {
                   <div className="mb-5">
                     <p className="text-primary h6 mb-3">
                       <i className="fa fa-check-circle text-secondary me-2"></i>
-                      Rich cultural heritage
+                      Authentic resources &amp; references
                     </p>
                     <p className="text-primary h6 mb-3">
                       <i className="fa fa-check-circle text-secondary me-2"></i>
-                      Teachings of Guru Ravidass Ji
+                      Temples &amp; centers directory
                     </p>
                     <p className="text-primary h6 mb-3">
                       <i className="fa fa-check-circle text-secondary me-2"></i>
-                      Community support{" "}
+                      Youth guidance &amp; community support
                     </p>
                   </div>
                   <div className="d-flex flex-wrap">
@@ -261,14 +270,14 @@ export default function Home() {
                         className="position-relative wow tada"
                         data-wow-delay=".9s"
                       >
-                        <i className="fa fa-phone-alt text-primary fa-3x"></i>
+                        <i className="fa fa-mail-alt text-primary fa-3x"></i>
                         <div
                           className="position-absolute"
                           style={{ top: 0, left: 25 }}
                         >
-                          <span>
+                          {/* <span>
                             <i className="fa fa-comment-dots text-secondary"></i>
-                          </span>
+                          </span> */}
                         </div>
                       </a>
                     </div>
@@ -278,7 +287,7 @@ export default function Home() {
                         className="text-secondary fw-bold fs-5"
                         style={{ letterSpacing: "2px" }}
                       >
-                        Free: +0123 456 7890
+                        Mail: RavidassiaAbroad@gmail.com
                       </span>
                     </div>
                   </div>
@@ -297,25 +306,25 @@ export default function Home() {
             {[
               {
                 icon: "fas fa-passport",
-                title: "Visa Categories",
+                title: "Community Topics",
                 value: "31",
                 suffix: "+",
               },
               {
                 icon: "fas fa-users",
-                title: "Team Members",
+                title: "Contributors",
                 value: "377",
                 suffix: "+",
               },
               {
                 icon: "fas fa-user-check",
-                title: "Visa Process",
-                value: "4.9",
-                suffix: "K",
+                title: "Temples & Centers",
+                value: "120",
+                suffix: "+",
               },
               {
                 icon: "fas fa-handshake",
-                title: "Success Rates",
+                title: "Sangat Reach",
                 value: "98",
                 suffix: "%",
               },
@@ -359,15 +368,12 @@ export default function Home() {
             data-wow-delay="0.1s"
           >
             <div className="sub-style">
-              <h5 className="sub-title text-primary px-3">Visa Categories</h5>
+              <h5 className="sub-title text-primary px-3">
+                Jai Bhim Jai Gurudev Ji
+              </h5>
             </div>
             <h1 className="display-5 mb-4">Community Highlights</h1>
-            <p className="mb-0">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-              deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-              temporibus, eius nam mollitia voluptas maxime veniam
-              necessitatibus saepe in ab? Repellat!
-            </p>
+            
           </div>
 
           <div className="row g-4">
@@ -413,10 +419,10 @@ export default function Home() {
                         </a>
                         <div className="px-4">
                           <p className="mb-4">
-                            Lorem ipsum dolor sit amet consectetur, adipisicing
-                            elit. Mollitia fugit dolores nesciunt adipisci
-                            obcaecati veritatis cum, ratione aspernatur autem
-                            velit.
+                            Explore curated articles, images, and verified
+                            references for our Sangat worldwide. Discover
+                            culture, teachings, events, and ways to stay
+                            connected.
                           </p>
                           <a
                             className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
@@ -448,12 +454,11 @@ export default function Home() {
                 Why Ravidassia Abroad?
               </h5>
             </div>
-            <h1 className="display-5 mb-4">Authentic Teachings </h1>
+            <h1 className="display-5 mb-4">What You’ll Find Here</h1>
             <p className="mb-0">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-              deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-              temporibus, eius nam mollitia voluptas maxime veniam
-              necessitatibus saepe in ab? Repellat!
+              Authentic resources, a global network, and community programs that
+              help the Ravidassia diaspora stay rooted in values while thriving
+              abroad.
             </p>
           </div>
 
@@ -476,8 +481,8 @@ export default function Home() {
                   <div className="feature-content d-flex flex-column">
                     <h5 className="mb-3">{f.title}</h5>
                     <p className="mb-3">
-                      Dolor, sit amet consectetur adipisicing el55kit. Soluta
-                      inventore cum accusamus,
+                      Carefully compiled materials with clear explanations and
+                      easy ways to participate in Sangat life abroad.
                     </p>
                     <a className="btn btn-secondary rounded-pill" href="#">
                       Read More<i className="fas fa-arrow-right ms-2"></i>
@@ -518,10 +523,9 @@ export default function Home() {
               heritage alive.
             </h1>
             <p className="mb-0">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-              deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-              temporibus, eius nam mollitia voluptas maxime veniam
-              necessitatibus saepe in ab? Repellat!
+              From Canada and the UK to the USA and India—discover temples,
+              events and Sangat groups near you and stay connected to our
+              heritage.
             </p>
           </div>
 
@@ -530,25 +534,25 @@ export default function Home() {
               {
                 hero: "country-1.jpg",
                 flag: "brazil.jpg",
-                name: "Brazil",
+                name: "Canada",
                 delay: "0.1s",
               },
               {
                 hero: "country-2.jpg",
                 flag: "india.jpg",
-                name: "india",
+                name: "United Kingdom",
                 delay: "0.3s",
               },
               {
                 hero: "country-3.jpg",
                 flag: "usa.jpg",
-                name: "New York",
+                name: "United States",
                 delay: "0.5s",
               },
               {
                 hero: "country-4.jpg",
                 flag: "italy.jpg",
-                name: "Italy",
+                name: "India",
                 delay: "0.7s",
               },
             ].map((c) => (
@@ -603,15 +607,13 @@ export default function Home() {
           >
             <div className="sub-style">
               <h5 className="sub-title text-primary px-3">
-                OUR CLIENTS RIVIEWS
+                VOICES FROM THE COMMUNITY
               </h5>
             </div>
-            <h1 className="display-5 mb-4">What Our Clients Say</h1>
+            <h1 className="display-5 mb-4">What Our Sangat Says</h1>
             <p className="mb-0">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-              deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-              temporibus, eius nam mollitia voluptas maxime veniam
-              necessitatibus saepe in ab? Repellat!
+              Reflections from community members using Ravidassia Abroad to
+              learn, connect, and celebrate our heritage.
             </p>
           </div>
 
@@ -623,10 +625,12 @@ export default function Home() {
               <div key={n} className="testimonial-item">
                 <div className="testimonial-content p-4 mb-5">
                   <p className="fs-5 mb-0">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
-                    do eiusmod tempor incididunt ut labore et dolore magna
-                    aliqua. Ut enim ad minim veniam, quis nostrud exercitati
-                    eiusmod tempor incididunt.
+                    {n === 1 &&
+                      "This platform keeps me connected with my roots while studying in Canada."}
+                    {n === 2 &&
+                      "The teachings section helped my kids understand Guru Ravidass Ji’s message clearly."}
+                    {n === 3 &&
+                      "I found nearby temples and events right after moving—so helpful for settling in."}
                   </p>
                   <div className="d-flex justify-content-end">
                     {[...Array(5)].map((_, i) => (
@@ -646,8 +650,16 @@ export default function Home() {
                     />
                   </div>
                   <div className="my-auto">
-                    <h5>Person Name</h5>
-                    <p className="mb-0">Profession</p>
+                    <h5>
+                      {n === 1 && "Gurpreet K."}
+                      {n === 2 && "Simran D."}
+                      {n === 3 && "Harjit S."}
+                    </h5>
+                    <p className="mb-0">
+                      {n === 1 && "Student · Canada"}
+                      {n === 2 && "Parent · United Kingdom"}
+                      {n === 3 && "Community Volunteer · USA"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -666,17 +678,16 @@ export default function Home() {
           >
             <div className="sub-style">
               <h5 className="sub-title text-primary px-3">
-                CHECK OUR TRAINING
+                COMMUNITY PROGRAMS
               </h5>
             </div>
             <h1 className="display-5 mb-4">
-              Get the Best Coacing Service Training with Our Travisa
+              Guidance &amp; Learning for Youth and Families
             </h1>
             <p className="mb-0">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-              deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-              temporibus, eius nam mollitia voluptas maxime veniam
-              necessitatibus saepe in ab? Repellat!
+              Opportunities to learn Gurbani, celebrate culture, build
+              leadership, and find local support—designed to keep our next
+              generation rooted and confident.
             </p>
           </div>
 
@@ -684,30 +695,30 @@ export default function Home() {
             {[
               {
                 img: "training-1.jpg",
-                a: "IELTS",
-                b: "Coaching",
-                title: "IELTS Coaching",
+                a: "Gurbani",
+                b: "Learning",
+                title: "Gurbani Learning",
                 delay: "0.1s",
               },
               {
                 img: "training-2.jpg",
-                a: "TOEFL",
-                b: "Coaching",
-                title: "TOEFL Coaching",
+                a: "Cultural",
+                b: "Workshops",
+                title: "Cultural Workshops",
                 delay: "0.3s",
               },
               {
                 img: "training-3.jpg",
-                a: "PTE",
-                b: "Coaching",
-                title: "PTE Coaching",
+                a: "Youth",
+                b: "Mentorship",
+                title: "Youth Mentorship",
                 delay: "0.5s",
               },
               {
                 img: "training-4.jpg",
-                a: "OET",
-                b: "Coaching",
-                title: "OET Coaching",
+                a: "Newcomer",
+                b: "Support",
+                title: "Newcomer Support",
                 delay: "0.7s",
               },
             ].map((t) => (
@@ -737,8 +748,8 @@ export default function Home() {
                       <h4 className="text-white">{t.title}</h4>
                     </a>
                     <p className="text-white-50">
-                      Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                      Autem, veritatis.
+                      Learn, participate, and grow with programs created by and
+                      for the community.
                     </p>
                     <a
                       className="btn btn-secondary rounded-pill text-white p-0"
@@ -773,16 +784,13 @@ export default function Home() {
               data-wow-delay="0.1s"
             >
               <div className="sub-style">
-                <h5 className="sub-title text-primary px-3">
-                  Worlwide Offices
-                </h5>
+                <h5 className="sub-title text-primary px-3">Global Sangat</h5>
               </div>
-              <h1 className="display-5 mb-4">Explore Our Office Worldwide</h1>
+              <h1 className="display-5 mb-4">Explore Our Sangat Worldwide</h1>
               <p className="mb-0">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Quaerat
-                deleniti amet at atque sequi quibusdam cumque itaque repudiandae
-                temporibus, eius nam mollitia voluptas maxime veniam
-                necessitatibus saepe in ab? Repellat!
+                Find Shri Guru Ravidass Sabhas and community centers near you.
+                This directory grows with community contributions—share updates
+                from your city.
               </p>
             </div>
 
@@ -790,20 +798,20 @@ export default function Home() {
               {[
                 {
                   img: "office-2.jpg",
-                  name: "Australia",
-                  phone: "+123.456.7890",
+                  name: "Canada",
+                  phone: "View Temples →",
                 },
                 {
                   img: "office-1.jpg",
-                  name: "Canada",
-                  phone: "(012) 0345 6789",
+                  name: "United Kingdom",
+                  phone: "View Temples →",
                 },
                 {
                   img: "office-3.jpg",
-                  name: "United Kingdom",
-                  phone: "01234.567.890",
+                  name: "United States",
+                  phone: "View Temples →",
                 },
-                { img: "office-4.jpg", name: "India", phone: "+123.45.67890" },
+                { img: "office-4.jpg", name: "India", phone: "View Temples →" },
               ].map((o, i) => (
                 <div
                   key={o.name}
@@ -824,11 +832,11 @@ export default function Home() {
                         {o.phone}
                       </a>
                       <a href="#" className="text-muted fs-5 mb-2">
-                        travisa@example.com
+                        ravidassiaabroad@gmail.com
                       </a>
                       <p className="mb-0">
-                        123, First Floor, 123 St Roots Terrace, Los Angeles
-                        90010 Unitd States of America.
+                        Submit your local Sabha/temple, city, contact, and event
+                        details to help others connect with Sangat.
                       </p>
                     </div>
                   </div>

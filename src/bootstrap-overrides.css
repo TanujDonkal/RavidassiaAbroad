@@ -1,0 +1,117 @@
+/* === Site-wide Bootstrap primary -> black === */
+:root {
+  --bs-primary: #000000;
+  --bs-primary-rgb: 0, 0, 0;
+}
+
+/* Ensure utilities pick up new primary */
+.text-primary   { color: rgba(var(--bs-primary-rgb), var(--bs-text-opacity, 1)) !important; }
+.bg-primary     { background-color: var(--bs-primary) !important; }
+.border-primary { border-color: var(--bs-primary) !important; }
+.link-primary   { color: var(--bs-primary) !important; }
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #111 !important;
+  border-color: #111 !important;
+}
+
+/* Top strip specifically */
+.topbar { background: #000 !important; color: #fff !important; }
+.topbar a, .topbar i, .topbar .bi, .topbar .fa { color: #fff !important; }
+.topbar .text-primary { color: #fff !important; }
+
+/* === Top strip: force black bg + white text === */
+.container-fluid.bg-primary.d-none.d-lg-block {
+  background: #000 !important;         /* bar background */
+  color: #fff !important;              /* default text color */
+}
+
+/* Make everything inside white (links, icons, spans, etc.) */
+.container-fluid.bg-primary.d-none.d-lg-block *,
+.container-fluid.bg-primary.d-none.d-lg-block a,
+.container-fluid.bg-primary.d-none.d-lg-block i,
+.container-fluid.bg-primary.d-none.d-lg-block .fa,
+.container-fluid.bg-primary.d-none.d-lg-block .bi {
+  color: #fff !important;
+  text-decoration: none;
+}
+
+/* Template uses text-muted / text-secondary here—override them */
+.container-fluid.bg-primary.d-none.d-lg-block .text-muted,
+.container-fluid.bg-primary.d-none.d-lg-block .text-secondary {
+  color: #fff !important;
+}
+
+/* Optional hover tint */
+.container-fluid.bg-primary.d-none.d-lg-block a:hover,
+.container-fluid.bg-primary.d-none.d-lg-block i:hover {
+  color: #ccc !important;
+}
+
+/* Never let the page exceed 100vw */
+html, body {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Images: never stretch beyond viewport */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Carousels and big sections */
+.carousel,
+.carousel-inner,
+.carousel-item,
+.container-fluid,
+.row,
+.section {
+  max-width: 100% !important;
+
+}
+
+/* === Flag badge fix === */
+/* Allow cards with flag badges to show the badge above */
+.card,
+.country-card,
+.service-item,
+.team-item {
+  position: relative; /* anchor children */
+  overflow: visible !important; /* stop clipping */
+}
+
+/* Position the circular flag badge */
+.flag-badge {
+  position: absolute;
+  top: -26px;                           /* pull it above the card */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 4px solid #fff;               /* white ring like your design */
+  pointer-events: none;                 /* clicks go to the card */
+}
+
+/* Stop internal scrollbars on cards/sections */
+.card,
+.service-item,
+.team-item,
+.country-card,
+.section,
+.col,
+.row {
+  overflow: visible !important;  /* let content flow naturally */
+  height: auto !important;       /* let height expand */
+}
+
+

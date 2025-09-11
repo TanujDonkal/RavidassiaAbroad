@@ -905,3 +905,35 @@
     background: #ffc107 !important;
 }
 /*** copyright end ***/
+
+
+/* e.g., in src/App.css */
+.carousel-control-prev,
+.carousel-control-next { z-index: 20; cursor: pointer; }
+.carousel-header::before,
+.carousel-caption { pointer-events: none; }
+.carousel-caption a, .carousel-caption button { pointer-events: auto; }
+
+
+/* Top header strip */
+.topbar,
+.top-bar,
+.header-top {
+  background-color: #000 !important;   /* black background */
+  color: #fff !important;              /* white text */
+}
+
+/* Links/icons inside */
+.topbar a,
+.top-bar a,
+.header-top a {
+  color: #fff !important;              /* force links white */
+  text-decoration: none;
+}
+
+/* Hover state if you want grayish */
+.topbar a:hover,
+.top-bar a:hover,
+.header-top a:hover {
+  color: #ccc !important;
+}

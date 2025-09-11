@@ -47,3 +47,32 @@
 
 /* IMPORTANT: removed the global .container-fluid .row margin reset */
 /* (that was collapsing gutters on desktop) */
+
+
+/* === Global Bootstrap primary switched to black === */
+:root {
+  --bs-primary: #000000;
+  --bs-primary-rgb: 0, 0, 0;
+}
+
+/* Make sure common utilities pick up the new primary */
+.text-primary       { color: rgba(var(--bs-primary-rgb), var(--bs-text-opacity, 1)) !important; }
+.bg-primary         { background-color: var(--bs-primary) !important; }
+.border-primary     { border-color: var(--bs-primary) !important; }
+.link-primary       { color: var(--bs-primary) !important; }
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #111 !important;
+  border-color: #111 !important;
+}
+
+/* (Optional) keep the top bar text white */
+.topbar              { background: #000 !important; color: #fff !important; }
+.topbar a, .topbar i { color: #fff !important; }
+.topbar .text-primary { color: #fff !important; }
