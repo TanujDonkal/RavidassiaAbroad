@@ -1,6 +1,7 @@
 // src/pages/Home.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Carousel } from "bootstrap";
+import { Navbar, Nav, Container, NavDropdown } from "react-bootstrap";
 
 export default function Home() {
   const carouselRef = useRef(null);
@@ -152,6 +153,139 @@ export default function Home() {
       </div>
       {/* ===== Carousel End ===== */}
 
+      {/* ===== Menus Start ===== */}
+
+      <Navbar
+        bg="dark"
+        variant="dark"
+        expand="lg"
+        className="border-bottom border-body"
+      >
+        <Container>
+          <Navbar.Toggle aria-controls="main-navbar" />
+          <Navbar.Collapse id="main-navbar">
+            <Nav className="mx-auto">
+              {/* Core */}
+              <Nav.Link href="/connect-scst">Connect SC/ST by Country</Nav.Link>
+              <Nav.Link href="/about">About</Nav.Link>
+              <Nav.Link href="/history">History</Nav.Link>
+
+              {/* Teachings */}
+              <NavDropdown title="Teachings" id="teachings-dropdown">
+                <NavDropdown.Item href="/ravidassia-religion">
+                  Ravidassia Religion
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/guru-ravidass">
+                  Guru Ravidass
+                </NavDropdown.Item>
+                <NavDropdown.Divider />
+                <NavDropdown.Item href="/downloads/gurbani">
+                  Download Guru Ravidass Gurbani
+                </NavDropdown.Item>
+              </NavDropdown>
+
+              {/* Community */}
+              <NavDropdown title="Community" id="community-dropdown">
+                <NavDropdown.Item href="/chamar-community">
+                  Chamar Community
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/personalities/famous-chamars">
+                  Famous Chamar Personalities
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/personalities/abroad">
+                  Chamars Personalities in Abroad
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/youth-students">
+                  Youth &amp; Students Abroad
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/jobs-accommodation">
+                  Jobs &amp; Accommodation Help
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/matrimonial">
+                  Matrimonial
+                </NavDropdown.Item>
+                <NavDropdown.Divider />
+                <NavDropdown.Item href="/support">Support</NavDropdown.Item>
+              </NavDropdown>
+
+              {/* Movements */}
+              <NavDropdown title="Movements" id="movements-dropdown">
+                <NavDropdown.Item href="/ambedkar">
+                  Dr Ambedkar
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/bahujan-movement">
+                  Bahujan Movement
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/history-of-untouchability">
+                  History of Untouchability
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/dalit-literature">
+                  Dalit Literature &amp; Poems
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/bahujan-icons">
+                  Bahujan Icons
+                </NavDropdown.Item>
+                <NavDropdown.Divider />
+                <NavDropdown.Item href="/downloads/constitution">
+                  Download Indian Constitution
+                </NavDropdown.Item>
+              </NavDropdown>
+
+              {/* Temples */}
+              <NavDropdown title="Temples" id="temples-dropdown">
+                <NavDropdown.Item href="/temples">
+                  Worldwide Guru Ravidass Temples
+                </NavDropdown.Item>
+                <NavDropdown.Divider />
+                <NavDropdown.Item href="/temples/canada">
+                  Canada
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/temples/uk">
+                  United Kingdom
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/temples/usa">
+                  United States
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/temples/india">India</NavDropdown.Item>
+              </NavDropdown>
+
+              {/* Media */}
+              <NavDropdown title="Media" id="media-dropdown">
+                <NavDropdown.Item href="/news">Begampura News</NavDropdown.Item>
+                <NavDropdown.Item href="/events">
+                  Festivals &amp; Events
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/gallery">Gallery</NavDropdown.Item>
+                <NavDropdown.Item href="/media">
+                  Media &amp; Resources
+                </NavDropdown.Item>
+              </NavDropdown>
+
+              {/* Keep existing single links */}
+              <Nav.Link href="/news">News</Nav.Link>
+              <Nav.Link href="/shop">Shop</Nav.Link>
+              <Nav.Link href="/contact">Contact</Nav.Link>
+
+              {/* Get Involved */}
+              <NavDropdown title="Get Involved" id="get-involved-dropdown">
+                <NavDropdown.Item href="/donate">Donate</NavDropdown.Item>
+                <NavDropdown.Item href="/volunteer">Volunteer</NavDropdown.Item>
+                <NavDropdown.Item href="/submit-temple">
+                  Submit Temple
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/submit-personality">
+                  Submit Personality
+                </NavDropdown.Item>
+                <NavDropdown.Item href="/submit-event">
+                  Submit Event
+                </NavDropdown.Item>
+              </NavDropdown>
+            </Nav>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+
+      {/* ===== Menus End ===== */}
       {/* ===== Modal Search Start (optional; trigger is in Navbar button) ===== */}
       <div
         className="modal fade"
@@ -373,16 +507,15 @@ export default function Home() {
               </h5>
             </div>
             <h1 className="display-5 mb-4">Community Highlights</h1>
-            
           </div>
 
           <div className="row g-4">
             {[
               { img: "service-1.jpg", title: "History of Guru Ravidass Ji" },
-              { img: "service-2.jpg", title: "Teachings & Gurbani" },
+              { img: "service-2.png", title: "Teachings & Gurbani" },
               { img: "service-3.jpg", title: "Festivals & Events" },
-              { img: "service-1.jpg", title: "Community Leaders" },
-              { img: "service-2.jpg", title: "Temples & Centers" },
+              { img: "service-4.jpg", title: "Community Leaders" },
+              { img: "service-5.jpg", title: "Temples & Centers" },
               { img: "service-3.jpg", title: "Youth Abroad" },
             ].map((s, idx) => (
               <div

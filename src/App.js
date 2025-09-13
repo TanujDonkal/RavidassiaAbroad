@@ -12,6 +12,7 @@ import Training from "./pages/Training";
 import Testimonial from "./pages/Testimonial";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
+import ConnectSCST from "./pages/connect-scst";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="testimonial" element={<Testimonial />} />
           <Route path="contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/connect-scst" element={<ConnectSCST />} />
         </Route>
       </Routes>
     </>

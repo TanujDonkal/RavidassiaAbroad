@@ -110,7 +110,7 @@ export default function Layout() {
             </button>
 
             <a href="#" className="btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0">
-              Get Involved
+              Donate Us
             </a>
           </div>
         </nav>
