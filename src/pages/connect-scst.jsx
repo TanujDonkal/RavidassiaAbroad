@@ -131,13 +131,14 @@ export default function ConnectSCST() {
 
             {/* Instagram username (optional) */}
             <div className="col-md-6">
-              <label htmlFor="instagram" className="form-label">Instagram Username (optional)</label>
+              <label htmlFor="instagram" className="form-label">Instagram Username</label>
               <input
                 id="instagram"
                 name="instagram"
                 type="text"
                 className="form-control"
                 placeholder="@yourhandle"
+                required
               />
             </div>
 
