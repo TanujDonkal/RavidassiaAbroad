@@ -110,8 +110,8 @@ img {
 .section,
 .col,
 .row {
-  overflow: visible !important;  /* let content flow naturally */
-  height: auto !important;       /* let height expand */
+  overflow: visible !important;  
+  height: auto !important;      
 }
 
 

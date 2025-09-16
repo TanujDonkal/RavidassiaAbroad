@@ -12,6 +12,35 @@ function ScrollAndInit() {
 }
 
 export default function Layout() {
+  // Handle submit for Content Request modal (mailto)
+  const handleContentRequestSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const name = (fd.get("name") || "").toString().trim();
+    const email = (fd.get("email") || "").toString().trim();
+    const type = (fd.get("type") || "Report").toString();
+    const contentUrl = (fd.get("contentUrl") || "").toString().trim();
+    const details = (fd.get("details") || "").toString().trim();
+
+    const subject = encodeURIComponent(`[${type}] Content request from ${name || "Anonymous"}`);
+    const body = encodeURIComponent(
+      `Name: ${name}\nEmail: ${email}\nType: ${type}\nContent URL/ID: ${contentUrl}\n\nDetails:\n${details}\n`
+    );
+
+    // Update this email if needed
+    const to = "ravidassiaabroad@gmail.com";
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+
+    // Close the modal if Bootstrap is loaded
+    try {
+      const modalEl = document.getElementById("contentRequestModal");
+      if (modalEl && window.bootstrap) {
+        const modal = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
+        modal.hide();
+      }
+    } catch {}
+  };
+
   return (
     <>
       <ScrollAndInit />
@@ -33,26 +62,53 @@ export default function Layout() {
           </div>
           <div className="col-lg-3 row-cols-1 text-center mb-2 mb-lg-0">
             <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://x.com/ravidassiabroad" target="blank">
+              <a
+                className="btn btn-sm btn-outline-light btn-square rounded-circle me-2"
+                href="https://x.com/ravidassiabroad"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <i className="fab fa-twitter fw-normal text-secondary"></i>
               </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://www.facebook.com/RavidassiaAbroad" target="blank">
+              <a
+                className="btn btn-sm btn-outline-light btn-square rounded-circle me-2"
+                href="https://www.facebook.com/RavidassiaAbroad"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <i className="fab fa-facebook-f fw-normal text-secondary"></i>
               </a>
               {/* <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="">
                 <i className="fab fa-linkedin-in fw-normal text-secondary"></i>
               </a> */}
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle me-2" href="https://www.instagram.com/ravidassiaabroad/" target="blank">
+              <a
+                className="btn btn-sm btn-outline-light btn-square rounded-circle me-2"
+                href="https://www.instagram.com/ravidassiaabroad/"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <i className="fab fa-instagram fw-normal text-secondary"></i>
               </a>
-              <a className="btn btn-sm btn-outline-light btn-square rounded-circle" href="https://www.youtube.com/c/TheAmbedkarBrand" target="blank">
+              <a
+                className="btn btn-sm btn-outline-light btn-square rounded-circle"
+                href="https://www.youtube.com/c/TheAmbedkarBrand"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <i className="fab fa-youtube fw-normal text-secondary"></i>
               </a>
             </div>
           </div>
           <div className="col-lg-4 text-center text-lg-end">
             <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
-              <a href="#" className="text-muted me-2"> Want to Add/Remove Content ?</a>
+              <a
+                href="#"
+                className="text-muted me-2"
+                data-bs-toggle="modal"
+                data-bs-target="#contentRequestModal"
+              >
+                Want to Add/Remove/Report Content
+              </a>
             </div>
           </div>
         </div>
@@ -63,10 +119,11 @@ export default function Layout() {
       <div className="container-fluid nav-bar p-0">
         <nav className="navbar navbar-expand-lg navbar-light bg-white px-4 px-lg-5 py-3 py-lg-0">
           <Link to="/" className="navbar-brand d-flex align-items-center gap-2 p-0">
-  
-              <img src="/template/img/brand-logo.png" className="img-fluid" alt="Ravidassia Community" />
-    
-          
+            <img
+              src="/template/img/brand-logo.png"
+              className="img-fluid"
+              alt="Ravidassia Community"
+            />
           </Link>
 
           <button
@@ -80,9 +137,15 @@ export default function Layout() {
 
           <div className="collapse navbar-collapse" id="navbarCollapse">
             <div className="navbar-nav ms-auto py-0">
-              <NavLink to="/" end className="nav-item nav-link">Home</NavLink>
-              <NavLink to="/about" className="nav-item nav-link">About</NavLink>
-              <NavLink to="/service" className="nav-item nav-link">Community</NavLink>
+              <NavLink to="/" end className="nav-item nav-link">
+                Home
+              </NavLink>
+              <NavLink to="/about" className="nav-item nav-link">
+                About
+              </NavLink>
+              <NavLink to="/service" className="nav-item nav-link">
+                Community
+              </NavLink>
 
               {/* Pages dropdown (kept as plain dropdown; links inside use NavLink) */}
               <div className="nav-item dropdown">
@@ -90,15 +153,27 @@ export default function Layout() {
                   <span className="dropdown-toggle">History</span>
                 </a>
                 <div className="dropdown-menu m-0">
-                  <NavLink to="/feature" className="dropdown-item">Feature</NavLink>
-                  <NavLink to="/countries" className="dropdown-item">Countries</NavLink>
-                  <NavLink to="/testimonial" className="dropdown-item">Testimonial</NavLink>
-                  <NavLink to="/training" className="dropdown-item">Training</NavLink>
-                  <NavLink to="/not-found" className="dropdown-item">404 Page</NavLink>
+                  <NavLink to="/feature" className="dropdown-item">
+                    Feature
+                  </NavLink>
+                  <NavLink to="/countries" className="dropdown-item">
+                    Countries
+                  </NavLink>
+                  <NavLink to="/testimonial" className="dropdown-item">
+                    Testimonial
+                  </NavLink>
+                  <NavLink to="/training" className="dropdown-item">
+                    Training
+                  </NavLink>
+                  <NavLink to="/not-found" className="dropdown-item">
+                    404 Page
+                  </NavLink>
                 </div>
               </div>
 
-              <NavLink to="/contact" className="nav-item nav-link">Contact</NavLink>
+              <NavLink to="/contact" className="nav-item nav-link">
+                Contact
+              </NavLink>
             </div>
 
             <button
@@ -109,28 +184,343 @@ export default function Layout() {
               <i className="fas fa-search"></i>
             </button>
 
-            <a href="#" className="btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0">
+            <button
+              className="btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0"
+              data-bs-toggle="modal"
+              data-bs-target="#donateModal"
+            >
               Donate Us
-            </a>
+            </button>
+
+            {/* Donate Modal */}
+            <div
+              className="modal fade"
+              id="donateModal"
+              tabIndex="-1"
+              aria-labelledby="donateTitle"
+              aria-hidden="true"
+            >
+              <div className="modal-dialog modal-dialog-centered modal-lg">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title" id="donateTitle">
+                      Support Ravidassia Abroad
+                    </h5>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      data-bs-dismiss="modal"
+                      aria-label="Close"
+                    ></button>
+                  </div>
+
+                  <div className="modal-body">
+                    {/* Quick amounts */}
+                    <div className="mb-3 d-flex flex-wrap gap-2">
+                      <span className="text-muted me-2">Quick amount:</span>
+                      {["5", "10", "20", "50"].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm rounded-pill"
+                          onClick={() => {
+                            const input = document.getElementById("donate-amount");
+                            if (input) input.value = amt;
+                          }}
+                        >
+                          ${amt}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Form */}
+                    <form id="donate-form" className="row g-3">
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="donate-amount">
+                          Amount (numbers only)
+                        </label>
+                        <input
+                          id="donate-amount"
+                          name="amount"
+                          type="number"
+                          min="1"
+                          className="form-control"
+                          placeholder="20"
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="donate-currency">
+                          Currency
+                        </label>
+                        <select
+                          id="donate-currency"
+                          name="currency"
+                          className="form-select"
+                          defaultValue="CAD"
+                        >
+                          <option>CAD</option>
+                          <option>USD</option>
+                          <option>INR</option>
+                        </select>
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="donate-frequency">
+                          Frequency
+                        </label>
+                        <select
+                          id="donate-frequency"
+                          name="frequency"
+                          className="form-select"
+                          defaultValue="one-time"
+                        >
+                          <option value="one-time">One-time</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+
+                      <div className="col-md-6">
+                        <label className="form-label" htmlFor="donor-name">
+                          Name (optional)
+                        </label>
+                        <input
+                          id="donor-name"
+                          name="name"
+                          className="form-control"
+                          placeholder="Your name"
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label" htmlFor="donor-email">
+                          Email (for receipt)
+                        </label>
+                        <input
+                          id="donor-email"
+                          name="email"
+                          type="email"
+                          className="form-control"
+                          placeholder="you@example.com"
+                        />
+                      </div>
+
+                      <div className="col-12">
+                        <label className="form-label" htmlFor="donor-note">
+                          Note (optional)
+                        </label>
+                        <textarea
+                          id="donor-note"
+                          name="note"
+                          className="form-control"
+                          rows="2"
+                          placeholder="Add a short message"
+                        ></textarea>
+                      </div>
+
+                      {/* Payment methods */}
+                      <div className="col-12">
+                        <div className="card border-0 shadow-sm">
+                          <div className="card-body">
+                            <h6 className="mb-3">Choose a payment method</h6>
+
+                            {/* Stripe / PayPal links – replace placeholders below */}
+                            <div className="d-flex flex-wrap gap-2 mb-3">
+                              <button
+                                type="button"
+                                className="btn btn-dark"
+                                onClick={() => {
+                                  const cur =
+                                    document.getElementById("donate-currency")?.value || "CAD";
+                                  const links = {
+                                    CAD: "https://buy.stripe.com/your_cad_payment_link", // TODO replace
+                                    USD: "https://buy.stripe.com/your_usd_payment_link", // TODO replace
+                                    INR: "https://buy.stripe.com/your_inr_payment_link", // optional
+                                  };
+                                  window.open(links[cur] || links["CAD"], "_blank", "noopener,noreferrer");
+                                }}
+                              >
+                                Pay with Card (Stripe)
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => {
+                                  window.open(
+                                    "https://www.paypal.com/donate/?hosted_button_id=DVJGK2KP4YBD4",
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                  );
+                                }}
+                              >
+                                PayPal
+                              </button>
+
+                              {/* Interac e-Transfer (Canada) */}
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary"
+                                onClick={async () => {
+                                  const email = "ravidassiaabroad@gmail.com";
+                                  try {
+                                    await navigator.clipboard.writeText(email);
+                                    alert("Interac e-Transfer email copied: " + email);
+                                  } catch {
+                                    alert("Send Interac e-Transfer to: " + email);
+                                  }
+                                }}
+                              >
+                                Interac e-Transfer (Canada)
+                              </button>
+
+                              {/* India (UPI/Razorpay) – optional */}
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary"
+                                onClick={() => {
+                                  window.open(
+                                    "https://rzp.io/l/YOUR_RAZORPAY_LINK",
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                  ); // TODO replace
+                                }}
+                              >
+                                UPI / Razorpay (India)
+                              </button>
+                            </div>
+
+                            <p className="small text-muted mb-0">
+                              Your support helps us maintain the website, grow country-wise Sangat groups,
+                              and organize community resources.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      data-bs-dismiss="modal"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </nav>
       </div>
       {/* Navbar End */}
 
       {/* Search Modal (from template) */}
-      <div className="modal fade" id="searchModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div
+        className="modal fade"
+        id="searchModal"
+        tabIndex="-1"
+        aria-labelledby="exampleModalLabel"
+        aria-hidden="true"
+      >
         <div className="modal-dialog modal-fullscreen">
           <div className="modal-content rounded-0">
             <div className="modal-header">
-              <h4 className="modal-title text-secondary mb-0" id="exampleModalLabel">Search by keyword</h4>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <h4 className="modal-title text-secondary mb-0" id="exampleModalLabel">
+                Search by keyword
+              </h4>
+              <button
+                type="button"
+                className="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
             </div>
             <div className="modal-body d-flex align-items-center">
               <div className="input-group w-75 mx-auto d-flex">
-                <input type="search" className="form-control p-3" placeholder="keywords" aria-describedby="search-icon-1" />
-                <span id="search-icon-1" className="input-group-text p-3"><i className="fa fa-search"></i></span>
+                <input
+                  type="search"
+                  className="form-control p-3"
+                  placeholder="keywords"
+                  aria-describedby="search-icon-1"
+                />
+                <span id="search-icon-1" className="input-group-text p-3">
+                  <i className="fa fa-search"></i>
+                </span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Request Modal (Add/Remove/Report) */}
+      <div
+        className="modal fade"
+        id="contentRequestModal"
+        tabIndex="-1"
+        aria-labelledby="contentRequestTitle"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <form onSubmit={handleContentRequestSubmit}>
+              <div className="modal-header">
+                <h5 className="modal-title" id="contentRequestTitle">
+                  Request to Add / Remove / Report Content
+                </h5>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">Your name</label>
+                  <input name="name" className="form-control" placeholder="John Doe" required />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Your email</label>
+                  <input type="email" name="email" className="form-control" placeholder="you@example.com" required />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Content URL or ID (website or social)</label>
+                  <input
+                    name="contentUrl"
+                    className="form-control"
+                    placeholder="https://example.com/post/123 or @handle/postID"
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Request type</label>
+                  <select name="type" className="form-select" defaultValue="Report">
+                    <option value="Report">Report</option>
+                    <option value="Add">Add</option>
+                    <option value="Remove">Remove</option>
+                  </select>
+                </div>
+
+                <div className="mb-0">
+                  <label className="form-label">Details</label>
+                  <textarea
+                    name="details"
+                    className="form-control"
+                    rows="4"
+                    placeholder="Explain what needs to be added/removed/reported and why."
+                    required
+                  />
+                </div>
+
+                <p className="text-muted small mt-3 mb-0">
+                  By submitting, you agree we may contact you for verification. We aim to review requests within 48 hours.
+                </p>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" className="btn btn-primary">Send</button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -145,16 +535,47 @@ export default function Layout() {
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Info</h4>
-                <a href=""><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</a>
-                <a href=""><i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com</a>
-                <a href=""><i className="fas fa-phone me-2"></i> — </a>
-                <a href="" className="mb-3"><i className="fas fa-print me-2"></i> — </a>
+                <a href="">
+                  <i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada
+                </a>
+                <a href="">
+                  <i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com
+                </a>
+                <a href="">
+                  <i className="fas fa-phone me-2"></i> —{" "}
+                </a>
+                <a href="" className="mb-3">
+                  <i className="fas fa-print me-2"></i> —{" "}
+                </a>
                 <div className="d-flex align-items-center">
                   <i className="fas fa-share fa-2x text-secondary me-2"></i>
-                  <a className="btn mx-1" href="https://www.facebook.com/RavidassiaAbroad" target="blank"><i className="fab fa-facebook-f"></i></a>
-                  <a className="btn mx-1" href="https://x.com/ravidassiabroad" target="blank"><i className="fab fa-twitter"></i></a>
-                  <a className="btn mx-1" href="https://www.instagram.com/ravidassiaabroad/" target="blank"><i className="fab fa-instagram"></i></a>
-                  <a className="btn mx-1" href="https://www.youtube.com/c/TheAmbedkarBrand" target="blank"><i className="fab fa-linkedin-in"></i></a>
+                  <a
+                    className="btn mx-1"
+                    href="https://www.facebook.com/RavidassiaAbroad"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <i className="fab fa-facebook-f"></i>
+                  </a>
+                  <a className="btn mx-1" href="https://x.com/ravidassiabroad" target="_blank" rel="noreferrer">
+                    <i className="fab fa-twitter"></i>
+                  </a>
+                  <a
+                    className="btn mx-1"
+                    href="https://www.instagram.com/ravidassiaabroad/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <i className="fab fa-instagram"></i>
+                  </a>
+                  <a
+                    className="btn mx-1"
+                    href="https://www.youtube.com/c/TheAmbedkarBrand"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <i className="fab fa-linkedin-in"></i>
+                  </a>
                 </div>
               </div>
             </div>
@@ -178,24 +599,45 @@ export default function Layout() {
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Site Links</h4>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Teachings</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> History</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Temples & Centers</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Festivals & Events</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Youth Programs</a>
-                <a href="#" class=""><i className="fas fa-angle-right me-2"></i> Contact</a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> Teachings
+                </a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> History
+                </a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> Temples & Centers
+                </a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> Festivals & Events
+                </a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> Youth Programs
+                </a>
+                <a href="#" className="">
+                  <i className="fas fa-angle-right me-2"></i> Contact
+                </a>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item">
                 <h4 className="text-secondary mb-4">Newsletter</h4>
                 <p className="text-white mb-3">
-                  Get monthly updates on Guru Ravidass Ji’s teachings, global Sangat news,
-                  festivals, and new community resources.
+                  Get monthly updates on Guru Ravidass Ji’s teachings, global Sangat news, festivals, and new
+                  community resources.
                 </p>
                 <div className="position-relative mx-auto rounded-pill">
-                  <input className="form-control border-0 rounded-pill w-100 py-3 ps-4 pe-5" type="text" placeholder="Enter your email" />
-                  <button type="button" className="btn btn-primary rounded-pill position-absolute top-0 end-0 py-2 mt-2 me-2">SignUp</button>
+                  <input
+                    className="form-control border-0 rounded-pill w-100 py-3 ps-4 pe-5"
+                    type="text"
+                    placeholder="Enter your email"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary rounded-pill position-absolute top-0 end-0 py-2 mt-2 me-2"
+                  >
+                    SignUp
+                  </button>
                 </div>
               </div>
             </div>
@@ -213,11 +655,15 @@ export default function Layout() {
                 <a href="#" className="border-bottom text-white">
                   <i className="fas fa-copyright text-light me-2"></i>
                   Ravidassia Abroad
-                </a>, All rights reserved.
+                </a>
+                , All rights reserved.
               </span>
             </div>
             <div className="col-md-6 text-center text-md-end text-white">
-              Designed By <a className="border-bottom text-white" href="https://htmlcodex.com">HTML Codex</a>
+              Designed By{" "}
+              <a className="border-bottom text-white" href="https://htmlcodex.com">
+                HTML Codex
+              </a>
             </div>
           </div>
         </div>
