@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import "../css/auth.css";
 
-const API_BASE = "http://localhost:5000/api"; // your Node server
+const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -32,13 +32,8 @@ export default function Auth() {
     e.preventDefault();
     setMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signUp),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed");
+     const data = await register(signUp);
+
 
       setMsg(data.message || "User created successfully. Please sign in.");
       alert(data.message || "User created successfully."); // popup
@@ -54,15 +49,10 @@ export default function Auth() {
     e.preventDefault();
     setMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signIn),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
+      const data = await login(signIn);
 
-      // store token (optional)
+
+      // store token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("auth:changed"));

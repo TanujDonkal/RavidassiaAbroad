@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 function getStoredAuth() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    const token = localStorage.getItem("token") || null; // 🔥 no JSON.parse
+    const token = localStorage.getItem("token") || null; // no JSON.parse
     return { user, token };
   } catch {
     return { user: null, token: null };
@@ -83,7 +83,6 @@ export default function AuthMenu({ compact = false }) {
         </li>
         <li><hr className="dropdown-divider" /></li>
 
-        {/* Example extra links */}
         <li>
           <Link className="dropdown-item" to="/connect-scst">
             My Submissions
