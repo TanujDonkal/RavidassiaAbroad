@@ -195,6 +195,7 @@ export default function Home() {
       </div>
       {/* ===== Modal Search End ===== */}
 
+
       {/* ===== Menus Start ===== */}
 
       <Navbar bg="dark" variant="dark" className="border-bottom border-body">
@@ -316,9 +317,9 @@ export default function Home() {
       </Navbar>
 
       {/* ===== Menus End ===== */}
-
       {/* ===== About Start ===== */}
       <div className="container-fluid py-5">
+        
         <div className="container py-5">
           <div className="row g-5">
             <div className="col-xl-5 wow fadeInLeft" data-wow-delay="0.1s">

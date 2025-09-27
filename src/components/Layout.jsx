@@ -1,6 +1,7 @@
 // src/components/Layout.jsx
 import React, { useEffect } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
+import AuthMenu from "./AuthMenu";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -22,7 +23,9 @@ export default function Layout() {
     const contentUrl = (fd.get("contentUrl") || "").toString().trim();
     const details = (fd.get("details") || "").toString().trim();
 
-    const subject = encodeURIComponent(`[${type}] Content request from ${name || "Anonymous"}`);
+    const subject = encodeURIComponent(
+      `[${type}] Content request from ${name || "Anonymous"}`
+    );
     const body = encodeURIComponent(
       `Name: ${name}\nEmail: ${email}\nType: ${type}\nContent URL/ID: ${contentUrl}\n\nDetails:\n${details}\n`
     );
@@ -35,7 +38,9 @@ export default function Layout() {
     try {
       const modalEl = document.getElementById("contentRequestModal");
       if (modalEl && window.bootstrap) {
-        const modal = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
+        const modal =
+          window.bootstrap.Modal.getInstance(modalEl) ||
+          new window.bootstrap.Modal(modalEl);
         modal.hide();
       }
     } catch {}
@@ -101,15 +106,20 @@ export default function Layout() {
           </div>
           <div className="col-lg-4 text-center text-lg-end">
             <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
+             
               <a
                 href="#"
                 className="text-muted me-2"
                 data-bs-toggle="modal"
                 data-bs-target="#contentRequestModal"
               >
-                Want to Add/Remove/Report Content
+                Add-Remove-Report Content
               </a>
+{/* Auth (compact) */}
+              <AuthMenu compact />
+              
             </div>
+             
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "bootstrap";
 
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/mandkpoe"; // your endpoint
+const API_BASE = "http://localhost:5000"; // <-- your Node backend
 
 export default function ConnectSCST() {
   const thanksRef = useRef(null);
@@ -24,22 +24,50 @@ export default function ConnectSCST() {
     setError("");
 
     const form = e.currentTarget;
-    const data = new FormData(form);
+    const fd = new FormData(form);
+
+    const name = (fd.get("name") || "").toString().trim();
+    const email = (fd.get("email") || "").toString().trim();
+    const country = (fd.get("country") || "").toString().trim();
+    const city = (fd.get("city") || "").toString().trim();
+    const phone = (fd.get("phone") || "").toString().trim();
+    const platform = (fd.get("platform") || "").toString().trim(); // optional
+    const instagram = (fd.get("instagram") || "").toString().trim(); // optional
+    const proof = (fd.get("proof") || "").toString().trim(); // optional
+
+    // Put all extra fields inside message so backend can store them in one column
+    const message =
+      [
+        `Platform: ${platform || "—"}`,
+        `Instagram: ${instagram || "—"}`,
+        `Proof: ${proof || "—"}`,
+      ].join("\n");
+
+    // Prepare request
+    const token = localStorage.getItem("token"); // may be null if user not logged in
+    const headers = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
 
     try {
-      const res = await fetch(FORMSPREE_ENDPOINT, {
+      const res = await fetch(`${API_BASE}/api/scst-submissions`, {
         method: "POST",
-        headers: { Accept: "application/json" },
-        body: data,
+        headers,
+        body: JSON.stringify({
+          name,
+          email,
+          country,
+          city: city || null,
+          phone: phone || null,
+          state: null, // add a state input later if you want; DB column already exists
+          message, // includes platform/instagram/proof
+        }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        let msg = "Submission failed. Please try again.";
-        try {
-          const j = await res.json();
-          if (j && j.errors && j.errors[0]?.message) msg = j.errors[0].message;
-        } catch (_) {}
-        throw new Error(msg);
+        throw new Error(data?.message || "Submission failed. Please try again.");
       }
 
       // success
@@ -138,7 +166,6 @@ export default function ConnectSCST() {
                 type="text"
                 className="form-control"
                 placeholder="@yourhandle"
-                required
               />
             </div>
 
@@ -156,13 +183,12 @@ export default function ConnectSCST() {
               />
             </div>
 
-            {/* Consent + RULES LINK that opens a popup */}
+            {/* Consent + RULES LINK */}
             <div className="col-12 form-check">
               <input className="form-check-input" type="checkbox" id="consent" required />
               <label className="form-check-label" htmlFor="consent">
                 I agree to community rules &amp; allow admins to contact me.
               </label>
-              {/* View Rules link (opens modal) */}
               <button
                 type="button"
                 className="btn btn-link p-0 ms-2 align-baseline"
@@ -171,11 +197,6 @@ export default function ConnectSCST() {
                 View rules
               </button>
             </div>
-
-            {/* nice subject line in your email */}
-            <input type="hidden" name="_subject" value="New Join Request — Ravidassia Abroad" />
-            {/* anti-spam honeypot */}
-            <input type="text" name="_gotcha" className="d-none" tabIndex="-1" autoComplete="off" />
 
             <div className="col-12 text-end">
               <button
@@ -200,27 +221,13 @@ export default function ConnectSCST() {
             </div>
             <div className="modal-body">
               <ol className="ps-3">
-                <li className="mb-2">
-                  <strong>Respect &amp; Safety:</strong> Be kind. No hate speech, harassment, or personal attacks.
-                </li>
-                <li className="mb-2">
-                  <strong>Country-Specific:</strong> Discuss local Sangat topics relevant to your country/channel.
-                </li>
-                <li className="mb-2">
-                  <strong>No Spam/Ads:</strong> No promotions, chain forwards, or mass DMs. Share community resources only.
-                </li>
-                <li className="mb-2">
-                  <strong>Privacy:</strong> Don’t post private info (phone, address) without consent. No doxxing.
-                </li>
-                <li className="mb-2">
-                  <strong>Events &amp; News:</strong> Verify before sharing. Use sources where possible.
-                </li>
-                <li className="mb-2">
-                  <strong>Faith &amp; Culture:</strong> Speak with reverence about Guru Ravidass Ji and all communities.
-                </li>
-                <li className="mb-2">
-                  <strong>Moderation:</strong> Admins may warn, mute, or remove members who break rules.
-                </li>
+                <li className="mb-2"><strong>Respect &amp; Safety:</strong> Be kind. No hate speech, harassment, or personal attacks.</li>
+                <li className="mb-2"><strong>Country-Specific:</strong> Discuss local Sangat topics relevant to your country/channel.</li>
+                <li className="mb-2"><strong>No Spam/Ads:</strong> No promotions, chain forwards, or mass DMs. Share community resources only.</li>
+                <li className="mb-2"><strong>Privacy:</strong> Don’t post private info without consent. No doxxing.</li>
+                <li className="mb-2"><strong>Events &amp; News:</strong> Verify before sharing. Use sources where possible.</li>
+                <li className="mb-2"><strong>Faith &amp; Culture:</strong> Speak with reverence about Guru Ravidass Ji and all communities.</li>
+                <li className="mb-2"><strong>Moderation:</strong> Admins may warn, mute, or remove members who break rules.</li>
                 <li className="mb-2">
                   <strong>Report Issues:</strong> Email{" "}
                   <a href="mailto:RavidassiaAbroad@gmail.com">RavidassiaAbroad@gmail.com</a> to report problems.

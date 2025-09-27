@@ -13,18 +13,15 @@ import Testimonial from "./pages/Testimonial";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import ConnectSCST from "./pages/connect-scst";
+import Auth from "./pages/Auth";
+import { PopupProvider } from "./components/PopupProvider";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    // Scroll to top on each route change
     window.scrollTo(0, 0);
-
-    // Re-init template JS plugins (Owl, WOW, CounterUp, etc.)
-    if (window.__initLegacy) {
-      window.__initLegacy();
-    }
+    if (window.__initLegacy) window.__initLegacy();
   }, [pathname]);
 
   return null;
@@ -32,7 +29,7 @@ function ScrollAndInit() {
 
 export default function App() {
   return (
-    <>
+    <PopupProvider>
       <ScrollAndInit />
       <Routes>
         <Route element={<Layout />}>
@@ -44,10 +41,11 @@ export default function App() {
           <Route path="training" element={<Training />} />
           <Route path="testimonial" element={<Testimonial />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="connect-scst" element={<ConnectSCST />} />
+          <Route path="auth" element={<Auth />} />
           <Route path="*" element={<NotFound />} />
-          <Route path="/connect-scst" element={<ConnectSCST />} />
         </Route>
       </Routes>
-    </>
+    </PopupProvider>
   );
 }

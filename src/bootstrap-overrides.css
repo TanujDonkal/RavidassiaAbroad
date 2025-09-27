@@ -115,3 +115,17 @@ img {
 }
 
 
+/* Dark theme dropdown */
+.dropdown-menu {
+  background-color: #212529 !important;
+  color: #f8f9fa !important;
+}
+
+.dropdown-menu .dropdown-item {
+  color: #f8f9fa !important;
+}
+
+.dropdown-menu .dropdown-item:hover {
+  background-color: #343a40 !important;
+  color: #fff !important;
+}
