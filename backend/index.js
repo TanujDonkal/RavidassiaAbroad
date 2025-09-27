@@ -25,6 +25,7 @@ app.use(
 const {
   PORT = 5000,
   PGHOST,
+  PGPORT = 5432,
   PGDATABASE,
   PGUSER,
   PGPASSWORD,
@@ -33,7 +34,12 @@ const {
 
 // ---- DB POOL ----
 const pool = new Pool({
-  connectionString: `postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}/${PGDATABASE}?sslmode=require`,
+  host: PGHOST,
+  port: PGPORT,
+  user: PGUSER,
+  password: PGPASSWORD,
+  database: PGDATABASE,
+  ssl: { rejectUnauthorized: false }, // Neon requires SSL
 });
 
 // ---- INIT DB ----
@@ -144,7 +150,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.status(201).json({ message: "User created successfully", id: result.rows[0].id });
   } catch (err) {
-    console.error("Register error:", err);
+    console.error("Register error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -179,12 +185,12 @@ app.post("/api/auth/login", async (req, res) => {
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// (Optional) current user
+// CURRENT USER
 app.get("/api/auth/me", requireAuth, async (req, res) => {
   res.json({ user: req.user });
 });
@@ -221,7 +227,7 @@ app.post("/api/scst-submissions", async (req, res) => {
 
     res.status(201).json({ message: "Submission received. An admin will review and send you the WhatsApp invite." });
   } catch (err) {
-    console.error("Submission error:", err);
+    console.error("Submission error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -238,7 +244,7 @@ app.post("/api/admin/scst-submissions/:id/approve", requireAuth, requireAdmin, a
     );
     res.json({ message: "Submission approved" });
   } catch (e) {
-    console.error(e);
+    console.error("Approve error:", e.stack || e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -254,7 +260,7 @@ app.post("/api/admin/scst-submissions/:id/reject", requireAuth, requireAdmin, as
     );
     res.json({ message: "Submission rejected" });
   } catch (e) {
-    console.error(e);
+    console.error("Reject error:", e.stack || e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -267,6 +273,6 @@ initDB()
     });
   })
   .catch((err) => {
-    console.error("DB init failed:", err);
+    console.error("DB init failed:", err.stack || err);
     process.exit(1);
   });
