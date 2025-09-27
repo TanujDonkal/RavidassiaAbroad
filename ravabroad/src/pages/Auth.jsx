@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import "../css/auth.css";
+import { register, login } from "../utils/api";
+
 
 const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
