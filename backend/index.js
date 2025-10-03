@@ -11,11 +11,13 @@ dotenv.config();
 const { Pool } = pkg;
 const app = express();
 
+app.use(express.json());
+
 // ---- CORS / JSON ----
 const allowedOrigins = [
   "http://localhost:3000",
   "https://ravidassia-abroad.vercel.app", // Vercel preview deployment
-  "https://ravidassiaabroad.com"          // Your custom domain
+  "https://ravidassiaabroad.com"           // Your custom domain
 ];
 
 app.use(
