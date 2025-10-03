@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import pkg from "pg"; // Postgres client
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -213,21 +214,10 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
 // ---- SC/ST SUBMISSIONS ----
 app.post("/api/scst-submissions", async (req, res) => {
   try {
-    const u = decodeUserIfAny(req); // null if no/invalid token
+    const u = decodeUserIfAny(req);
     const userId = u?.id ?? null;
 
-    const {
-      name,
-      email,
-      country,
-      state = null,
-      city = null,
-      phone = null,
-      platform = "WhatsApp",
-      instagram = null,
-      proof = null,
-      message = null,
-    } = req.body || {};
+    const { name, email, country, state, city, phone, platform, instagram, proof, message } = req.body || {};
 
     if (!name || !email || !country) {
       return res.status(400).json({ message: "name, email, and country are required" });
@@ -240,12 +230,54 @@ app.post("/api/scst-submissions", async (req, res) => {
       [userId, name, email, country, state, city, phone, platform, instagram, proof, message]
     );
 
-    res.status(201).json({ message: "Submission received. An admin will review and send you the WhatsApp invite." });
+   // --- Gmail notification (dynamic recipients) ---
+try {
+  // Fetch all recipient emails from DB
+  const recipients = await pool.query("SELECT email FROM notify_recipients");
+  const emails = recipients.rows.map(r => r.email);
+
+  if (emails.length) {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.NOTIFY_EMAIL,       // sender Gmail
+        pass: process.env.NOTIFY_EMAIL_PASS,  // Google App Password
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Ravidassia Abroad" <${process.env.NOTIFY_EMAIL}>`,
+      to: emails,  // dynamic recipients from DB
+      subject: "📩 New SC/ST Submission Received",
+      html: `
+        <h3>New SC/ST Submission</h3>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Country:</b> ${country}</p>
+        <p><b>City:</b> ${city || "—"}</p>
+        <p><b>Phone:</b> ${phone || "—"}</p>
+        <p><b>Platform:</b> ${platform || "—"}</p>
+        <p><b>Instagram:</b> ${instagram || "—"}</p>
+        <p><b>Proof:</b> ${proof || "—"}</p>
+        <p><b>Message:</b> ${message || "—"}</p>
+      `,
+    });
+
+    console.log("✅ Notification email sent to:", emails.join(", "));
+  } else {
+    console.log("⚠️ No notification recipients in DB");
+  }
+} catch (notifyErr) {
+  console.error("❌ Email notification failed:", notifyErr);
+}
+
+
   } catch (err) {
     console.error("Submission error:", err.stack || err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ---- ADMIN ----
 app.post("/api/admin/scst-submissions/:id/approve", requireAuth, requireAdmin, async (req, res) => {
@@ -321,3 +353,44 @@ initDB()
     console.error("DB init failed:", err.stack || err);
     process.exit(1);
   });
+
+// ---- ADMIN: Notification Recipients ----
+
+// Get all recipients
+app.get("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM notify_recipients ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Recipients fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Add a new recipient
+app.post("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email required" });
+
+  try {
+    await pool.query(
+      "INSERT INTO notify_recipients (email) VALUES ($1) ON CONFLICT DO NOTHING",
+      [email]
+    );
+    res.json({ message: "Recipient added" });
+  } catch (err) {
+    console.error("Recipient add error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete a recipient
+app.delete("/api/admin/recipients/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM notify_recipients WHERE id=$1", [req.params.id]);
+    res.json({ message: "Recipient removed" });
+  } catch (err) {
+    console.error("Recipient delete error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});

@@ -64,3 +64,21 @@ export function approveSubmission(id) {
 export function rejectSubmission(id) {
   return apiFetch(`/admin/scst-submissions/${id}/reject`, { method: "POST" });
 }
+
+
+export function getRecipients() {
+  return apiFetch("/admin/recipients");
+}
+
+export function addRecipient(email) {
+  return apiFetch("/admin/recipients", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function deleteRecipient(id) {
+  return apiFetch(`/admin/recipients/${id}`, {
+    method: "DELETE",
+  });
+}

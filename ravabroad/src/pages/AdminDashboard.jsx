@@ -2,12 +2,20 @@ import React, { useEffect, useState } from "react";
 import "materialize-css/dist/css/materialize.min.css";
 import "materialize-css/dist/js/materialize.min.js";
 import M from "materialize-css";
-import { approveSubmission, rejectSubmission } from "../utils/api";
+import {
+  approveSubmission,
+  rejectSubmission,
+  getRecipients,
+  addRecipient,
+  deleteRecipient,
+} from "../utils/api";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [recipients, setRecipients] = useState([]);
+  const [newEmail, setNewEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -16,7 +24,7 @@ export default function AdminDashboard() {
     M.AutoInit();
   }, []);
 
-  // Fetch users or submissions depending on activeTab
+  // Load data based on tab
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -31,12 +39,15 @@ export default function AdminDashboard() {
             { headers }
           );
           setUsers(await res.json());
-        } else {
+        } else if (activeTab === "submissions") {
           const res = await fetch(
             `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
             { headers }
           );
           setSubmissions(await res.json());
+        } else if (activeTab === "recipients") {
+          const data = await getRecipients();
+          setRecipients(data);
         }
       } catch (err) {
         setError("Failed to fetch data");
@@ -69,6 +80,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAddRecipient = async (e) => {
+    e.preventDefault();
+    if (!newEmail) return;
+    try {
+      await addRecipient(newEmail);
+      setNewEmail("");
+      const updated = await getRecipients();
+      setRecipients(updated);
+    } catch (err) {
+      alert("Failed to add recipient: " + err.message);
+    }
+  };
+
+  const handleDeleteRecipient = async (id) => {
+    if (!window.confirm("Delete this recipient?")) return;
+    try {
+      await deleteRecipient(id);
+      const updated = await getRecipients();
+      setRecipients(updated);
+    } catch (err) {
+      alert("Failed to delete recipient: " + err.message);
+    }
+  };
+
   return (
     <div style={{ paddingLeft: "240px", padding: "20px" }}>
       <h3>Admin Dashboard</h3>
@@ -86,11 +121,18 @@ export default function AdminDashboard() {
         >
           Submissions
         </button>
+        <button
+          className={`btn ${activeTab === "recipients" ? "indigo" : "grey"} ms-2`}
+          onClick={() => setActiveTab("recipients")}
+        >
+          Recipients
+        </button>
       </div>
 
       {loading && <p>Loading…</p>}
       {error && <p className="red-text">{error}</p>}
 
+      {/* USERS TAB */}
       {activeTab === "users" && (
         <div className="card">
           <div className="card-content">
@@ -121,6 +163,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* SUBMISSIONS TAB */}
       {activeTab === "submissions" && (
         <div className="card">
           <div className="card-content">
@@ -167,6 +210,54 @@ export default function AdminDashboard() {
                         onClick={() => handleReject(s.id)}
                       >
                         Reject
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* RECIPIENTS TAB */}
+      {activeTab === "recipients" && (
+        <div className="card">
+          <div className="card-content">
+            <span className="card-title">Notification Recipients</span>
+
+            <form onSubmit={handleAddRecipient} style={{ marginBottom: "20px" }}>
+              <input
+                type="email"
+                placeholder="Enter email to add"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+              />
+              <button className="btn indigo" type="submit">Add</button>
+            </form>
+
+            <table className="striped responsive-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Email</th>
+                  <th>Created</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recipients.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.id}</td>
+                    <td>{r.email}</td>
+                    <td>{new Date(r.created_at).toLocaleString()}</td>
+                    <td>
+                      <button
+                        className="btn-small red"
+                        onClick={() => handleDeleteRecipient(r.id)}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
