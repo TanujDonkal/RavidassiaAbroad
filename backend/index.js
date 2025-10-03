@@ -280,6 +280,36 @@ app.post("/api/admin/scst-submissions/:id/reject", requireAuth, requireAdmin, as
   }
 });
 
+// ---- ADMIN ROUTES ----
+
+// Get all users (admin only)
+app.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Admin users error:", err.stack || err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all SC/ST submissions (admin only)
+app.get("/api/admin/scst-submissions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM scst_submissions ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Admin submissions error:", err.stack || err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
 // ---- START ----
 initDB()
   .then(() => {

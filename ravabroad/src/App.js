@@ -14,6 +14,7 @@ import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import ConnectSCST from "./pages/connect-scst";
 import Auth from "./pages/Auth";
+import AdminDashboard from "./pages/AdminDashboard";
 import { PopupProvider } from "./components/PopupProvider";
 
 function ScrollAndInit() {
@@ -44,6 +45,8 @@ export default function App() {
           <Route path="connect-scst" element={<ConnectSCST />} />
           <Route path="auth" element={<Auth />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+
         </Route>
       </Routes>
     </PopupProvider>
