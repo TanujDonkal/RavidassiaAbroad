@@ -10,7 +10,7 @@ const API_BASE = process.env.REACT_APP_API_URL + "/api";
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
+ 
   // false = Sign In, true = Sign Up
   const [panelRight, setPanelRight] = useState(false);
 
