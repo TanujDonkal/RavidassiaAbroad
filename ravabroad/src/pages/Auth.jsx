@@ -3,14 +3,15 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import "../css/auth.css";
 import { register, login } from "../utils/api";
-
+import { usePopup } from "../components/PopupProvider";
 
 const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
- 
+  const popup = usePopup();
+
   // false = Sign In, true = Sign Up
   const [panelRight, setPanelRight] = useState(false);
 
@@ -34,16 +35,20 @@ export default function Auth() {
     e.preventDefault();
     setMsg(null);
     try {
-     const data = await register(signUp);
-
-
+      const data = await register(signUp);
       setMsg(data.message || "User created successfully. Please sign in.");
-      alert(data.message || "User created successfully."); // popup
-      setPanelRight(false); // switch to Sign In
-      setSignUp({ name: "", email: "", password: "" });
+
+      popup.open({
+        title: "Success 🎉",
+        message: data.message || "User created successfully. Please sign in.",
+        type: "success",
+      });
     } catch (err) {
-      setMsg(err.message);
-      alert(err.message);
+      popup.open({
+        title: "Error ❌",
+        message: err.message,
+        type: "error",
+      });
     }
   };
 
@@ -53,18 +58,26 @@ export default function Auth() {
     try {
       const data = await login(signIn);
 
-
       // store token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("auth:changed"));
 
       setMsg("Logged in successfully.");
-      alert("Logged in successfully.");
-      navigate("/"); // redirect after login
+
+      popup.open({
+        title: "Welcome 👋",
+        message: "Logged in successfully!",
+        type: "success",
+      });
+
+      navigate("/");
     } catch (err) {
-      setMsg(err.message);
-      alert(err.message);
+      popup.open({
+        title: "Login Failed ❌",
+        message: err.message,
+        type: "error",
+      });
     }
   };
 
@@ -93,20 +106,36 @@ export default function Auth() {
       </div>
 
       {msg && (
-        <p style={{ marginTop: 8, color: "#ff4b2b", fontWeight: 600, textAlign: "center" }}>
+        <p
+          style={{
+            marginTop: 8,
+            color: "#ff4b2b",
+            fontWeight: 600,
+            textAlign: "center",
+          }}
+        >
           {msg}
         </p>
       )}
 
-      <div className={`container ${panelRight ? "right-panel-active" : ""}`} id="container">
+      <div
+        className={`container ${panelRight ? "right-panel-active" : ""}`}
+        id="container"
+      >
         {/* SIGN UP */}
         <div className="form-container sign-up-container">
           <form onSubmit={handleSignUp}>
             <h1>Create Account</h1>
             <div className="social-container">
-              <a href="#" className="social" aria-label="Facebook"><i className="fab fa-facebook-f" /></a>
-              <a href="#" className="social" aria-label="Google"><i className="fab fa-google-plus-g" /></a>
-              <a href="#" className="social" aria-label="LinkedIn"><i className="fab fa-linkedin-in" /></a>
+              <a href="#" className="social" aria-label="Facebook">
+                <i className="fab fa-facebook-f" />
+              </a>
+              <a href="#" className="social" aria-label="Google">
+                <i className="fab fa-google-plus-g" />
+              </a>
+              <a href="#" className="social" aria-label="LinkedIn">
+                <i className="fab fa-linkedin-in" />
+              </a>
             </div>
             <span>or use your email for registration</span>
 
@@ -139,7 +168,11 @@ export default function Auth() {
 
             <p className="auth-mobile-only">
               Already have an account?{" "}
-              <button type="button" className="link-btn" onClick={() => setPanelRight(false)}>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setPanelRight(false)}
+              >
                 Sign in
               </button>
             </p>
@@ -151,9 +184,15 @@ export default function Auth() {
           <form onSubmit={handleSignIn}>
             <h1>Sign in</h1>
             <div className="social-container">
-              <a href="#" className="social" aria-label="Facebook"><i className="fab fa-facebook-f" /></a>
-              <a href="#" className="social" aria-label="Google"><i className="fab fa-google-plus-g" /></a>
-              <a href="#" className="social" aria-label="LinkedIn"><i className="fab fa-linkedin-in" /></a>
+              <a href="#" className="social" aria-label="Facebook">
+                <i className="fab fa-facebook-f" />
+              </a>
+              <a href="#" className="social" aria-label="Google">
+                <i className="fab fa-google-plus-g" />
+              </a>
+              <a href="#" className="social" aria-label="LinkedIn">
+                <i className="fab fa-linkedin-in" />
+              </a>
             </div>
             <span>or use your account</span>
 
@@ -178,7 +217,11 @@ export default function Auth() {
 
             <p className="auth-mobile-only">
               New here?{" "}
-              <button type="button" className="link-btn" onClick={() => setPanelRight(true)}>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setPanelRight(true)}
+              >
                 Create account
               </button>
             </p>
@@ -190,13 +233,19 @@ export default function Auth() {
           <div className="overlay">
             <div className="overlay-panel overlay-left">
               <h1>Welcome Back!</h1>
-              <p>To keep connected with us please login with your personal info</p>
-              <button className="ghost" onClick={() => setPanelRight(false)}>Sign In</button>
+              <p>
+                To keep connected with us please login with your personal info
+              </p>
+              <button className="ghost" onClick={() => setPanelRight(false)}>
+                Sign In
+              </button>
             </div>
             <div className="overlay-panel overlay-right">
               <h1>Hello, Friend!</h1>
               <p>Enter your personal details and start your journey with us</p>
-              <button className="ghost" onClick={() => setPanelRight(true)}>Sign Up</button>
+              <button className="ghost" onClick={() => setPanelRight(true)}>
+                Sign Up
+              </button>
             </div>
           </div>
         </div>
@@ -205,9 +254,14 @@ export default function Auth() {
       <footer className="auth-footer">
         <p>
           UI inspired by Florin Pop’s challenge —{" "}
-          <a target="_blank" rel="noreferrer" href="https://www.florin-pop.com/blog/2019/03/double-slider-sign-in-up-form/">
+          <a
+            target="_blank"
+            rel="noreferrer"
+            href="https://www.florin-pop.com/blog/2019/03/double-slider-sign-in-up-form/"
+          >
             how it was built
-          </a>.
+          </a>
+          .
         </p>
       </footer>
     </div>
