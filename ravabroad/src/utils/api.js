@@ -82,3 +82,12 @@ export function deleteRecipient(id) {
     method: "DELETE",
   });
 }
+
+
+// ✅ Update a user's role (Main Admin only)
+export function updateUserRole(userId, role) {
+  return apiFetch(`/admin/users/${userId}/role`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+}

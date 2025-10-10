@@ -130,11 +130,14 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
+  const allowed = ["admin", "main_admin", "moderate_admin"];
+  if (!req.user || !allowed.includes(req.user.role)) {
     return res.status(403).json({ message: "Forbidden" });
   }
   next();
 }
+
+
 
 // ---- ROUTES ----
 app.get("/api/health", (req, res) => {

@@ -14,6 +14,8 @@ function ScrollAndInit() {
 
 export default function Layout() {
   // Handle submit for Content Request modal (mailto)
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   const handleContentRequestSubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);

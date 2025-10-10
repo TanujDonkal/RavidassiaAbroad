@@ -85,17 +85,15 @@ export default function AuthMenu({ compact = false }) {
           {user.role?.toUpperCase() || "USER"}
         </p>
         <div className="d-flex flex-column align-items-center gap-2">
-          <Link
-            to="/connect-scst"
-            className="btn btn-outline-dark btn-sm w-75"
-          >
+          <Link to="/connect-scst" className="btn btn-outline-dark btn-sm w-75">
             My Submissions
           </Link>
-          {user.role === "admin" && (
+          {(user.role === "main_admin" || user.role === "moderate_admin") && (
             <Link to="/admin" className="btn btn-outline-dark btn-sm w-75">
               Admin Dashboard
             </Link>
           )}
+
           <button onClick={logout} className="btn btn-danger btn-sm w-75">
             Logout
           </button>
@@ -135,7 +133,9 @@ export default function AuthMenu({ compact = false }) {
       <ul className="dropdown-menu dropdown-menu-end">
         <li className="dropdown-header">
           <div className="fw-semibold">{user.name || user.email}</div>
-          <div className="text-muted small">{user.role || "user"}</div>
+          <div className="text-muted small">
+            {(user.role || "user").replace("_", " ").toUpperCase()}
+          </div>
         </li>
         <li>
           <hr className="dropdown-divider" />
@@ -145,13 +145,14 @@ export default function AuthMenu({ compact = false }) {
             My Submissions
           </Link>
         </li>
-        {user.role === "admin" && (
+        {(user.role === "main_admin" || user.role === "moderate_admin") && (
           <li>
             <Link className="dropdown-item" to="/admin">
-              Admin Dashboard
+              <i className="bi bi-speedometer2 me-2"></i> Admin Dashboard
             </Link>
           </li>
         )}
+
         <li>
           <hr className="dropdown-divider" />
         </li>
