@@ -16,6 +16,7 @@ import ConnectSCST from "./pages/connect-scst";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import { PopupProvider } from "./components/PopupProvider";
+import MatrimonialForm from "./pages/MatrimonialForm";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="auth" element={<Auth />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/matrimonial" element={<MatrimonialForm />} />
         </Route>
       </Routes>
     </PopupProvider>

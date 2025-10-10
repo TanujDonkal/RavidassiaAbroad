@@ -202,7 +202,7 @@ export default function Home() {
           <Nav className="mx-auto d-flex flex-wrap justify-content-center">
             {/* Core */}
             <Nav.Link href="/connect-scst">Connect SC/ST by Country</Nav.Link>
-            <Nav.Link href="/about">About</Nav.Link>
+            <Nav.Link href="/matrimonial">RavidassiaAbroad Matrimonial</Nav.Link>
             <Nav.Link href="/history">History</Nav.Link>
             
 

@@ -1,23 +1,30 @@
+// src/pages/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { updateUserRole } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import {
-  approveSubmission,
-  rejectSubmission,
   getRecipients,
-  addRecipient,
-  deleteRecipient,
   createUser,
+  apiFetch,
 } from "../utils/api";
 import "../css/webpixels.css";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [users, setUsers] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
+  const [submissions, setSubmissions] = useState([]); // SC/ST
   const [recipients, setRecipients] = useState([]);
+  const [matrimonialSubs, setMatrimonialSubs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
+  const popup = usePopup();
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+  // --------------------------
+  // FETCH DATA
+  // --------------------------
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -25,25 +32,41 @@ export default function AdminDashboard() {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
 
-        // Dynamic users
-        const usersRes = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/admin/users`,
-          { headers }
-        );
-        const usersData = await usersRes.json();
-        setUsers(Array.isArray(usersData) ? usersData : []);
+        // USERS
+        if (activeTab === "users" || activeTab === "dashboard") {
+          const usersRes = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/users`,
+            { headers }
+          );
+          const usersData = await usersRes.json();
+          setUsers(Array.isArray(usersData) ? usersData : []);
+        }
 
-        // Dynamic submissions
-        const subsRes = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
-          { headers }
-        );
-        const subsData = await subsRes.json();
-        setSubmissions(Array.isArray(subsData) ? subsData : []);
+        // SC/ST SUBMISSIONS
+        if (activeTab === "submissions" || activeTab === "dashboard") {
+          const subsRes = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
+            { headers }
+          );
+          const subsData = await subsRes.json();
+          setSubmissions(Array.isArray(subsData) ? subsData : []);
+        }
 
-        // Dynamic recipients
-        const recData = await getRecipients();
-        setRecipients(Array.isArray(recData) ? recData : []);
+        // MATRIMONIAL SUBMISSIONS
+        if (activeTab === "matrimonial" || activeTab === "dashboard") {
+          const matrRes = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/matrimonial`,
+            { headers }
+          );
+          const matrData = await matrRes.json();
+          setMatrimonialSubs(Array.isArray(matrData) ? matrData : []);
+        }
+
+        // RECIPIENTS
+        if (activeTab === "recipients") {
+          const recData = await getRecipients();
+          setRecipients(Array.isArray(recData) ? recData : []);
+        }
       } catch (err) {
         console.error("Failed to fetch:", err);
       } finally {
@@ -51,22 +74,20 @@ export default function AdminDashboard() {
       }
     };
     fetchData();
-  }, []);
+  }, [activeTab]);
 
-  const popup = usePopup();
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-
+  // --------------------------
+  // HANDLERS
+  // --------------------------
   const handleRoleChange = async (userId, newRole) => {
     try {
       await updateUserRole(userId, newRole);
-
       popup.open({
         title: "✅ Success",
         message: `User role changed to ${newRole}`,
         type: "success",
       });
 
-      // update users array locally
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
       );
@@ -79,33 +100,43 @@ export default function AdminDashboard() {
     }
   };
 
-  // Dummy stats (replace later)
+  const handleOpenModal = (submission) => {
+    setSelectedSubmission(submission);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedSubmission(null);
+  };
+
+  // --------------------------
+  // STATS
+  // --------------------------
   const stats = [
     {
       label: "Total Users",
-      value: users.length || 145,
+      value: users.length || 0,
       icon: "bi-people",
       color: "bg-primary",
     },
     {
-      label: "Submissions",
-      value: submissions.length || 67,
+      label: "SC/ST Submissions",
+      value: submissions.length || 0,
       icon: "bi-file-earmark-text",
       color: "bg-info",
     },
     {
       label: "Recipients",
-      value: recipients.length || 32,
+      value: recipients.length || 0,
       icon: "bi-envelope",
       color: "bg-success",
     },
     {
-      label: "Pending Approvals",
-      value: Array.isArray(submissions)
-        ? submissions.filter((s) => s.status === "pending").length
-        : 0,
-      icon: "bi-hourglass-split",
-      color: "bg-warning",
+      label: "Matrimonial Entries",
+      value: matrimonialSubs.length || 0,
+      icon: "bi-heart",
+      color: "bg-danger",
     },
   ];
 
@@ -116,72 +147,33 @@ export default function AdminDashboard() {
         <div className="container-fluid">
           <div className="collapse navbar-collapse show" id="sidebarCollapse">
             <ul className="navbar-nav">
-              <li className="nav-item">
-                <a
-                  href="#!"
-                  className={`nav-link ${
-                    activeTab === "dashboard" ? "active" : ""
-                  }`}
-                  onClick={() => setActiveTab("dashboard")}
-                >
-                  <i className="bi bi-house"></i> Dashboard
-                </a>
-              </li>
-              <li className="nav-item">
-                <a
-                  href="#!"
-                  className={`nav-link ${
-                    activeTab === "users" ? "active" : ""
-                  }`}
-                  onClick={() => setActiveTab("users")}
-                >
-                  <i className="bi bi-people"></i> Users
-                </a>
-              </li>
-              <li className="nav-item">
-                <a
-                  href="#!"
-                  className={`nav-link ${
-                    activeTab === "submissions" ? "active" : ""
-                  }`}
-                  onClick={() => setActiveTab("submissions")}
-                >
-                  <i className="bi bi-file-earmark-text"></i> Submissions
-                </a>
-              </li>
-              <li className="nav-item">
-                <a
-                  href="#!"
-                  className={`nav-link ${
-                    activeTab === "recipients" ? "active" : ""
-                  }`}
-                  onClick={() => setActiveTab("recipients")}
-                >
-                  <i className="bi bi-envelope"></i> Recipients
-                </a>
-              </li>
+              {[
+                { tab: "dashboard", icon: "bi-house", label: "Dashboard" },
+                { tab: "users", icon: "bi-people", label: "Users" },
+                { tab: "submissions", icon: "bi-file-earmark-text", label: "SC/ST Submissions" },
+                { tab: "recipients", icon: "bi-envelope", label: "Recipients" },
+                { tab: "matrimonial", icon: "bi-heart", label: "Matrimonial" },
+              ].map((item) => (
+                <li className="nav-item" key={item.tab}>
+                  <a
+                    href="#!"
+                    className={`nav-link ${activeTab === item.tab ? "active" : ""}`}
+                    onClick={() => setActiveTab(item.tab)}
+                  >
+                    <i className={`bi ${item.icon}`}></i> {item.label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="h-screen flex-grow-1 overflow-y-lg-auto">
         <header className="bg-surface-primary border-bottom pt-6 pb-4 px-4">
           <div className="d-flex justify-content-between align-items-center">
-            <h1 className="h3 mb-0">
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-            </h1>
-
-            {currentUser.role === "main_admin" && activeTab === "users" && (
-              <button
-                className="btn btn-sm btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#createUserModal"
-              >
-                <i className="bi bi-plus pe-1"></i> Add User
-              </button>
-            )}
+            <h1 className="h3 mb-0 text-capitalize">{activeTab}</h1>
           </div>
         </header>
 
@@ -191,94 +183,34 @@ export default function AdminDashboard() {
               <p>Loading...</p>
             ) : (
               <>
-                {/* Dashboard Overview */}
+                {/* Dashboard */}
                 {activeTab === "dashboard" && (
-                  <>
-                    <div className="row g-4 mb-5">
-                      {stats.map((s, i) => (
-                        <div key={i} className="col-xl-3 col-sm-6">
-                          <div className="card shadow border-0">
-                            <div className="card-body">
-                              <div className="d-flex align-items-center justify-content-between">
-                                <div>
-                                  <h6 className="text-muted text-uppercase mb-2">
-                                    {s.label}
-                                  </h6>
-                                  <h3 className="mb-0 fw-bold">{s.value}</h3>
-                                </div>
-                                <div
-                                  className={`icon icon-shape text-white text-lg rounded-circle ${s.color}`}
-                                >
-                                  <i className={s.icon}></i>
-                                </div>
+                  <div className="row g-4 mb-5">
+                    {stats.map((s, i) => (
+                      <div key={i} className="col-xl-3 col-sm-6">
+                        <div className="card shadow border-0">
+                          <div className="card-body">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div>
+                                <h6 className="text-muted text-uppercase mb-2">
+                                  {s.label}
+                                </h6>
+                                <h3 className="mb-0 fw-bold">{s.value}</h3>
+                              </div>
+                              <div
+                                className={`icon icon-shape text-white text-lg rounded-circle ${s.color}`}
+                              >
+                                <i className={s.icon}></i>
                               </div>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="card shadow border-0 mb-7">
-                      <div className="card-header">
-                        <h5 className="mb-0">Recent Submissions</h5>
                       </div>
-                      <div className="table-responsive">
-                        <table className="table table-hover table-nowrap">
-                          <thead className="thead-light">
-                            <tr>
-                              <th>Name</th>
-                              <th>Email</th>
-                              <th>Country</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(submissions.length
-                              ? submissions
-                              : [
-                                  {
-                                    id: 1,
-                                    name: "Tanuj Kumar",
-                                    email: "tanuj@gmail.com",
-                                    country: "Canada",
-                                    status: "approved",
-                                  },
-                                  {
-                                    id: 2,
-                                    name: "Sanjeev Sharma",
-                                    email: "sanjeev@gmail.com",
-                                    country: "India",
-                                    status: "pending",
-                                  },
-                                ]
-                            ).map((s) => (
-                              <tr key={s.id}>
-                                <td>{s.name}</td>
-                                <td>{s.email}</td>
-                                <td>{s.country}</td>
-                                <td>
-                                  <span
-                                    className={`badge bg-${
-                                      s.status === "approved"
-                                        ? "success"
-                                        : s.status === "rejected"
-                                        ? "danger"
-                                        : "secondary"
-                                    }`}
-                                  >
-                                    {s.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </>
+                    ))}
+                  </div>
                 )}
 
-                {/* Users Tab */}
+                {/* USERS */}
                 {activeTab === "users" && (
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header">
@@ -286,7 +218,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
-                        <thead className="thead-light">
+                        <thead>
                           <tr>
                             <th>ID</th>
                             <th>Name</th>
@@ -298,10 +230,7 @@ export default function AdminDashboard() {
                         <tbody>
                           {users.length === 0 ? (
                             <tr>
-                              <td
-                                colSpan="5"
-                                className="text-center text-muted py-4"
-                              >
+                              <td colSpan="5" className="text-center text-muted py-4">
                                 No users found.
                               </td>
                             </tr>
@@ -312,42 +241,93 @@ export default function AdminDashboard() {
                                 <td>{u.name}</td>
                                 <td>{u.email}</td>
                                 <td>
-                                  {/* Role dropdown with colored badge */}
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span
-                                      className={`badge ${
-                                        u.role === "main_admin"
-                                          ? "bg-warning text-dark"
-                                          : u.role === "moderate_admin"
-                                          ? "bg-primary"
-                                          : "bg-secondary"
-                                      }`}
-                                    >
-                                      {u.role.replace("_", " ")}
-                                    </span>
-
-                                    <select
-                                      value={u.role}
-                                      className="form-select form-select-sm"
-                                      onChange={(e) =>
-                                        handleRoleChange(u.id, e.target.value)
-                                      }
-                                      disabled={
-                                        currentUser.role !== "main_admin"
-                                      } // only main admin can change
-                                    >
-                                      <option value="user">User</option>
-                                      <option value="moderate_admin">
-                                        Moderate Admin
-                                      </option>
-                                      <option value="main_admin">
-                                        Main Admin
-                                      </option>
-                                    </select>
-                                  </div>
+                                  <select
+                                    value={u.role}
+                                    className="form-select form-select-sm"
+                                    onChange={(e) =>
+                                      handleRoleChange(u.id, e.target.value)
+                                    }
+                                    disabled={currentUser.role !== "main_admin"}
+                                  >
+                                    <option value="user">User</option>
+                                    <option value="moderate_admin">
+                                      Moderate Admin
+                                    </option>
+                                    <option value="main_admin">
+                                      Main Admin
+                                    </option>
+                                  </select>
                                 </td>
+                                <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SC/ST SUBMISSIONS */}
+                {activeTab === "submissions" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header">
+                      <h5 className="mb-0">SC/ST Connect Submissions</h5>
+                    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Country</th>
+                            <th>City</th>
+                            <th>Platform</th>
+                            <th>Phone</th>
+                            <th>Created</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {submissions.length === 0 ? (
+                            <tr>
+                              <td colSpan="9" className="text-center text-muted py-4">
+                                No submissions yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            submissions.map((s) => (
+                              <tr
+                                key={s.id}
+                                style={{ cursor: "pointer" }}
+                                onClick={() => handleOpenModal(s)}
+                              >
+                                <td>{s.id}</td>
+                                <td>{s.name}</td>
+                                <td>{s.email}</td>
+                                <td>{s.country}</td>
+                                <td>{s.city || "-"}</td>
+                                <td>{s.platform || "-"}</td>
+                                <td>{s.phone || "-"}</td>
+                                <td>{new Date(s.created_at).toLocaleDateString()}</td>
                                 <td>
-                                  {new Date(u.created_at).toLocaleDateString()}
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm("Delete this submission?")) {
+                                        await apiFetch(
+                                          `/admin/scst-submissions/${s.id}`,
+                                          { method: "DELETE" }
+                                        );
+                                        alert("Deleted");
+                                        window.location.reload();
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
                                 </td>
                               </tr>
                             ))
@@ -358,43 +338,66 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Recipients Tab */}
-                {activeTab === "recipients" && (
+                {/* MATRIMONIAL */}
+                {activeTab === "matrimonial" && (
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header">
-                      <h5 className="mb-0">Notification Recipients</h5>
+                      <h5 className="mb-0">Matrimonial Submissions</h5>
                     </div>
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
                             <th>ID</th>
+                            <th>Name</th>
                             <th>Email</th>
+                            <th>Country</th>
+                            <th>City</th>
                             <th>Created</th>
+                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(recipients.length
-                            ? recipients
-                            : [
-                                {
-                                  id: 1,
-                                  email: "info@ravidassiaabroad.com",
-                                  created_at: "2025-10-08",
-                                },
-                                {
-                                  id: 2,
-                                  email: "contact@codezypher.com",
-                                  created_at: "2025-10-07",
-                                },
-                              ]
-                          ).map((r) => (
-                            <tr key={r.id}>
-                              <td>{r.id}</td>
-                              <td>{r.email}</td>
-                              <td>{new Date(r.created_at).toLocaleString()}</td>
+                          {matrimonialSubs.length === 0 ? (
+                            <tr>
+                              <td colSpan="7" className="text-center text-muted py-4">
+                                No submissions yet.
+                              </td>
                             </tr>
-                          ))}
+                          ) : (
+                            matrimonialSubs.map((s) => (
+                              <tr
+                                key={s.id}
+                                style={{ cursor: "pointer" }}
+                                onClick={() => handleOpenModal(s)}
+                              >
+                                <td>{s.id}</td>
+                                <td>{s.name}</td>
+                                <td>{s.email}</td>
+                                <td>{s.country_living}</td>
+                                <td>{s.city_living}</td>
+                                <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm("Delete this entry?")) {
+                                        await apiFetch(
+                                          `/admin/matrimonial/${s.id}`,
+                                          { method: "DELETE" }
+                                        );
+                                        alert("Deleted");
+                                        window.location.reload();
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -405,93 +408,57 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
-      {/* Create User Modal */}
-      <div
-        className="modal fade"
-        id="createUserModal"
-        tabIndex="-1"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Create New User</h5>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="modal-body">
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  const payload = Object.fromEntries(fd.entries());
 
-                  try {
-                    await createUser(payload);
-                    popup.open({
-                      title: "✅ Success",
-                      message: "User created successfully!",
-                      type: "success",
-                    });
-
-                    e.target.reset();
-                    window.location.reload();
-                  } catch (err) {
-                    popup.open({
-                      title: "❌ Error",
-                      message: err.message || "Failed to create user",
-                      type: "error",
-                    });
-                  }
-                }}
-              >
-                <div className="mb-3">
-                  <label className="form-label">Name</label>
-                  <input name="name" className="form-control" required />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    className="form-control"
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Password</label>
-                  <input
-                    name="password"
-                    type="password"
-                    className="form-control"
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Role</label>
-                  <select name="role" className="form-select" required>
-                    <option value="user">User</option>
-                    <option value="moderate_admin">Moderate Admin</option>
-                  </select>
-                </div>
-                <div className="text-end">
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? "Creating..." : "Create"}
-                  </button>
-                </div>
-              </form>
+      {/* DETAILS MODAL */}
+      {showModal && selectedSubmission && (
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+          tabIndex="-1"
+        >
+          <div className="modal-dialog modal-lg modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header bg-light">
+                <h5 className="modal-title">
+                  Submission Details – {selectedSubmission.name}
+                </h5>
+                <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+              </div>
+              <div className="modal-body">
+                {activeTab === "submissions" ? (
+                  <div className="row g-3">
+                    <div className="col-md-6"><strong>Email:</strong> {selectedSubmission.email}</div>
+                    <div className="col-md-6"><strong>Country:</strong> {selectedSubmission.country}</div>
+                    <div className="col-md-6"><strong>City:</strong> {selectedSubmission.city || "-"}</div>
+                    <div className="col-md-6"><strong>Phone:</strong> {selectedSubmission.phone || "-"}</div>
+                    <div className="col-md-6"><strong>Platform:</strong> {selectedSubmission.platform || "-"}</div>
+                    <div className="col-md-6"><strong>Instagram:</strong> {selectedSubmission.instagram || "-"}</div>
+                    <div className="col-md-12"><strong>Proof:</strong> {selectedSubmission.proof || "-"}</div>
+                    <div className="col-md-12"><strong>Message:</strong> <pre className="mb-0">{selectedSubmission.message || "-"}</pre></div>
+                    <hr />
+                    <div className="col-md-12 text-muted small">
+                      Submitted on {new Date(selectedSubmission.created_at).toLocaleString()}
+                      {selectedSubmission.user_name && (
+                        <>
+                          <br />
+                          Linked User: <strong>{selectedSubmission.user_name}</strong> ({selectedSubmission.user_email})
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p>No details available.</p>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={handleCloseModal}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
