@@ -1,7 +1,4 @@
 import React, { useEffect, useState } from "react";
-import "materialize-css/dist/css/materialize.min.css";
-import "materialize-css/dist/js/materialize.min.js";
-import M from "materialize-css";
 import {
   approveSubmission,
   rejectSubmission,
@@ -9,264 +6,269 @@ import {
   addRecipient,
   deleteRecipient,
 } from "../utils/api";
+import '../css/webpixels.css';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [recipients, setRecipients] = useState([]);
-  const [newEmail, setNewEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // Initialize Materialize UI components
-  useEffect(() => {
-    M.AutoInit();
-  }, []);
-
-  // Load data based on tab
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError("");
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
 
-        if (activeTab === "users") {
-          const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/users`,
-            { headers }
-          );
-          setUsers(await res.json());
-        } else if (activeTab === "submissions") {
-          const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
-            { headers }
-          );
-          setSubmissions(await res.json());
-        } else if (activeTab === "recipients") {
-          const data = await getRecipients();
-          setRecipients(data);
-        }
+        // Dynamic users
+        const usersRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/admin/users`,
+          { headers }
+        );
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+
+        // Dynamic submissions
+        const subsRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
+          { headers }
+        );
+        const subsData = await subsRes.json();
+        setSubmissions(subsData);
+
+        // Dynamic recipients
+        const recData = await getRecipients();
+        setRecipients(recData);
       } catch (err) {
-        setError("Failed to fetch data");
+        console.error("Failed to fetch:", err);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [activeTab]);
+  }, []);
 
-  const handleApprove = async (id) => {
-    try {
-      await approveSubmission(id);
-      setSubmissions((subs) =>
-        subs.map((s) => (s.id === id ? { ...s, status: "approved" } : s))
-      );
-    } catch (err) {
-      alert("Approve failed: " + err.message);
-    }
-  };
-
-  const handleReject = async (id) => {
-    try {
-      await rejectSubmission(id);
-      setSubmissions((subs) =>
-        subs.map((s) => (s.id === id ? { ...s, status: "rejected" } : s))
-      );
-    } catch (err) {
-      alert("Reject failed: " + err.message);
-    }
-  };
-
-  const handleAddRecipient = async (e) => {
-    e.preventDefault();
-    if (!newEmail) return;
-    try {
-      await addRecipient(newEmail);
-      setNewEmail("");
-      const updated = await getRecipients();
-      setRecipients(updated);
-    } catch (err) {
-      alert("Failed to add recipient: " + err.message);
-    }
-  };
-
-  const handleDeleteRecipient = async (id) => {
-    if (!window.confirm("Delete this recipient?")) return;
-    try {
-      await deleteRecipient(id);
-      const updated = await getRecipients();
-      setRecipients(updated);
-    } catch (err) {
-      alert("Failed to delete recipient: " + err.message);
-    }
-  };
+  // Dummy stats (replace later)
+  const stats = [
+    { label: "Total Users", value: users.length || 145, icon: "bi-people", color: "bg-primary" },
+    { label: "Submissions", value: submissions.length || 67, icon: "bi-file-earmark-text", color: "bg-info" },
+    { label: "Recipients", value: recipients.length || 32, icon: "bi-envelope", color: "bg-success" },
+    { label: "Pending Approvals", value: submissions.filter(s => s.status === "pending").length || 12, icon: "bi-hourglass-split", color: "bg-warning" },
+  ];
 
   return (
-    <div style={{ paddingLeft: "240px", padding: "20px" }}>
-      <h3>Admin Dashboard</h3>
+    <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
+      {/* Sidebar */}
+      <nav className="navbar show navbar-vertical h-lg-screen navbar-expand-lg px-0 py-3 navbar-light bg-white border-end-lg">
+        <div className="container-fluid">
+         
 
-      <div className="row">
-        <button
-          className={`btn ${activeTab === "users" ? "indigo" : "grey"}`}
-          onClick={() => setActiveTab("users")}
-        >
-          Users
-        </button>
-        <button
-          className={`btn ${activeTab === "submissions" ? "indigo" : "grey"} ms-2`}
-          onClick={() => setActiveTab("submissions")}
-        >
-          Submissions
-        </button>
-        <button
-          className={`btn ${activeTab === "recipients" ? "indigo" : "grey"} ms-2`}
-          onClick={() => setActiveTab("recipients")}
-        >
-          Recipients
-        </button>
+          <div className="collapse navbar-collapse show" id="sidebarCollapse">
+            <ul className="navbar-nav">
+              <li className="nav-item">
+                <a
+                  href="#!"
+                  className={`nav-link ${activeTab === "dashboard" ? "active" : ""}`}
+                  onClick={() => setActiveTab("dashboard")}
+                >
+                  <i className="bi bi-house"></i> Dashboard
+                </a>
+              </li>
+              <li className="nav-item">
+                <a
+                  href="#!"
+                  className={`nav-link ${activeTab === "users" ? "active" : ""}`}
+                  onClick={() => setActiveTab("users")}
+                >
+                  <i className="bi bi-people"></i> Users
+                </a>
+              </li>
+              <li className="nav-item">
+                <a
+                  href="#!"
+                  className={`nav-link ${activeTab === "submissions" ? "active" : ""}`}
+                  onClick={() => setActiveTab("submissions")}
+                >
+                  <i className="bi bi-file-earmark-text"></i> Submissions
+                </a>
+              </li>
+              <li className="nav-item">
+                <a
+                  href="#!"
+                  className={`nav-link ${activeTab === "recipients" ? "active" : ""}`}
+                  onClick={() => setActiveTab("recipients")}
+                >
+                  <i className="bi bi-envelope"></i> Recipients
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="h-screen flex-grow-1 overflow-y-lg-auto">
+        <header className="bg-surface-primary border-bottom pt-6 pb-4 px-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <h1 className="h3 mb-0">
+              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </h1>
+            <a href="#" className="btn btn-sm btn-primary">
+              <i className="bi bi-plus pe-1"></i> Add New
+            </a>
+          </div>
+        </header>
+
+        <main className="py-6 bg-surface-secondary">
+          <div className="container-fluid px-4">
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                {/* Dashboard Overview */}
+                {activeTab === "dashboard" && (
+                  <>
+                    <div className="row g-4 mb-5">
+                      {stats.map((s, i) => (
+                        <div key={i} className="col-xl-3 col-sm-6">
+                          <div className="card shadow border-0">
+                            <div className="card-body">
+                              <div className="d-flex align-items-center justify-content-between">
+                                <div>
+                                  <h6 className="text-muted text-uppercase mb-2">{s.label}</h6>
+                                  <h3 className="mb-0 fw-bold">{s.value}</h3>
+                                </div>
+                                <div
+                                  className={`icon icon-shape text-white text-lg rounded-circle ${s.color}`}
+                                >
+                                  <i className={s.icon}></i>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="card shadow border-0 mb-7">
+                      <div className="card-header">
+                        <h5 className="mb-0">Recent Submissions</h5>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table table-hover table-nowrap">
+                          <thead className="thead-light">
+                            <tr>
+                              <th>Name</th>
+                              <th>Email</th>
+                              <th>Country</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(submissions.length ? submissions : [
+                              { id: 1, name: "Tanuj Kumar", email: "tanuj@gmail.com", country: "Canada", status: "approved" },
+                              { id: 2, name: "Sanjeev Sharma", email: "sanjeev@gmail.com", country: "India", status: "pending" },
+                            ]).map((s) => (
+                              <tr key={s.id}>
+                                <td>{s.name}</td>
+                                <td>{s.email}</td>
+                                <td>{s.country}</td>
+                                <td>
+                                  <span
+                                    className={`badge bg-${s.status === "approved" ? "success" : s.status === "rejected" ? "danger" : "secondary"}`}
+                                  >
+                                    {s.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Users Tab */}
+                {activeTab === "users" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header">
+                      <h5 className="mb-0">Users</h5>
+                    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead className="thead-light">
+                          <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(users.length ? users : [
+                            { id: 1, name: "Tanuj", email: "tanuj@gmail.com", role: "admin", created_at: "2025-10-08" },
+                            { id: 2, name: "Sanjeev", email: "sanjeev@gmail.com", role: "user", created_at: "2025-10-01" },
+                          ]).map((u) => (
+                            <tr key={u.id}>
+                              <td>{u.id}</td>
+                              <td>{u.name}</td>
+                              <td>{u.email}</td>
+                              <td>
+                                <span
+                                  className={`badge bg-${u.role === "admin" ? "primary" : "secondary"}`}
+                                >
+                                  {u.role}
+                                </span>
+                              </td>
+                              <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recipients Tab */}
+                {activeTab === "recipients" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header">
+                      <h5 className="mb-0">Notification Recipients</h5>
+                    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(recipients.length ? recipients : [
+                            { id: 1, email: "info@ravidassiaabroad.com", created_at: "2025-10-08" },
+                            { id: 2, email: "contact@codezypher.com", created_at: "2025-10-07" },
+                          ]).map((r) => (
+                            <tr key={r.id}>
+                              <td>{r.id}</td>
+                              <td>{r.email}</td>
+                              <td>{new Date(r.created_at).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
       </div>
-
-      {loading && <p>Loading…</p>}
-      {error && <p className="red-text">{error}</p>}
-
-      {/* USERS TAB */}
-      {activeTab === "users" && (
-        <div className="card">
-          <div className="card-content">
-            <span className="card-title">Users</span>
-            <table className="striped responsive-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>{u.id}</td>
-                    <td>{u.name}</td>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-                    <td>{new Date(u.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* SUBMISSIONS TAB */}
-      {activeTab === "submissions" && (
-        <div className="card">
-          <div className="card-content">
-            <span className="card-title">SC/ST Submissions</span>
-            <table className="striped responsive-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Country</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.id}</td>
-                    <td>{s.name}</td>
-                    <td>{s.email}</td>
-                    <td>{s.country}</td>
-                    <td>
-                      <span
-                        className={`new badge ${
-                          s.status === "approved"
-                            ? "green"
-                            : s.status === "rejected"
-                            ? "red"
-                            : "grey"
-                        }`}
-                        data-badge-caption={s.status}
-                      />
-                    </td>
-                    <td>
-                      <button
-                        className="btn-small green"
-                        onClick={() => handleApprove(s.id)}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="btn-small red ms-1"
-                        onClick={() => handleReject(s.id)}
-                      >
-                        Reject
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* RECIPIENTS TAB */}
-      {activeTab === "recipients" && (
-        <div className="card">
-          <div className="card-content">
-            <span className="card-title">Notification Recipients</span>
-
-            <form onSubmit={handleAddRecipient} style={{ marginBottom: "20px" }}>
-              <input
-                type="email"
-                placeholder="Enter email to add"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                required
-              />
-              <button className="btn indigo" type="submit">Add</button>
-            </form>
-
-            <table className="striped responsive-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Email</th>
-                  <th>Created</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recipients.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.id}</td>
-                    <td>{r.email}</td>
-                    <td>{new Date(r.created_at).toLocaleString()}</td>
-                    <td>
-                      <button
-                        className="btn-small red"
-                        onClick={() => handleDeleteRecipient(r.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

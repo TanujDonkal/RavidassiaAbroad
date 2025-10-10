@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 function getStoredAuth() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
-    const token = localStorage.getItem("token") || null; // no JSON.parse
+    const token = localStorage.getItem("token") || null;
     return { user, token };
   } catch {
     return { user: null, token: null };
@@ -15,25 +15,31 @@ function getStoredAuth() {
 export default function AuthMenu({ compact = false }) {
   const navigate = useNavigate();
   const [auth, setAuth] = useState(getStoredAuth());
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
 
-  // Refresh on cross-tab changes or after login pages update storage
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === "user" || e.key === "token") setAuth(getStoredAuth());
     };
     const onAuthChanged = () => setAuth(getStoredAuth());
+    const onResize = () => setIsMobile(window.innerWidth < 992);
 
     window.addEventListener("storage", onStorage);
     window.addEventListener("auth:changed", onAuthChanged);
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("auth:changed", onAuthChanged);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 
   const { user } = auth;
   const initial = useMemo(
-    () => (user?.name?.trim()?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"),
+    () =>
+      user?.name?.trim()?.[0]?.toUpperCase() ||
+      user?.email?.[0]?.toUpperCase() ||
+      "U",
     [user]
   );
 
@@ -44,35 +50,85 @@ export default function AuthMenu({ compact = false }) {
     navigate("/", { replace: true });
   };
 
-  // Logged OUT view
+  // =======================
+  // LOGGED OUT
+  // =======================
   if (!user) {
-    return compact ? (
-      <Link to="/auth" className="text-muted me-3">Sign In / Register</Link>
+    return isMobile ? (
+      <Link to="/auth" className="nav-item nav-link text-dark">
+        Sign In / Register
+      </Link>
+    ) : compact ? (
+      <Link to="/auth" className="text-muted me-3">
+        Sign In / Register
+      </Link>
     ) : (
-      <Link to="/auth" className="btn btn-outline-secondary rounded-pill px-3 ms-2">
+      <Link
+        to="/auth"
+        className="btn btn-outline-secondary rounded-pill px-3 ms-2"
+      >
         Sign In / Register
       </Link>
     );
   }
 
-  // Logged IN view: avatar + dropdown
+  // =======================
+  // LOGGED IN — MOBILE VERSION (inside hamburger)
+  // =======================
+  if (isMobile) {
+    return (
+      <div className="auth-menu-mobile mt-3 border-top pt-3">
+        <p className="fw-bold mb-1 text-dark text-center">
+          👤 {user.name || user.email}
+        </p>
+        <p className="text-muted text-center mb-3">
+          {user.role?.toUpperCase() || "USER"}
+        </p>
+        <div className="d-flex flex-column align-items-center gap-2">
+          <Link
+            to="/connect-scst"
+            className="btn btn-outline-dark btn-sm w-75"
+          >
+            My Submissions
+          </Link>
+          {user.role === "admin" && (
+            <Link to="/admin" className="btn btn-outline-dark btn-sm w-75">
+              Admin Dashboard
+            </Link>
+          )}
+          <button onClick={logout} className="btn btn-danger btn-sm w-75">
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // =======================
+  // LOGGED IN — DESKTOP VERSION (dropdown)
+  // =======================
   return (
     <div className={`dropdown ${compact ? "" : "ms-2"}`}>
       <button
-        className={`btn ${compact ? "btn-sm" : ""} btn-outline-secondary rounded-pill d-flex align-items-center gap-2`}
+        className={`btn ${
+          compact ? "btn-sm" : ""
+        } btn-outline-secondary rounded-pill d-flex align-items-center gap-2`}
         data-bs-toggle="dropdown"
         aria-expanded="false"
         type="button"
       >
         <span
           className="rounded-circle d-inline-flex justify-content-center align-items-center"
-          style={{ width: 28, height: 28, fontWeight: 600, background: "#e9ecef" }}
+          style={{
+            width: 28,
+            height: 28,
+            fontWeight: 600,
+            background: "#e9ecef",
+          }}
         >
           {initial}
         </span>
-        <span className="d-none d-sm-inline">
-          {user.name || user.email}
-        </span>
+        <span className="d-none d-sm-inline">{user.name || user.email}</span>
         <i className="fa fa-chevron-down small ms-1" />
       </button>
 
@@ -81,14 +137,14 @@ export default function AuthMenu({ compact = false }) {
           <div className="fw-semibold">{user.name || user.email}</div>
           <div className="text-muted small">{user.role || "user"}</div>
         </li>
-        <li><hr className="dropdown-divider" /></li>
-
+        <li>
+          <hr className="dropdown-divider" />
+        </li>
         <li>
           <Link className="dropdown-item" to="/connect-scst">
             My Submissions
           </Link>
         </li>
-
         {user.role === "admin" && (
           <li>
             <Link className="dropdown-item" to="/admin">
@@ -96,8 +152,9 @@ export default function AuthMenu({ compact = false }) {
             </Link>
           </li>
         )}
-
-        <li><hr className="dropdown-divider" /></li>
+        <li>
+          <hr className="dropdown-divider" />
+        </li>
         <li>
           <button className="dropdown-item text-danger" onClick={logout}>
             <i className="fa fa-sign-out-alt me-2" /> Logout

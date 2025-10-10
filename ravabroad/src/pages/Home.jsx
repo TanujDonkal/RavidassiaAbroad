@@ -195,7 +195,6 @@ export default function Home() {
       </div>
       {/* ===== Modal Search End ===== */}
 
-
       {/* ===== Menus Start ===== */}
 
       <Navbar bg="dark" variant="dark" className="border-bottom border-body">
@@ -205,6 +204,7 @@ export default function Home() {
             <Nav.Link href="/connect-scst">Connect SC/ST by Country</Nav.Link>
             <Nav.Link href="/about">About</Nav.Link>
             <Nav.Link href="/history">History</Nav.Link>
+            
 
             {/* Teachings */}
             <NavDropdown title="Teachings" id="teachings-dropdown">
@@ -319,7 +319,6 @@ export default function Home() {
       {/* ===== Menus End ===== */}
       {/* ===== About Start ===== */}
       <div className="container-fluid py-5">
-        
         <div className="container py-5">
           <div className="row g-5">
             <div className="col-xl-5 wow fadeInLeft" data-wow-delay="0.1s">
@@ -351,68 +350,55 @@ export default function Home() {
                 centers, and support youth and families staying connected to our
                 roots—wherever they live.
               </p>
-              <div className="row gy-4 align-items-center">
-                <div className="col-12 col-sm-6 d-flex align-items-center">
-                  <i className="fas fa-map-marked-alt fa-3x text-secondary"></i>
-                  <h5 className="ms-4">Canada Based</h5>
-                </div>
-                <div className="col-12 col-sm-6 d-flex align-items-center">
-                  <i className="fas fa-passport fa-3x text-secondary"></i>
-                  <h5 className="ms-4">Uniting Globally</h5>
-                </div>
-                <div className="col-4 col-md-3">
-                  <div className="bg-light text-center rounded p-3">
-                    <div className="mb-2">
-                      <i className="fas fa-ticket-alt fa-4x text-primary"></i>
-                    </div>
-                    <h1 className="display-5 fw-bold mb-2">50+</h1>
-                    <p className="text-muted mb-0">Countries connected</p>
+              <div className="row gy-4 align-items-start">
+                {/* Icons: Canada Based / Uniting Globally */}
+                <div className="col-12 d-flex flex-wrap justify-content-center justify-content-md-start gap-4">
+                  <div className="d-flex align-items-center">
+                    <i className="fas fa-map-marked-alt fa-2x text-secondary"></i>
+                    <h6 className="ms-3 mb-0 fw-semibold">Canada Based</h6>
+                  </div>
+                  <div className="d-flex align-items-center">
+                    <i className="fas fa-passport fa-2x text-secondary"></i>
+                    <h6 className="ms-3 mb-0 fw-semibold">Uniting Globally</h6>
                   </div>
                 </div>
-                <div className="col-8 col-md-9">
-                  <div className="mb-5">
-                    <p className="text-primary h6 mb-3">
+
+                {/* Stats + Bullet points */}
+                <div className="col-12 col-sm-5 col-md-4 col-lg-3">
+                  <div className="bg-light text-center rounded py-4">
+                    <div className="mb-2">
+                      <i className="fas fa-ticket-alt fa-3x text-primary"></i>
+                    </div>
+                    <h2 className="fw-bold mb-1">50+</h2>
+                    <p className="text-muted small mb-0">Countries connected</p>
+                  </div>
+                </div>
+
+                <div className="col-12 col-sm-7 col-md-8 col-lg-9">
+                  <ul className="list-unstyled mb-4">
+                    <li className="mb-2">
                       <i className="fa fa-check-circle text-secondary me-2"></i>
                       Authentic resources &amp; references
-                    </p>
-                    <p className="text-primary h6 mb-3">
+                    </li>
+                    <li className="mb-2">
                       <i className="fa fa-check-circle text-secondary me-2"></i>
                       Temples &amp; centers directory
-                    </p>
-                    <p className="text-primary h6 mb-3">
+                    </li>
+                    <li>
                       <i className="fa fa-check-circle text-secondary me-2"></i>
                       Youth guidance &amp; community support
-                    </p>
-                  </div>
-                  <div className="d-flex flex-wrap">
-                    <div
-                      id="phone-tada"
-                      className="d-flex align-items-center justify-content-center me-4"
-                    >
-                      <a
-                        href=""
-                        className="position-relative wow tada"
-                        data-wow-delay=".9s"
-                      >
-                        <i className="fa fa-mail-alt text-primary fa-3x"></i>
-                        <div
-                          className="position-absolute"
-                          style={{ top: 0, left: 25 }}
-                        >
-                          {/* <span>
-                            <i className="fa fa-comment-dots text-secondary"></i>
-                          </span> */}
-                        </div>
-                      </a>
+                    </li>
+                  </ul>
+
+                  <div className="d-flex flex-column flex-sm-row align-items-center text-center text-sm-start">
+                    <div className="me-sm-4 mb-3 mb-sm-0">
+                      <i className="fa fa-envelope text-primary fa-2x"></i>
                     </div>
-                    <div className="d-flex flex-column justify-content-center">
+                    <div>
                       <span className="text-primary">Have any questions?</span>
-                      <span
-                        className="text-secondary fw-bold fs-5"
-                        style={{ letterSpacing: "2px" }}
-                      >
+                      <div className="text-secondary fw-bold fs-6">
                         Mail: RavidassiaAbroad@gmail.com
-                      </span>
+                      </div>
                     </div>
                   </div>
                 </div>

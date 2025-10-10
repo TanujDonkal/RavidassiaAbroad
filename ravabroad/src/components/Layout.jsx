@@ -66,7 +66,10 @@ export default function Layout() {
             </div>
           </div>
           <div className="col-lg-3 row-cols-1 text-center mb-2 mb-lg-0">
-            <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
+            <div
+              className="d-inline-flex align-items-center"
+              style={{ height: 45 }}
+            >
               <a
                 className="btn btn-sm btn-outline-light btn-square rounded-circle me-2"
                 href="https://x.com/ravidassiabroad"
@@ -105,8 +108,10 @@ export default function Layout() {
             </div>
           </div>
           <div className="col-lg-4 text-center text-lg-end">
-            <div className="d-inline-flex align-items-center" style={{ height: 45 }}>
-             
+            <div
+              className="d-inline-flex align-items-center"
+              style={{ height: 45 }}
+            >
               <a
                 href="#"
                 className="text-muted me-2"
@@ -115,11 +120,9 @@ export default function Layout() {
               >
                 Add-Remove-Report Content
               </a>
-{/* Auth (compact) */}
+              {/* Auth (compact) */}
               <AuthMenu compact />
-              
             </div>
-             
           </div>
         </div>
       </div>
@@ -128,7 +131,10 @@ export default function Layout() {
       {/* Navbar Start */}
       <div className="container-fluid nav-bar p-0">
         <nav className="navbar navbar-expand-lg navbar-light bg-white px-4 px-lg-5 py-3 py-lg-0">
-          <Link to="/" className="navbar-brand d-flex align-items-center gap-2 p-0">
+          <Link
+            to="/"
+            className="navbar-brand d-flex align-items-center gap-2 p-0"
+          >
             <img
               src="/template/img/brand-logo.png"
               className="img-fluid"
@@ -201,7 +207,9 @@ export default function Layout() {
             >
               Donate Us
             </button>
-
+<div className="d-lg-none">
+  <AuthMenu compact />
+</div>
             {/* Donate Modal */}
             <div
               className="modal fade"
@@ -234,7 +242,8 @@ export default function Layout() {
                           type="button"
                           className="btn btn-outline-secondary btn-sm rounded-pill"
                           onClick={() => {
-                            const input = document.getElementById("donate-amount");
+                            const input =
+                              document.getElementById("donate-amount");
                             if (input) input.value = amt;
                           }}
                         >
@@ -274,7 +283,10 @@ export default function Layout() {
                         </select>
                       </div>
                       <div className="col-md-4">
-                        <label className="form-label" htmlFor="donate-frequency">
+                        <label
+                          className="form-label"
+                          htmlFor="donate-frequency"
+                        >
                           Frequency
                         </label>
                         <select
@@ -338,13 +350,18 @@ export default function Layout() {
                                 className="btn btn-dark"
                                 onClick={() => {
                                   const cur =
-                                    document.getElementById("donate-currency")?.value || "CAD";
+                                    document.getElementById("donate-currency")
+                                      ?.value || "CAD";
                                   const links = {
                                     CAD: "https://buy.stripe.com/your_cad_payment_link", // TODO replace
                                     USD: "https://buy.stripe.com/your_usd_payment_link", // TODO replace
                                     INR: "https://buy.stripe.com/your_inr_payment_link", // optional
                                   };
-                                  window.open(links[cur] || links["CAD"], "_blank", "noopener,noreferrer");
+                                  window.open(
+                                    links[cur] || links["CAD"],
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                  );
                                 }}
                               >
                                 Pay with Card (Stripe)
@@ -372,9 +389,14 @@ export default function Layout() {
                                   const email = "ravidassiaabroad@gmail.com";
                                   try {
                                     await navigator.clipboard.writeText(email);
-                                    alert("Interac e-Transfer email copied: " + email);
+                                    alert(
+                                      "Interac e-Transfer email copied: " +
+                                        email
+                                    );
                                   } catch {
-                                    alert("Send Interac e-Transfer to: " + email);
+                                    alert(
+                                      "Send Interac e-Transfer to: " + email
+                                    );
                                   }
                                 }}
                               >
@@ -398,8 +420,9 @@ export default function Layout() {
                             </div>
 
                             <p className="small text-muted mb-0">
-                              Your support helps us maintain the website, grow country-wise Sangat groups,
-                              and organize community resources.
+                              Your support helps us maintain the website, grow
+                              country-wise Sangat groups, and organize community
+                              resources.
                             </p>
                           </div>
                         </div>
@@ -435,7 +458,10 @@ export default function Layout() {
         <div className="modal-dialog modal-fullscreen">
           <div className="modal-content rounded-0">
             <div className="modal-header">
-              <h4 className="modal-title text-secondary mb-0" id="exampleModalLabel">
+              <h4
+                className="modal-title text-secondary mb-0"
+                id="exampleModalLabel"
+              >
                 Search by keyword
               </h4>
               <button
@@ -477,22 +503,40 @@ export default function Layout() {
                 <h5 className="modal-title" id="contentRequestTitle">
                   Request to Add / Remove / Report Content
                 </h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
               </div>
 
               <div className="modal-body">
                 <div className="mb-3">
                   <label className="form-label">Your name</label>
-                  <input name="name" className="form-control" placeholder="John Doe" required />
+                  <input
+                    name="name"
+                    className="form-control"
+                    placeholder="John Doe"
+                    required
+                  />
                 </div>
 
                 <div className="mb-3">
                   <label className="form-label">Your email</label>
-                  <input type="email" name="email" className="form-control" placeholder="you@example.com" required />
+                  <input
+                    type="email"
+                    name="email"
+                    className="form-control"
+                    placeholder="you@example.com"
+                    required
+                  />
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label">Content URL or ID (website or social)</label>
+                  <label className="form-label">
+                    Content URL or ID (website or social)
+                  </label>
                   <input
                     name="contentUrl"
                     className="form-control"
@@ -503,7 +547,11 @@ export default function Layout() {
 
                 <div className="mb-3">
                   <label className="form-label">Request type</label>
-                  <select name="type" className="form-select" defaultValue="Report">
+                  <select
+                    name="type"
+                    className="form-select"
+                    defaultValue="Report"
+                  >
                     <option value="Report">Report</option>
                     <option value="Add">Add</option>
                     <option value="Remove">Remove</option>
@@ -522,13 +570,22 @@ export default function Layout() {
                 </div>
 
                 <p className="text-muted small mt-3 mb-0">
-                  By submitting, you agree we may contact you for verification. We aim to review requests within 48 hours.
+                  By submitting, you agree we may contact you for verification.
+                  We aim to review requests within 48 hours.
                 </p>
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" className="btn btn-primary">Send</button>
+                <button
+                  type="button"
+                  className="btn btn-light"
+                  data-bs-dismiss="modal"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Send
+                </button>
               </div>
             </form>
           </div>
@@ -539,17 +596,22 @@ export default function Layout() {
       <Outlet />
 
       {/* Footer Start */}
-      <div className="container-fluid footer py-5 wow fadeIn" data-wow-delay="0.2s">
+      <div
+        className="container-fluid footer py-5 wow fadeIn"
+        data-wow-delay="0.2s"
+      >
         <div className="container py-5">
           <div className="row g-5">
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Info</h4>
                 <a href="">
-                  <i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada
+                  <i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova
+                  Scotia, Canada
                 </a>
                 <a href="">
-                  <i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com
+                  <i className="fas fa-envelope me-2"></i>{" "}
+                  ravidassiaabroad@gmail.com
                 </a>
                 <a href="">
                   <i className="fas fa-phone me-2"></i> —{" "}
@@ -567,7 +629,12 @@ export default function Layout() {
                   >
                     <i className="fab fa-facebook-f"></i>
                   </a>
-                  <a className="btn mx-1" href="https://x.com/ravidassiabroad" target="_blank" rel="noreferrer">
+                  <a
+                    className="btn mx-1"
+                    href="https://x.com/ravidassiabroad"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <i className="fab fa-twitter"></i>
                   </a>
                   <a
@@ -633,8 +700,8 @@ export default function Layout() {
               <div className="footer-item">
                 <h4 className="text-secondary mb-4">Newsletter</h4>
                 <p className="text-white mb-3">
-                  Get monthly updates on Guru Ravidass Ji’s teachings, global Sangat news, festivals, and new
-                  community resources.
+                  Get monthly updates on Guru Ravidass Ji’s teachings, global
+                  Sangat news, festivals, and new community resources.
                 </p>
                 <div className="position-relative mx-auto rounded-pill">
                   <input
@@ -671,7 +738,10 @@ export default function Layout() {
             </div>
             <div className="col-md-6 text-center text-md-end text-white">
               Designed By{" "}
-              <a className="border-bottom text-white" href="https://htmlcodex.com">
+              <a
+                className="border-bottom text-white"
+                href="https://htmlcodex.com"
+              >
                 HTML Codex
               </a>
             </div>

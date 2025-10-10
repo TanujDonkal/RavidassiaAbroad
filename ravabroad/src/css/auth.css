@@ -374,3 +374,18 @@
     display: block;
   }
 }
+
+
+
+
+/* Mobile AuthMenu inside hamburger */
+.auth-menu-mobile {
+  text-align: center;
+}
+.auth-menu-mobile p {
+  font-size: 15px;
+}
+.auth-menu-mobile .btn {
+  border-radius: 20px;
+  font-weight: 500;
+}

@@ -44,12 +44,8 @@ export default function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="connect-scst" element={<ConnectSCST />} />
           <Route path="auth" element={<Auth />} />
-          <Route path="/admin" element={ user?.role === "admin" ? <AdminDashboard /> : <Navigate to="/" />
-          }
-        />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
-          
-
         </Route>
       </Routes>
     </PopupProvider>
