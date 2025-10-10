@@ -91,3 +91,12 @@ export function updateUserRole(userId, role) {
     body: JSON.stringify({ role }),
   });
 }
+
+
+
+export function createUser(data) {
+  return apiFetch("/admin/create-user", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}

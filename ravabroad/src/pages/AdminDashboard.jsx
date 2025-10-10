@@ -7,6 +7,7 @@ import {
   getRecipients,
   addRecipient,
   deleteRecipient,
+  createUser,
 } from "../utils/api";
 import "../css/webpixels.css";
 
@@ -34,12 +35,11 @@ export default function AdminDashboard() {
 
         // Dynamic submissions
         const subsRes = await fetch(
-  `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
-  { headers }
-);
-const subsData = await subsRes.json();
-setSubmissions(Array.isArray(subsData) ? subsData : []);
-
+          `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
+          { headers }
+        );
+        const subsData = await subsRes.json();
+        setSubmissions(Array.isArray(subsData) ? subsData : []);
 
         // Dynamic recipients
         const recData = await getRecipients();
@@ -172,9 +172,16 @@ setSubmissions(Array.isArray(subsData) ? subsData : []);
             <h1 className="h3 mb-0">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
             </h1>
-            <a href="#" className="btn btn-sm btn-primary">
-              <i className="bi bi-plus pe-1"></i> Add New
-            </a>
+
+            {currentUser.role === "main_admin" && activeTab === "users" && (
+              <button
+                className="btn btn-sm btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#createUserModal"
+              >
+                <i className="bi bi-plus pe-1"></i> Add User
+              </button>
+            )}
           </div>
         </header>
 
@@ -397,6 +404,93 @@ setSubmissions(Array.isArray(subsData) ? subsData : []);
             )}
           </div>
         </main>
+      </div>
+      {/* Create User Modal */}
+      <div
+        className="modal fade"
+        id="createUserModal"
+        tabIndex="-1"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Create New User</h5>
+              <button
+                type="button"
+                className="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div className="modal-body">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const payload = Object.fromEntries(fd.entries());
+
+                  try {
+                    await createUser(payload);
+                    popup.open({
+                      title: "✅ Success",
+                      message: "User created successfully!",
+                      type: "success",
+                    });
+
+                    e.target.reset();
+                    window.location.reload();
+                  } catch (err) {
+                    popup.open({
+                      title: "❌ Error",
+                      message: err.message || "Failed to create user",
+                      type: "error",
+                    });
+                  }
+                }}
+              >
+                <div className="mb-3">
+                  <label className="form-label">Name</label>
+                  <input name="name" className="form-control" required />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    className="form-control"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    className="form-control"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Role</label>
+                  <select name="role" className="form-select" required>
+                    <option value="user">User</option>
+                    <option value="moderate_admin">Moderate Admin</option>
+                  </select>
+                </div>
+                <div className="text-end">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? "Creating..." : "Create"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
