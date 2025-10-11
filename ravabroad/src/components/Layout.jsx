@@ -15,50 +15,31 @@ function ScrollAndInit() {
 export default function Layout() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // 🩵 FINAL FIX: correct toggling, keep dropdown working, close on link/outside click
   useEffect(() => {
-    const navbarCollapse = document.getElementById("navbarCollapse");
     const navbarToggler = document.querySelector(".navbar-toggler");
-    if (!window.bootstrap || !navbarCollapse) return;
+    const navbarCollapse = document.querySelector("#navbarCollapse");
+
+    if (!navbarToggler || !navbarCollapse) return;
 
     const collapse = new window.bootstrap.Collapse(navbarCollapse, {
       toggle: false,
     });
 
-    // close navbar when a *real* link (not dropdown toggle) is clicked
-    const handleLinkClick = (e) => {
-      const target = e.currentTarget;
-      const isDropdownToggle = target.classList.contains("dropdown-toggle");
-      if (!isDropdownToggle && navbarCollapse.classList.contains("show")) {
-        collapse.hide();
-      }
-    };
-
-    // Attach only to .nav-link and .dropdown-item but skip .dropdown-toggle
-    const navLinks = navbarCollapse.querySelectorAll(
-      ".nav-link:not(.dropdown-toggle), .dropdown-item"
-    );
-    navLinks.forEach((link) => link.addEventListener("click", handleLinkClick));
-
-    // Close when clicking outside
+    // Close navbar when clicking outside (ignore dropdown clicks)
     const handleOutsideClick = (e) => {
+      const isDropdown = e.target.closest(".dropdown-menu, .dropdown-toggle");
       if (
         navbarCollapse.classList.contains("show") &&
         !navbarCollapse.contains(e.target) &&
-        !navbarToggler.contains(e.target)
+        !navbarToggler.contains(e.target) &&
+        !isDropdown
       ) {
         collapse.hide();
       }
     };
-    document.addEventListener("click", handleOutsideClick);
 
-    // Cleanup
-    return () => {
-      navLinks.forEach((link) =>
-        link.removeEventListener("click", handleLinkClick)
-      );
-      document.removeEventListener("click", handleOutsideClick);
-    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
 
   const handleContentRequestSubmit = (e) => {
@@ -166,7 +147,9 @@ export default function Layout() {
                 Add-Remove-Report Content
               </a>
               {/* Auth (compact) */}
-              <AuthMenu compact />
+              <div className="d-none d-lg-block">
+                <AuthMenu compact />
+              </div>
             </div>
           </div>
         </div>
@@ -252,9 +235,81 @@ export default function Layout() {
             >
               Donate Us
             </button>
-            <div className="d-lg-none">
-              <AuthMenu compact />
+
+            {/* Auth section for mobile view */}
+            <div className="d-lg-none mt-4 border-top pt-3">
+              {user && user.name ? (
+                <div className="text-center">
+                  {/* User Info */}
+                  <div className="d-flex flex-column align-items-center mb-3">
+                    <i className="fa fa-user text-secondary fs-3 mb-2"></i>
+                    <h6 className="mb-0">{user.name}</h6>
+                    <small className="text-muted">
+                      {user.role?.toUpperCase()}
+                    </small>
+                  </div>
+
+                  {/* Auth Action Buttons */}
+                  <div className="d-flex flex-column gap-2 px-4">
+                    <Link
+                      to="/my-submissions"
+                      className="btn btn-outline-dark rounded-pill"
+                      onClick={() =>
+                        document
+                          .querySelector(".navbar-collapse")
+                          ?.classList.remove("show")
+                      }
+                    >
+                      My Submissions
+                    </Link>
+
+                    {user.role?.includes("admin") && (
+                      <Link
+                        to="/admin"
+                        className="btn btn-outline-dark rounded-pill"
+                        onClick={() =>
+                          document
+                            .querySelector(".navbar-collapse")
+                            ?.classList.remove("show")
+                        }
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
+
+                    <button
+                      className="btn btn-danger rounded-pill"
+                      onClick={() => {
+                        localStorage.removeItem("user");
+                        localStorage.removeItem("token");
+                        window.dispatchEvent(new Event("auth-updated"));
+                        document
+                          .querySelector(".navbar-collapse")
+                          ?.classList.remove("show");
+                        window.location.href = "/auth";
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center px-4">
+                  <Link
+                    to="/auth"
+                    className="btn btn-outline-dark w-100 rounded-pill mt-2"
+                    onClick={() =>
+                      document
+                        .querySelector(".navbar-collapse")
+                        ?.classList.remove("show")
+                    }
+                  >
+                    Sign In / Register
+                  </Link>
+                </div>
+              )}
             </div>
+
             {/* Donate Modal */}
             <div
               className="modal fade"

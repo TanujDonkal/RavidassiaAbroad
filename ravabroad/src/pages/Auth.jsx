@@ -61,7 +61,7 @@ export default function Auth() {
       // store token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      window.dispatchEvent(new Event("auth:changed"));
+      window.dispatchEvent(new Event("auth-updated"));
 
       setMsg("Logged in successfully.");
 
