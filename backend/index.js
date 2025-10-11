@@ -21,6 +21,7 @@ app.use(
         "http://localhost:3000",
         "https://ravidassia-abroad.vercel.app",
         "https://ravidassiaabroad.com",
+        "https://www.ravidassiaabroad.com",
       ];
 
       // ✅ Allow requests with no Origin (like iOS Safari or same-origin)
@@ -35,7 +36,7 @@ app.use(
     credentials: true,
   })
 );
- 
+
 // ---- ENV / DEFAULTS ----
 const {
   PORT = 5000,
@@ -137,7 +138,8 @@ async function initDB() {
 function getBearerToken(req) {
   const h = req.headers.authorization || "";
   const parts = h.split(" ");
-  if (parts.length === 2 && parts[0].toLowerCase() === "bearer") return parts[1];
+  if (parts.length === 2 && parts[0].toLowerCase() === "bearer")
+    return parts[1];
   return null;
 }
 
@@ -180,7 +182,7 @@ app.post("/api/auth/register", async (req, res) => {
     const { name, email, password } = req.body || {};
     if (!name || !email || !password)
       return res.status(400).json({ message: "All fields required" });
-email = email.toLowerCase();
+    email = email.toLowerCase();
 
     if (password.length < 6)
       return res
@@ -307,33 +309,42 @@ app.post("/api/scst-submissions", async (req, res) => {
 // =============================
 // ADMIN: SC/ST SUBMISSIONS
 // =============================
-app.get("/api/admin/scst-submissions", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT s.*, u.name AS user_name, u.email AS user_email
+app.get(
+  "/api/admin/scst-submissions",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT s.*, u.name AS user_name, u.email AS user_email
        FROM scst_submissions s
        LEFT JOIN users u ON s.user_id = u.id
        ORDER BY s.created_at DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Admin SCST fetch error:", err);
-    res.status(500).json({ message: "Server error" });
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Admin SCST fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // ADMIN — delete SC/ST submission
-app.delete("/api/admin/scst-submissions/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("SC/ST delete error:", err);
-    res.status(500).json({ message: "Server error" });
+app.delete(
+  "/api/admin/scst-submissions/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const id = req.params.id;
+      await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
+      res.json({ message: "Deleted successfully" });
+    } catch (err) {
+      console.error("SC/ST delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
-
+);
 
 // =============================
 // ADMIN: USERS & MATRIMONIAL
@@ -351,31 +362,40 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // CREATE USER
-app.post("/api/admin/create-user", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !role)
-      return res.status(400).json({ message: "All fields required" });
+app.post(
+  "/api/admin/create-user",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { name, email, password, role } = req.body;
+      if (!name || !email || !password || !role)
+        return res.status(400).json({ message: "All fields required" });
 
-    if (req.user.role !== "main_admin")
-      return res.status(403).json({ message: "Only main admin can create users" });
+      if (req.user.role !== "main_admin")
+        return res
+          .status(403)
+          .json({ message: "Only main admin can create users" });
 
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [email]);
-    if (existing.rows.length)
-      return res.status(409).json({ message: "Email already exists" });
+      const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
+        email,
+      ]);
+      if (existing.rows.length)
+        return res.status(409).json({ message: "Email already exists" });
 
-    const hash = await bcrypt.hash(password, 10);
-    await pool.query(
-      "INSERT INTO users (name, email, password_hash, role) VALUES ($1,$2,$3,$4)",
-      [name, email, hash, role]
-    );
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query(
+        "INSERT INTO users (name, email, password_hash, role) VALUES ($1,$2,$3,$4)",
+        [name, email, hash, role]
+      );
 
-    res.json({ message: "User created successfully" });
-  } catch (err) {
-    console.error("Create user error:", err);
-    res.status(500).json({ message: "Server error" });
+      res.json({ message: "User created successfully" });
+    } catch (err) {
+      console.error("Create user error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // MATRIMONIAL (already correct)
 app.post("/api/matrimonial-submissions", async (req, res) => {
@@ -447,32 +467,42 @@ app.post("/api/matrimonial-submissions", async (req, res) => {
   }
 });
 
-app.get("/api/admin/matrimonial", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT m.*, u.name AS user_name, u.email AS user_email
+app.get(
+  "/api/admin/matrimonial",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT m.*, u.name AS user_name, u.email AS user_email
        FROM matrimonial_submissions m
        LEFT JOIN users u ON m.user_id = u.id
        ORDER BY m.created_at DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Matrimonial fetch error:", err);
-    res.status(500).json({ message: "Server error" });
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Matrimonial fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
-app.delete("/api/admin/matrimonial/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    await pool.query("DELETE FROM matrimonial_submissions WHERE id=$1", [
-      req.params.id,
-    ]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("Matrimonial delete error:", err);
-    res.status(500).json({ message: "Server error" });
+app.delete(
+  "/api/admin/matrimonial/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM matrimonial_submissions WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "Deleted successfully" });
+    } catch (err) {
+      console.error("Matrimonial delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 /// ---- START ----
 app.listen(PORT, () => {
