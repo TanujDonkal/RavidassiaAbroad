@@ -2,7 +2,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "bootstrap";
 
-const API_BASE = "http://localhost:5000"; // <-- your Node backend
+// ✅ use the environment variable or fallback for local dev
+const API_BASE =
+  (process.env.REACT_APP_API_URL || "http://localhost:5000") + "/api";
 
 export default function ConnectSCST() {
   const thanksRef = useRef(null);
