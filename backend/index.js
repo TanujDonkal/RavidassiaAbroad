@@ -13,18 +13,17 @@ const app = express();
 
 app.use(express.json());
 
-// ---- CORS (final production-safe version) ----
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://ravidassia-abroad.vercel.app",
-  "https://ravidassiaabroad.com",
-  "https://www.ravidassiaabroad.com", // ✅ added this
-];
-
+// ---- CORS (final robust version) ----
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
+      const allowedPatterns = [
+        /^http:\/\/localhost(:\d+)?$/,
+        /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
+        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/
+      ];
+
+      if (!origin || allowedPatterns.some((re) => re.test(origin))) {
         callback(null, true);
       } else {
         console.log("❌ Blocked CORS origin:", origin);
