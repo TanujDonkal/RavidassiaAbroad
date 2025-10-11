@@ -52,7 +52,8 @@ export default function ConnectSCST() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/scst-submissions`, {
+      const res = await fetch(`${API_BASE}/scst-submissions`, {
+
         method: "POST",
         headers,
         body: JSON.stringify({
