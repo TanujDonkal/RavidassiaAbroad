@@ -475,8 +475,8 @@ app.delete("/api/admin/matrimonial/:id", requireAuth, requireAdmin, async (req, 
 });
 
 // ---- START ----
-initDB().then(() => {
-  app.listen(PORT, () =>
-    console.log(`🚀 API running on http://localhost:${PORT}`)
-  );
+ PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 API running on http://localhost:${PORT}`);
 });
