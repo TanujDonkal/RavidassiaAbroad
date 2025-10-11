@@ -214,10 +214,12 @@ app.post("/api/auth/register", async (req, res) => {
 // LOGIN
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    let { email, password } = req.body || {};
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
+
     email = email.toLowerCase();
+
     const rows = await pool.query(
       "SELECT id, name, email, role, password_hash FROM users WHERE email = $1",
       [email]
@@ -250,6 +252,7 @@ app.post("/api/auth/login", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // CURRENT USER
 app.get("/api/auth/me", requireAuth, async (req, res) =>
