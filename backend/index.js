@@ -175,6 +175,7 @@ app.post("/api/auth/register", async (req, res) => {
     const { name, email, password } = req.body || {};
     if (!name || !email || !password)
       return res.status(400).json({ message: "All fields required" });
+email = email.toLowerCase();
 
     if (password.length < 6)
       return res
@@ -208,7 +209,7 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
-
+    email = email.toLowerCase();
     const rows = await pool.query(
       "SELECT id, name, email, role, password_hash FROM users WHERE email = $1",
       [email]
@@ -316,17 +317,18 @@ app.get("/api/admin/scst-submissions", requireAuth, requireAdmin, async (req, re
   }
 });
 
+// ADMIN — delete SC/ST submission
 app.delete("/api/admin/scst-submissions/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
-    await pool.query("DELETE FROM scst_submissions WHERE id=$1", [
-      req.params.id,
-    ]);
+    const id = req.params.id;
+    await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
-    console.error("Admin SCST delete error:", err);
+    console.error("SC/ST delete error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // =============================
 // ADMIN: USERS & MATRIMONIAL

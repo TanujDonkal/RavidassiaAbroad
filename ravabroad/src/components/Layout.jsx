@@ -13,8 +13,49 @@ function ScrollAndInit() {
 }
 
 export default function Layout() {
-  // Handle submit for Content Request modal (mailto)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    // 🩵 FIX: Auto-close navbar on link click or toggle
+  useEffect(() => {
+    const navbarCollapse = document.getElementById("navbarCollapse");
+    const navbarToggler = document.querySelector(".navbar-toggler");
+
+    if (!window.bootstrap || !navbarCollapse) return;
+
+    const collapse = new window.bootstrap.Collapse(navbarCollapse, {
+      toggle: false,
+    });
+
+    // Close navbar when a nav link is clicked
+    const handleLinkClick = () => {
+      if (navbarCollapse.classList.contains("show")) collapse.hide();
+    };
+
+    // Attach event to all links (NavLink, dropdown items, etc.)
+    const navLinks = navbarCollapse.querySelectorAll(
+      ".nav-link, .dropdown-item"
+    );
+    navLinks.forEach((link) =>
+      link.addEventListener("click", handleLinkClick)
+    );
+
+    // Toggle collapse manually when clicking hamburger again
+    const handleTogglerClick = () => {
+      if (navbarCollapse.classList.contains("show")) {
+        collapse.hide();
+      }
+    };
+    navbarToggler?.addEventListener("click", handleTogglerClick);
+
+    // Clean up listeners
+    return () => {
+      navLinks.forEach((link) =>
+        link.removeEventListener("click", handleLinkClick)
+      );
+      navbarToggler?.removeEventListener("click", handleTogglerClick);
+    };
+  }, []);
+
 
   const handleContentRequestSubmit = (e) => {
     e.preventDefault();
@@ -32,11 +73,9 @@ export default function Layout() {
       `Name: ${name}\nEmail: ${email}\nType: ${type}\nContent URL/ID: ${contentUrl}\n\nDetails:\n${details}\n`
     );
 
-    // Update this email if needed
     const to = "ravidassiaabroad@gmail.com";
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 
-    // Close the modal if Bootstrap is loaded
     try {
       const modalEl = document.getElementById("contentRequestModal");
       if (modalEl && window.bootstrap) {
