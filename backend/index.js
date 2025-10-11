@@ -13,29 +13,30 @@ const app = express();
 
 app.use(express.json());
 
-// ---- CORS (updated, mobile-safe) ----
+// ---- CORS (final production-safe version) ----
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://ravidassia-abroad.vercel.app",
+  "https://ravidassiaabroad.com",
+  "https://www.ravidassiaabroad.com", // ✅ added this
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowed = [
-        "http://localhost:3000",
-        "https://ravidassia-abroad.vercel.app",
-        "https://ravidassiaabroad.com",
-        "https://www.ravidassiaabroad.com",
-      ];
-
-      // ✅ Allow requests with no Origin (like iOS Safari or same-origin)
-      if (!origin || allowed.some((o) => origin.startsWith(o))) {
+      if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) {
         callback(null, true);
       } else {
-        callback(new Error("CORS not allowed for this origin: " + origin));
+        console.log("❌ Blocked CORS origin:", origin);
+        callback(new Error("CORS not allowed for this origin"));
       }
     },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
+
 
 // ---- ENV / DEFAULTS ----
 const {
