@@ -2,11 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { updateUserRole } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
-import {
-  getRecipients,
-  createUser,
-  apiFetch,
-} from "../utils/api";
+import { getRecipients, createUser, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 
 export default function AdminDashboard() {
@@ -21,6 +17,8 @@ export default function AdminDashboard() {
 
   const popup = usePopup();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   // --------------------------
   // FETCH DATA
@@ -140,6 +138,67 @@ export default function AdminDashboard() {
     },
   ];
 
+  // DELETE single record instantly (used for red buttons)
+  const handleDelete = async (type, id) => {
+    if (!window.confirm("Are you sure you want to delete this entry?")) return;
+
+    try {
+      await apiFetch(`/api/admin/${type}/${id}`, { method: "DELETE" });
+
+      // Update UI instantly
+      if (type === "scst-submissions") {
+        setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      } else if (type === "matrimonial") {
+        setMatrimonialSubs((prev) => prev.filter((s) => s.id !== id));
+      }
+
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete this entry.");
+    }
+  };
+
+  // DELETE multiple records at once (no reload)
+  const handleBulkDelete = async (type) => {
+    if (selectedIds.length === 0) {
+      alert("No items selected!");
+      return;
+    }
+
+    if (
+      !window.confirm(`Delete ${selectedIds.length} selected ${type} entries?`)
+    )
+      return;
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          apiFetch(`/api/admin/${type}/${id}`, { method: "DELETE" }).catch(
+            () => null
+          )
+        )
+      );
+
+      if (type === "scst-submissions") {
+        setSubmissions((prev) =>
+          prev.filter((s) => !selectedIds.includes(s.id))
+        );
+      } else if (type === "matrimonial") {
+        setMatrimonialSubs((prev) =>
+          prev.filter((s) => !selectedIds.includes(s.id))
+        );
+      }
+
+      setSelectedIds([]);
+      setSelectAll(false);
+      alert("Selected entries deleted successfully!");
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      alert("Some deletions failed. Check console for details.");
+    }
+  };
+
   return (
     <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
       {/* Sidebar */}
@@ -150,14 +209,20 @@ export default function AdminDashboard() {
               {[
                 { tab: "dashboard", icon: "bi-house", label: "Dashboard" },
                 { tab: "users", icon: "bi-people", label: "Users" },
-                { tab: "submissions", icon: "bi-file-earmark-text", label: "SC/ST Submissions" },
+                {
+                  tab: "submissions",
+                  icon: "bi-file-earmark-text",
+                  label: "SC/ST Submissions",
+                },
                 { tab: "recipients", icon: "bi-envelope", label: "Recipients" },
                 { tab: "matrimonial", icon: "bi-heart", label: "Matrimonial" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
                     href="#!"
-                    className={`nav-link ${activeTab === item.tab ? "active" : ""}`}
+                    className={`nav-link ${
+                      activeTab === item.tab ? "active" : ""
+                    }`}
                     onClick={() => setActiveTab(item.tab)}
                   >
                     <i className={`bi ${item.icon}`}></i> {item.label}
@@ -230,7 +295,10 @@ export default function AdminDashboard() {
                         <tbody>
                           {users.length === 0 ? (
                             <tr>
-                              <td colSpan="5" className="text-center text-muted py-4">
+                              <td
+                                colSpan="5"
+                                className="text-center text-muted py-4"
+                              >
                                 No users found.
                               </td>
                             </tr>
@@ -258,7 +326,9 @@ export default function AdminDashboard() {
                                     </option>
                                   </select>
                                 </td>
-                                <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                                <td>
+                                  {new Date(u.created_at).toLocaleDateString()}
+                                </td>
                               </tr>
                             ))
                           )}
@@ -271,13 +341,34 @@ export default function AdminDashboard() {
                 {/* SC/ST SUBMISSIONS */}
                 {activeTab === "submissions" && (
                   <div className="card shadow border-0 mb-7">
-                    <div className="card-header">
+                    <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">SC/ST Connect Submissions</h5>
+                      {selectedIds.length > 0 && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleBulkDelete("scst-submissions")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                      )}
                     </div>
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(
+                                    checked ? submissions.map((s) => s.id) : []
+                                  );
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
@@ -292,17 +383,30 @@ export default function AdminDashboard() {
                         <tbody>
                           {submissions.length === 0 ? (
                             <tr>
-                              <td colSpan="9" className="text-center text-muted py-4">
+                              <td
+                                colSpan="10"
+                                className="text-center text-muted py-4"
+                              >
                                 No submissions yet.
                               </td>
                             </tr>
                           ) : (
                             submissions.map((s) => (
-                              <tr
-                                key={s.id}
-                                style={{ cursor: "pointer" }}
-                                onClick={() => handleOpenModal(s)}
-                              >
+                              <tr key={s.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(s.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, s.id]
+                                          : prev.filter((id) => id !== s.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{s.id}</td>
                                 <td>{s.name}</td>
                                 <td>{s.email}</td>
@@ -310,19 +414,23 @@ export default function AdminDashboard() {
                                 <td>{s.city || "-"}</td>
                                 <td>{s.platform || "-"}</td>
                                 <td>{s.phone || "-"}</td>
-                                <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                <td>
+                                  {new Date(s.created_at).toLocaleDateString()}
+                                </td>
                                 <td>
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (window.confirm("Delete this submission?")) {
-                                        await apiFetch(
-                                          `/admin/scst-submissions/${s.id}`,
-                                          { method: "DELETE" }
+                                      if (
+                                        window.confirm(
+                                          "Delete this submission?"
+                                        )
+                                      ) {
+                                        await handleDelete(
+                                          "scst-submissions",
+                                          s.id
                                         );
-                                        alert("Deleted");
-                                        window.location.reload();
                                       }
                                     }}
                                   >
@@ -341,13 +449,36 @@ export default function AdminDashboard() {
                 {/* MATRIMONIAL */}
                 {activeTab === "matrimonial" && (
                   <div className="card shadow border-0 mb-7">
-                    <div className="card-header">
+                    <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Matrimonial Submissions</h5>
+                      {selectedIds.length > 0 && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleBulkDelete("matrimonial")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                      )}
                     </div>
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(
+                                    checked
+                                      ? matrimonialSubs.map((s) => s.id)
+                                      : []
+                                  );
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
@@ -360,35 +491,47 @@ export default function AdminDashboard() {
                         <tbody>
                           {matrimonialSubs.length === 0 ? (
                             <tr>
-                              <td colSpan="7" className="text-center text-muted py-4">
+                              <td
+                                colSpan="8"
+                                className="text-center text-muted py-4"
+                              >
                                 No submissions yet.
                               </td>
                             </tr>
                           ) : (
                             matrimonialSubs.map((s) => (
-                              <tr
-                                key={s.id}
-                                style={{ cursor: "pointer" }}
-                                onClick={() => handleOpenModal(s)}
-                              >
+                              <tr key={s.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(s.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, s.id]
+                                          : prev.filter((id) => id !== s.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{s.id}</td>
                                 <td>{s.name}</td>
                                 <td>{s.email}</td>
                                 <td>{s.country_living}</td>
                                 <td>{s.city_living}</td>
-                                <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                <td>
+                                  {new Date(s.created_at).toLocaleDateString()}
+                                </td>
                                 <td>
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (window.confirm("Delete this entry?")) {
-                                        await apiFetch(
-                                          `/admin/matrimonial/${s.id}`,
-                                          { method: "DELETE" }
-                                        );
-                                        alert("Deleted");
-                                        window.location.reload();
+                                      if (
+                                        window.confirm("Delete this entry?")
+                                      ) {
+                                        await handleDelete("matrimonial", s.id);
                                       }
                                     }}
                                   >
@@ -422,26 +565,54 @@ export default function AdminDashboard() {
                 <h5 className="modal-title">
                   Submission Details – {selectedSubmission.name}
                 </h5>
-                <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={handleCloseModal}
+                ></button>
               </div>
               <div className="modal-body">
                 {activeTab === "submissions" ? (
                   <div className="row g-3">
-                    <div className="col-md-6"><strong>Email:</strong> {selectedSubmission.email}</div>
-                    <div className="col-md-6"><strong>Country:</strong> {selectedSubmission.country}</div>
-                    <div className="col-md-6"><strong>City:</strong> {selectedSubmission.city || "-"}</div>
-                    <div className="col-md-6"><strong>Phone:</strong> {selectedSubmission.phone || "-"}</div>
-                    <div className="col-md-6"><strong>Platform:</strong> {selectedSubmission.platform || "-"}</div>
-                    <div className="col-md-6"><strong>Instagram:</strong> {selectedSubmission.instagram || "-"}</div>
-                    <div className="col-md-12"><strong>Proof:</strong> {selectedSubmission.proof || "-"}</div>
-                    <div className="col-md-12"><strong>Message:</strong> <pre className="mb-0">{selectedSubmission.message || "-"}</pre></div>
+                    <div className="col-md-6">
+                      <strong>Email:</strong> {selectedSubmission.email}
+                    </div>
+                    <div className="col-md-6">
+                      <strong>Country:</strong> {selectedSubmission.country}
+                    </div>
+                    <div className="col-md-6">
+                      <strong>City:</strong> {selectedSubmission.city || "-"}
+                    </div>
+                    <div className="col-md-6">
+                      <strong>Phone:</strong> {selectedSubmission.phone || "-"}
+                    </div>
+                    <div className="col-md-6">
+                      <strong>Platform:</strong>{" "}
+                      {selectedSubmission.platform || "-"}
+                    </div>
+                    <div className="col-md-6">
+                      <strong>Instagram:</strong>{" "}
+                      {selectedSubmission.instagram || "-"}
+                    </div>
+                    <div className="col-md-12">
+                      <strong>Proof:</strong> {selectedSubmission.proof || "-"}
+                    </div>
+                    <div className="col-md-12">
+                      <strong>Message:</strong>{" "}
+                      <pre className="mb-0">
+                        {selectedSubmission.message || "-"}
+                      </pre>
+                    </div>
                     <hr />
                     <div className="col-md-12 text-muted small">
-                      Submitted on {new Date(selectedSubmission.created_at).toLocaleString()}
+                      Submitted on{" "}
+                      {new Date(selectedSubmission.created_at).toLocaleString()}
                       {selectedSubmission.user_name && (
                         <>
                           <br />
-                          Linked User: <strong>{selectedSubmission.user_name}</strong> ({selectedSubmission.user_email})
+                          Linked User:{" "}
+                          <strong>{selectedSubmission.user_name}</strong> (
+                          {selectedSubmission.user_email})
                         </>
                       )}
                     </div>
@@ -451,7 +622,10 @@ export default function AdminDashboard() {
                 )}
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={handleCloseModal}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleCloseModal}
+                >
                   Close
                 </button>
               </div>
