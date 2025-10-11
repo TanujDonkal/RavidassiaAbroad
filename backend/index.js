@@ -17,6 +17,7 @@ app.use(express.json());
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow localhost, your main domain (with or without www), and Vercel previews
       const allowedPatterns = [
         /^http:\/\/localhost(:\d+)?$/,
         /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
