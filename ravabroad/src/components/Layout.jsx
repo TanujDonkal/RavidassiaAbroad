@@ -1,5 +1,5 @@
 // src/components/Layout.jsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
 
@@ -13,7 +13,23 @@ function ScrollAndInit() {
 }
 
 export default function Layout() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+ const [user, setUser] = useState(() => {
+  const stored = localStorage.getItem("user");
+  return stored ? JSON.parse(stored) : null;
+});
+
+useEffect(() => {
+  const syncAuth = () => {
+    const stored = localStorage.getItem("user");
+    setUser(stored ? JSON.parse(stored) : null);
+  };
+  window.addEventListener("storage", syncAuth);
+  window.addEventListener("auth-updated", syncAuth);
+  return () => {
+    window.removeEventListener("storage", syncAuth);
+    window.removeEventListener("auth-updated", syncAuth);
+  };
+}, []);
 
   useEffect(() => {
     const navbarToggler = document.querySelector(".navbar-toggler");
