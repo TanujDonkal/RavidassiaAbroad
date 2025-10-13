@@ -1,49 +1,42 @@
-import React, { useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { Modal } from "bootstrap";
 import { apiFetch } from "../utils/api";
 
 export default function MatrimonialForm() {
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const thanksRef = useRef(null);
+  const [thanksModal, setThanksModal] = useState(null);
+
+  useEffect(() => {
+    if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
+    document.title = "Ravidassia Matrimonial Form 💍";
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
+
     const fd = new FormData(e.currentTarget);
     const data = Object.fromEntries(fd.entries());
 
     try {
-      await apiFetch("/matrimonial-submissions", {
+      const res = await apiFetch("/matrimonial-submissions", {
         method: "POST",
         body: JSON.stringify(data),
       });
-      setSubmitted(true);
+
+      // ✅ Show success popup
+      e.target.reset();
+      thanksModal && thanksModal.show();
     } catch (err) {
-      alert("❌ Error submitting form. Please try again later.");
+      console.error("Matrimonial submit error:", err);
+      setError(err.message || "Something went wrong. Please try again later.");
     } finally {
       setLoading(false);
     }
   };
-
-  if (submitted) {
-    return (
-      <div className="container py-5 text-center">
-        <h2 className="text-success mb-3">✅ Submitted Successfully!</h2>
-        <p className="lead">
-          Your biodata has been saved for marriage purposes only.  
-          Follow us on Instagram:
-          <a
-            href="https://instagram.com/RavidassiaAbroadMatrimonials"
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary fw-bold ms-1"
-          >
-            @RavidassiaAbroadMatrimonials
-          </a>
-          .
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="container py-5">
@@ -53,9 +46,21 @@ export default function MatrimonialForm() {
         community. We never sell or misuse your data.
       </p>
 
-      <form className="mx-auto" style={{ maxWidth: 800 }} onSubmit={handleSubmit}>
+      {error && (
+        <div className="alert alert-danger text-center" role="alert">
+          {error}
+        </div>
+      )}
+
+      <form
+        className="mx-auto bg-light p-4 rounded shadow-sm"
+        style={{ maxWidth: 800 }}
+        onSubmit={handleSubmit}
+      >
         {/* Personal Info */}
-        <h5 className="border-bottom pb-2 mb-3 text-primary">Personal Details</h5>
+        <h5 className="border-bottom pb-2 mb-3 text-primary">
+          Personal Details
+        </h5>
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Full Name *</label>
@@ -84,7 +89,9 @@ export default function MatrimonialForm() {
         <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">Location</h5>
         <div className="row g-3">
           <div className="col-md-6">
-            <label className="form-label">Currently Living In (Country) *</label>
+            <label className="form-label">
+              Currently Living In (Country) *
+            </label>
             <input name="country_living" className="form-control" required />
           </div>
           <div className="col-md-6">
@@ -109,7 +116,9 @@ export default function MatrimonialForm() {
         </div>
 
         {/* Professional Info */}
-        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">Education & Profession</h5>
+        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">
+          Education & Profession
+        </h5>
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Education *</label>
@@ -126,7 +135,9 @@ export default function MatrimonialForm() {
         </div>
 
         {/* Family Info */}
-        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">Family Background</h5>
+        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">
+          Family Background
+        </h5>
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Father’s Occupation</label>
@@ -138,16 +149,26 @@ export default function MatrimonialForm() {
           </div>
           <div className="col-md-12">
             <label className="form-label">Family Details</label>
-            <textarea name="family_details" className="form-control" rows="2"></textarea>
+            <textarea
+              name="family_details"
+              className="form-control"
+              rows="2"
+            ></textarea>
           </div>
         </div>
 
         {/* Partner Preferences */}
-        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">Partner Preferences</h5>
+        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">
+          Partner Preferences
+        </h5>
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Preferred Age Range</label>
-            <input name="partner_age" className="form-control" placeholder="e.g. 25-30" />
+            <input
+              name="partner_age"
+              className="form-control"
+              placeholder="e.g. 25-30"
+            />
           </div>
           <div className="col-md-6">
             <label className="form-label">Preferred Country</label>
@@ -155,7 +176,11 @@ export default function MatrimonialForm() {
           </div>
           <div className="col-md-12">
             <label className="form-label">Other Expectations</label>
-            <textarea name="partner_expectations" className="form-control" rows="2"></textarea>
+            <textarea
+              name="partner_expectations"
+              className="form-control"
+              rows="2"
+            ></textarea>
           </div>
         </div>
 
@@ -191,7 +216,7 @@ export default function MatrimonialForm() {
         </div>
       </form>
 
-      {/* Privacy Policy Modal */}
+      {/* Privacy Modal */}
       <div
         className="modal fade"
         id="privacyModal"
@@ -213,13 +238,64 @@ export default function MatrimonialForm() {
               <p>
                 Your submitted details will be used solely for matrimonial
                 matchmaking purposes within the Ravidassia community. We never
-                sell, share, or misuse your data. You will not be charged any
-                money for submission or matchmaking. You can request removal of
+                sell, share, or misuse your data. You can request removal of
                 your data at any time.
               </p>
               <p className="text-muted mb-0">
                 © 2025 Ravidassia Abroad Matrimonials
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* === Success Modal === */}
+      <div
+        className="modal fade"
+        id="thanksModal"
+        tabIndex="-1"
+        ref={thanksRef}
+        aria-labelledby="thanksTitle"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 id="thanksTitle" className="modal-title">
+                ✅ Submission Successful!
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              />
+            </div>
+            <div className="modal-body">
+              <p className="mb-0">
+                Thank you for submitting your biodata! Our team will review your
+                details and reach out if a suitable match is found.
+              </p>
+              <p className="mt-2 small text-muted">
+                Follow us on Instagram:
+                <a
+                  href="https://instagram.com/RavidassiaAbroadMatrimonials"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ms-1 fw-bold text-primary"
+                >
+                  @RavidassiaAbroadMatrimonials
+                </a>
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-primary"
+                data-bs-dismiss="modal"
+              >
+                Ok, got it
+              </button>
             </div>
           </div>
         </div>
