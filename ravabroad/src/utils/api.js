@@ -1,12 +1,17 @@
 // src/utils/api.js
+// ✅ We keep "/api" only here — not in each fetch path
 const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
-// Helper to get token from localStorage
+// ----------------------------
+// Helper to get token
+// ----------------------------
 function getToken() {
   return localStorage.getItem("token") || null;
 }
 
+// ----------------------------
 // Generic request wrapper
+// ----------------------------
 export async function apiFetch(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -15,23 +20,21 @@ export async function apiFetch(path, options = {}) {
 
   // attach JWT if logged in
   const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
+    console.error("API error response:", res.status, data);
     throw new Error(data.message || "API error");
   }
   return data;
 }
 
-// Convenience functions
+// ----------------------------
+// Auth endpoints
+// ----------------------------
 export function register(user) {
   return apiFetch("/auth/register", {
     method: "POST",
@@ -50,22 +53,24 @@ export function getMe() {
   return apiFetch("/auth/me");
 }
 
-export function submitSCST(payload) {
-  return apiFetch("/scst-submissions", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+// ----------------------------
+// SC/ST & Matrimonial Admin
+// ----------------------------
+export function getSCSTSubmissions() {
+  return apiFetch("/admin/scst-submissions");
 }
 
-export function approveSubmission(id) {
-  return apiFetch(`/admin/scst-submissions/${id}/approve`, { method: "POST" });
+export function getMatrimonialSubmissions() {
+  return apiFetch("/admin/matrimonial");
 }
 
-export function rejectSubmission(id) {
-  return apiFetch(`/admin/scst-submissions/${id}/reject`, { method: "POST" });
+export function deleteSubmission(type, id) {
+  return apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
 }
 
-
+// ----------------------------
+// Recipients & Users
+// ----------------------------
 export function getRecipients() {
   return apiFetch("/admin/recipients");
 }
@@ -78,21 +83,18 @@ export function addRecipient(email) {
 }
 
 export function deleteRecipient(id) {
-  return apiFetch(`/admin/recipients/${id}`, {
-    method: "DELETE",
-  });
+  return apiFetch(`/admin/recipients/${id}`, { method: "DELETE" });
 }
 
-
-// ✅ Update a user's role (Main Admin only)
+// ----------------------------
+// User Management
+// ----------------------------
 export function updateUserRole(userId, role) {
   return apiFetch(`/admin/users/${userId}/role`, {
     method: "PUT",
     body: JSON.stringify({ role }),
   });
 }
-
-
 
 export function createUser(data) {
   return apiFetch("/admin/create-user", {

@@ -143,7 +143,7 @@ export default function AdminDashboard() {
     if (!window.confirm("Are you sure you want to delete this entry?")) return;
 
     try {
-      await apiFetch(`/api/admin/${type}/${id}`, { method: "DELETE" });
+      await apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
 
       // Update UI instantly
       if (type === "scst-submissions") {
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
     try {
       await Promise.all(
         selectedIds.map((id) =>
-          apiFetch(`/api/admin/${type}/${id}`, { method: "DELETE" }).catch(
+          apiFetch(`/admin/${type}/${id}`, { method: "DELETE" }).catch(
             () => null
           )
         )
@@ -420,18 +420,9 @@ export default function AdminDashboard() {
                                 <td>
                                   <button
                                     className="btn btn-sm btn-danger"
-                                    onClick={async (e) => {
+                                    onClick={(e) => {
                                       e.stopPropagation();
-                                      if (
-                                        window.confirm(
-                                          "Delete this submission?"
-                                        )
-                                      ) {
-                                        await handleDelete(
-                                          "scst-submissions",
-                                          s.id
-                                        );
-                                      }
+                                      handleDelete("scst-submissions", s.id);
                                     }}
                                   >
                                     Delete
@@ -532,6 +523,120 @@ export default function AdminDashboard() {
                                         window.confirm("Delete this entry?")
                                       ) {
                                         await handleDelete("matrimonial", s.id);
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* RECIPIENTS */}
+                {activeTab === "recipients" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Notification Recipients</h5>
+                      <form
+                        className="d-flex align-items-center gap-2"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const email = e.target.email.value.trim();
+                          if (!email) return;
+                          try {
+                            await apiFetch("/admin/recipients", {
+                              method: "POST",
+                              body: JSON.stringify({ email }),
+                            });
+                            popup.open({
+                              title: "✅ Added",
+                              message: `${email} will now receive notifications`,
+                              type: "success",
+                            });
+                            e.target.reset();
+                            const data = await getRecipients();
+                            setRecipients(Array.isArray(data) ? data : []);
+                          } catch (err) {
+                            popup.open({
+                              title: "❌ Error",
+                              message: err.message,
+                              type: "error",
+                            });
+                          }
+                        }}
+                      >
+                        <input
+                          type="email"
+                          name="email"
+                          placeholder="Enter email"
+                          className="form-control form-control-sm"
+                          style={{ width: 250 }}
+                          required
+                        />
+                        <button
+                          type="submit"
+                          className="btn btn-sm btn-primary"
+                        >
+                          Add
+                        </button>
+                      </form>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Email</th>
+                            <th>Added</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recipients.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="4"
+                                className="text-center text-muted py-4"
+                              >
+                                No recipient emails added yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            recipients.map((r) => (
+                              <tr key={r.id}>
+                                <td>{r.id}</td>
+                                <td>{r.email}</td>
+                                <td>
+                                  {new Date(r.created_at).toLocaleDateString()}
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={async () => {
+                                      if (
+                                        window.confirm(`Remove ${r.email}?`)
+                                      ) {
+                                        await apiFetch(
+                                          `/admin/recipients/${r.id}`,
+                                          {
+                                            method: "DELETE",
+                                          }
+                                        );
+                                        setRecipients((prev) =>
+                                          prev.filter((x) => x.id !== r.id)
+                                        );
+                                        popup.open({
+                                          title: "🗑️ Removed",
+                                          message: `${r.email} will no longer receive alerts`,
+                                          type: "success",
+                                        });
                                       }
                                     }}
                                   >
