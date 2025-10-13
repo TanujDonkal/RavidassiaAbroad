@@ -5,12 +5,15 @@ import pkg from "pg";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 dotenv.config();
 
 const { Pool } = pkg;
 const app = express();
-app.use(express.json());
+
 
 // ---- CORS ----
 app.use(
@@ -34,6 +37,22 @@ app.use(
   })
 );
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "ravidassia_matrimonials",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  },
+});
+const upload = multer({ storage });
 // ---- ENV ----
 const {
   PORT = 5000,
@@ -302,10 +321,15 @@ app.post("/api/scst-submissions", async (req, res) => {
 });
 
 // ---- MATRIMONIAL SUBMISSION ----
-app.post("/api/matrimonial-submissions", async (req, res) => {
+const uploadFields = upload.fields([{ name: "photo", maxCount: 1 }]);
+app.post("/api/matrimonial-submissions", uploadFields, async (req, res) => {
   try {
+    console.log("Incoming fields:", req.body);
+console.log("Incoming file:", req.file);
+
     const d = req.body || {};
     const userId = decodeUserIfAny(req)?.id ?? null;
+    const photoUrl = req.file ? req.file.path : null; // 👈 Cloudinary URL if photo uploaded
 
     if (!d.name || !d.email || !d.country_living)
       return res.status(400).json({ message: "Required fields missing" });
@@ -313,16 +337,17 @@ app.post("/api/matrimonial-submissions", async (req, res) => {
     await pool.query(
       `INSERT INTO matrimonial_submissions
         (user_id,name,gender,age,dob,height,marital_status,phone,email,instagram,
-        country_living,state_living,city_living,origin_state,origin_district,current_status,
-        education,occupation,company_or_institution,income_range)
-        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+         country_living,state_living,city_living,origin_state,origin_district,current_status,
+         education,occupation,company_or_institution,income_range,photo_url)
+       VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [
         userId,
         d.name, d.gender, d.age, d.dob, d.height, d.marital_status,
         d.phone, d.email, d.instagram, d.country_living, d.state_living,
         d.city_living, d.origin_state, d.origin_district, d.current_status,
-        d.education, d.occupation, d.company_or_institution, d.income_range
+        d.education, d.occupation, d.company_or_institution, d.income_range,
+        photoUrl
       ]
     );
 
@@ -334,8 +359,7 @@ app.post("/api/matrimonial-submissions", async (req, res) => {
         <p><strong>Email:</strong> ${d.email}</p>
         <p><strong>Country:</strong> ${d.country_living}</p>
         <p><strong>City:</strong> ${d.city_living}</p>
-        <p><strong>Gender:</strong> ${d.gender}</p>
-        <p><strong>Occupation:</strong> ${d.occupation}</p>
+        ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
         <hr>
         <p>Log in to your admin dashboard to view this biodata.</p>
       `
@@ -347,6 +371,7 @@ app.post("/api/matrimonial-submissions", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ---- ADMIN ROUTES ----
 app.get("/api/admin/scst-submissions", requireAuth, requireAdmin, async (req, res) => {

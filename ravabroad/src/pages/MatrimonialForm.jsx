@@ -5,6 +5,7 @@ import { apiFetch } from "../utils/api";
 export default function MatrimonialForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState(null); // 👈 Preview selected image
   const thanksRef = useRef(null);
   const [thanksModal, setThanksModal] = useState(null);
 
@@ -18,17 +19,23 @@ export default function MatrimonialForm() {
     setLoading(true);
     setError("");
 
-    const fd = new FormData(e.currentTarget);
-    const data = Object.fromEntries(fd.entries());
+    // Use FormData so the image file uploads
+    const formData = new FormData(e.currentTarget);
 
     try {
-      const res = await apiFetch("/matrimonial-submissions", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/matrimonial-submissions`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to submit form");
 
       // ✅ Show success popup
       e.target.reset();
+      setPreview(null);
       thanksModal && thanksModal.show();
     } catch (err) {
       console.error("Matrimonial submit error:", err);
@@ -56,6 +63,7 @@ export default function MatrimonialForm() {
         className="mx-auto bg-light p-4 rounded shadow-sm"
         style={{ maxWidth: 800 }}
         onSubmit={handleSubmit}
+        encType="multipart/form-data"
       >
         {/* Personal Info */}
         <h5 className="border-bottom pb-2 mb-3 text-primary">
@@ -130,7 +138,11 @@ export default function MatrimonialForm() {
           </div>
           <div className="col-md-12">
             <label className="form-label">Work / Study Details</label>
-            <textarea name="work_details" className="form-control" rows="2"></textarea>
+            <textarea
+              name="work_details"
+              className="form-control"
+              rows="2"
+            ></textarea>
           </div>
         </div>
 
@@ -184,6 +196,34 @@ export default function MatrimonialForm() {
           </div>
         </div>
 
+        {/* Optional Photo Upload */}
+        <h5 className="border-bottom pb-2 mb-3 mt-4 text-primary">
+          Profile Picture
+        </h5>
+        <div className="mb-3">
+          <label className="form-label">Upload Your Photo (optional)</label>
+          <input
+            type="file"
+            name="photo"
+            accept="image/*"
+            className="form-control"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) setPreview(URL.createObjectURL(file));
+            }}
+          />
+          {preview && (
+            <div className="mt-3 text-center">
+              <img
+                src={preview}
+                alt="preview"
+                className="rounded shadow-sm"
+                width="120"
+              />
+            </div>
+          )}
+        </div>
+
         {/* Privacy Policy */}
         <div className="form-check mt-4">
           <input
@@ -215,39 +255,6 @@ export default function MatrimonialForm() {
           </button>
         </div>
       </form>
-
-      {/* Privacy Modal */}
-      <div
-        className="modal fade"
-        id="privacyModal"
-        tabIndex="-1"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Privacy Policy</h5>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="modal-body">
-              <p>
-                Your submitted details will be used solely for matrimonial
-                matchmaking purposes within the Ravidassia community. We never
-                sell, share, or misuse your data. You can request removal of
-                your data at any time.
-              </p>
-              <p className="text-muted mb-0">
-                © 2025 Ravidassia Abroad Matrimonials
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* === Success Modal === */}
       <div
