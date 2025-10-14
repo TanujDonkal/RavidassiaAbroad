@@ -1,3 +1,4 @@
+// src/components/FormSubmitOverlay.jsx
 import React, { useEffect, useState } from "react";
 import "../css/FormSubmitOverlay.css";
 
@@ -6,19 +7,17 @@ export default function FormSubmitOverlay() {
 
   useEffect(() => {
     let activeSubmits = 0;
-
-    // Wrap native fetch to detect form submissions
     const originalFetch = window.fetch;
+
     window.fetch = async (...args) => {
       const [url, options] = args;
 
-      // Detect form POSTs
-      const isFormPost =
-        options?.method?.toUpperCase() === "POST" &&
-        (options?.body instanceof FormData ||
-          options?.headers?.["Content-Type"]?.includes("application/json"));
+      // ✅ Detect only real form submissions — NOT API login etc.
+      const isFormSubmission =
+        options?.body instanceof FormData &&
+        !(url.includes("/auth/login") || url.includes("/auth/register"));
 
-      if (isFormPost) {
+      if (isFormSubmission) {
         activeSubmits++;
         setVisible(true);
       }
@@ -27,9 +26,9 @@ export default function FormSubmitOverlay() {
         const res = await originalFetch(...args);
         return res;
       } finally {
-        if (isFormPost) {
+        if (isFormSubmission) {
           activeSubmits--;
-          if (activeSubmits === 0) setVisible(false);
+          if (activeSubmits <= 0) setVisible(false);
         }
       }
     };
@@ -50,4 +49,3 @@ export default function FormSubmitOverlay() {
     </div>
   );
 }
-    
