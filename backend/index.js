@@ -14,7 +14,28 @@ dotenv.config();
 const { Pool } = pkg;
 const app = express();
 
+// Safely decode token if exists in Authorization header
+function decodeUserIfAny(req) {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    if (!token) return null;
 
+    // Verify and decode JWT using your secret
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Return the essential user info
+    return {
+      id: decoded.id,
+      name: decoded.name,
+      email: decoded.email,
+      role: decoded.role || "user",
+    };
+  } catch (err) {
+    console.warn("⚠️ JWT decode failed:", err.message);
+    return null;
+  }
+}
 // ---- CORS ----
 app.use(
   cors({
@@ -22,7 +43,7 @@ app.use(
       const allowedPatterns = [
         /^http:\/\/localhost(:\d+)?$/,
         /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
-        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/
+        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
       ];
       if (!origin || allowedPatterns.some((re) => re.test(origin))) {
         callback(null, true);
@@ -46,7 +67,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
 
 // Helper function for reusable uploaders
 function makeUploader(folder) {
@@ -85,7 +105,7 @@ const {
   JWT_SECRET = "dev_secret",
   SMTP_USER,
   SMTP_PASS,
-  ADMIN_NOTIFY_TO
+  ADMIN_NOTIFY_TO,
 } = process.env;
 
 // ---- DB POOL ----
@@ -171,7 +191,6 @@ async function initDB() {
     );
   `);
 
-
   await pool.query(`
   CREATE TABLE IF NOT EXISTS content_requests (
     id SERIAL PRIMARY KEY,
@@ -184,7 +203,6 @@ async function initDB() {
   );
 `);
 
-
   console.log("✅ Database initialized");
 }
 
@@ -195,16 +213,6 @@ function getBearerToken(req) {
   return parts.length === 2 && parts[0].toLowerCase() === "bearer"
     ? parts[1]
     : null;
-}
-
-function decodeUserIfAny(req) {
-  const token = getBearerToken(req);
-  if (!token) return null;
-  try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
-    return null;
-  }
 }
 
 function requireAuth(req, res, next) {
@@ -259,7 +267,9 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
 
     email = email.toLowerCase();
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [email]);
+    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
+      email,
+    ]);
     if (existing.rows.length)
       return res.status(409).json({ message: "Email already registered" });
 
@@ -315,7 +325,6 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-
 // ✅ CURRENT USER – return full info from DB
 app.get("/api/auth/me", requireAuth, async (req, res) => {
   try {
@@ -325,12 +334,12 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
     );
 
     if (!result.rows.length)
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
 
     res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error('Fetch current user error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Fetch current user error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -339,16 +348,41 @@ app.post("/api/scst-submissions", async (req, res) => {
   try {
     const u = decodeUserIfAny(req);
     const userId = u?.id ?? null;
-    const { name, email, country, state, city, phone, platform, instagram, proof, message } = req.body || {};
+    const {
+      name,
+      email,
+      country,
+      state,
+      city,
+      phone,
+      platform,
+      instagram,
+      proof,
+      message,
+    } = req.body || {};
 
     if (!name || !email || !country)
-      return res.status(400).json({ message: "name, email, and country required" });
+      return res
+        .status(400)
+        .json({ message: "name, email, and country required" });
 
     await pool.query(
       `INSERT INTO scst_submissions
        (user_id,name,email,country,state,city,phone,platform,instagram,proof,message,status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')`,
-      [userId, name, email, country, state, city, phone, platform, instagram, proof, message]
+      [
+        userId,
+        name,
+        email,
+        country,
+        state,
+        city,
+        phone,
+        platform,
+        instagram,
+        proof,
+        message,
+      ]
     );
 
     await sendNotificationEmail(
@@ -374,167 +408,271 @@ app.post("/api/scst-submissions", async (req, res) => {
     console.error("SCST submission error:", err);
     res.status(500).json({ message: "Server error" });
   }
-}); 
+});
 
-// ---- MATRIMONIAL SUBMISSION (Optimized) ----
-const uploadSingle = uploadMatrimonial.single("photo"); // single upload field
+// ---- MATRIMONIAL SUBMISSION (Updated with new fields) ----
 
-app.post("/api/matrimonial-submissions", async (req, res) => {
+app.post("/api/matrimonial-submissions", uploadMatrimonial.single("photo"), async (req, res) => {
   try {
-    // Parse incoming form data manually
     const d = req.body || {};
     const userId = decodeUserIfAny(req)?.id ?? null;
 
-    if (!d.name || !d.email || !d.country_living)
-      return res.status(400).json({ message: "Required fields missing" });
+    console.log("🧾 Parsed form body:", d);
+    console.log("📸 File info:", req.file);
 
-    // ✅ Insert record first with no photo_url
+    // ✅ Safety checks
+    if (!d.name?.trim() || !d.email?.trim() || !d.country_living?.trim()) {
+      console.log("❌ Missing required:", { name: d.name, email: d.email, country: d.country_living });
+      return res.status(400).json({ message: "Required fields missing" });
+    }
+
+    // ✅ Normalize date
+    const dobValue = d.dob && d.dob.trim() !== "" ? d.dob : null;
+
+    // ✅ Insert into DB
     const insertRes = await pool.query(
       `INSERT INTO matrimonial_submissions
-        (user_id,name,gender,age,dob,height,marital_status,phone,email,instagram,
-         country_living,state_living,city_living,origin_state,origin_district,current_status,
-         education,occupation,company_or_institution,income_range)
+       (user_id, name, gender, age, dob, height, marital_status,
+        phone, email, instagram, country_living, state_living, city_living,
+        origin_state, origin_district, current_status, education, occupation,
+        company_or_institution, income_range, caste, religion_beliefs)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       ($1,$2,$3,$4,$5,$6,$7,
+        $8,$9,$10,$11,$12,$13,
+        $14,$15,$16,$17,$18,
+        $19,$20,$21,$22)
        RETURNING id`,
       [
         userId,
-        d.name, d.gender, d.age, d.dob, d.height, d.marital_status,
-        d.phone, d.email, d.instagram, d.country_living, d.state_living,
-        d.city_living, d.origin_state, d.origin_district, d.current_status,
-        d.education, d.occupation, d.company_or_institution, d.income_range,
+        d.name,
+        d.gender,
+        d.age || null,
+        dobValue,
+        d.height || null,
+        d.marital_status || null,
+        d.phone || null,
+        d.email,
+        d.instagram || null,
+        d.country_living,
+        d.state_living || null,
+        d.city_living || null,
+        d.origin_state || null,
+        d.origin_district || null,
+        d.current_status || null,
+        d.education || null,
+        d.occupation || null,
+        d.company_or_institution || null,
+        d.income_range || null,
+        d.caste || null,
+        d.religion_beliefs || null,
       ]
     );
 
     const newId = insertRes.rows[0].id;
 
-    // ✅ Respond immediately (super fast)
+    // ✅ Save photo URL
+    const photoUrl = req.file?.path || null;
+    if (photoUrl) {
+      await pool.query(
+        "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
+        [photoUrl, newId]
+      );
+    }
+
+    // ✅ Notify admins
+    sendNotificationEmail(
+      "💍 New Matrimonial Submission",
+      `
+        <h3>New Matrimonial Form Submitted</h3>
+        <p><strong>Name:</strong> ${d.name}</p>
+        <p><strong>Email:</strong> ${d.email}</p>
+        <p><strong>Country:</strong> ${d.country_living}</p>
+        <p><strong>City:</strong> ${d.city_living || "-"}</p>
+        ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
+        ${d.religion_beliefs ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>` : ""}
+        ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
+        <hr>
+        <p>Log in to your admin dashboard to view this biodata.</p>
+      `
+    ).catch((err) => console.error("⚠️ Matrimonial email failed:", err.message));
+
     res.json({ message: "✅ Biodata submitted successfully!" });
-
-    // 📸 Upload photo in background (non-blocking)
-    uploadSingle(req, res, async (uploadErr) => {
-      if (uploadErr) {
-        console.warn("⚠️ Photo upload failed:", uploadErr.message);
-        return;
-      }
-
-      const photoUrl = req.file?.path || null;
-      if (photoUrl) {
-        await pool.query(
-          "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
-          [photoUrl, newId]
-        );
-      }
-
-      // 📧 Send email notification in background too
-      sendNotificationEmail(
-        "💍 New Matrimonial Submission",
-        `
-          <h3>New Matrimonial Form Submitted</h3>
-          <p><strong>Name:</strong> ${d.name}</p>
-          <p><strong>Email:</strong> ${d.email}</p>
-          <p><strong>Country:</strong> ${d.country_living}</p>
-          <p><strong>City:</strong> ${d.city_living}</p>
-          ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
-          <hr>
-          <p>Log in to your admin dashboard to view this biodata.</p>
-        `
-      )
-        .then(() => console.log("📧 Matrimonial email sent"))
-        .catch((err) =>
-          console.error("⚠️ Matrimonial email failed:", err.message)
-        );
-    });
   } catch (err) {
     console.error("❌ Matrimonial submit error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// ✅ Fetch the logged-in user's submitted matrimonial biodata
+app.get("/api/matrimonial-submissions/mine", async (req, res) => {
+  try {
+    const user = decodeUserIfAny(req); // use the helper you added earlier
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: user not logged in" });
+    }
 
+    const result = await pool.query(
+      "SELECT * FROM matrimonial_submissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [user.id]
+    );
 
+    if (!result.rows.length) {
+      return res.json({ exists: false, data: null });
+    }
+
+    res.json({ exists: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Error fetching my matrimonial submission:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // ---- ADMIN ROUTES ----
-app.get("/api/admin/scst-submissions", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM scst_submissions ORDER BY created_at DESC");
+app.get(
+  "/api/admin/scst-submissions",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM scst_submissions ORDER BY created_at DESC"
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Admin SCST fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/scst-submissions/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const id = req.params.id;
+      await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
+      res.json({ message: "Deleted successfully" });
+    } catch (err) {
+      console.error("SC/ST delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.get(
+  "/api/admin/matrimonial",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM matrimonial_submissions ORDER BY created_at DESC"
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Matrimonial fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/matrimonial/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM matrimonial_submissions WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "Deleted successfully" });
+    } catch (err) {
+      console.error("Matrimonial delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.get(
+  "/api/admin/recipients",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const result = await pool.query(
+      "SELECT * FROM recipients ORDER BY created_at DESC"
+    );
     res.json(result.rows);
-  } catch (err) {
-    console.error("Admin SCST fetch error:", err);
-    res.status(500).json({ message: "Server error" });
   }
-});
+);
 
-app.delete("/api/admin/scst-submissions/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("SC/ST delete error:", err);
-    res.status(500).json({ message: "Server error" });
+app.post(
+  "/api/admin/recipients",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+    await pool.query(
+      "INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING",
+      [email]
+    );
+    res.json({ message: "Recipient added" });
   }
-});
+);
 
-app.get("/api/admin/matrimonial", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM matrimonial_submissions ORDER BY created_at DESC");
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Matrimonial fetch error:", err);
-    res.status(500).json({ message: "Server error" });
+app.delete(
+  "/api/admin/recipients/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
+    res.json({ message: "Recipient removed" });
   }
-});
-
-app.delete("/api/admin/matrimonial/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    await pool.query("DELETE FROM matrimonial_submissions WHERE id=$1", [req.params.id]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("Matrimonial delete error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.get("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
-  const result = await pool.query("SELECT * FROM recipients ORDER BY created_at DESC");
-  res.json(result.rows);
-});
-
-app.post("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Email required" });
-  await pool.query("INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING", [email]);
-  res.json({ message: "Recipient added" });
-});
-
-app.delete("/api/admin/recipients/:id", requireAuth, requireAdmin, async (req, res) => {
-  await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
-  res.json({ message: "Recipient removed" });
-});
-
-
+);
 
 // Get all recipients
-app.get("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
-  const result = await pool.query("SELECT * FROM recipients ORDER BY created_at DESC");
-  res.json(result.rows);
-});
+app.get(
+  "/api/admin/recipients",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const result = await pool.query(
+      "SELECT * FROM recipients ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  }
+);
 
 // Add a recipient
-app.post("/api/admin/recipients", requireAuth, requireAdmin, async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Email required" });
-  await pool.query("INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING", [email]);
-  res.json({ message: "Recipient added" });
-});
+app.post(
+  "/api/admin/recipients",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+    await pool.query(
+      "INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING",
+      [email]
+    );
+    res.json({ message: "Recipient added" });
+  }
+);
 
 // Delete a recipient
-app.delete("/api/admin/recipients/:id", requireAuth, requireAdmin, async (req, res) => {
-  await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
-  res.json({ message: "Recipient removed" });
-});
-
+app.delete(
+  "/api/admin/recipients/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
+    res.json({ message: "Recipient removed" });
+  }
+);
 
 // ---- ADMIN USERS ----
 app.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
@@ -549,57 +687,67 @@ app.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+app.put(
+  "/api/admin/users/:id/role",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    const { role } = req.body;
+    await pool.query("UPDATE users SET role=$1 WHERE id=$2", [role, id]);
+    res.json({ message: "Role updated" });
+  }
+);
 
-app.put("/api/admin/users/:id/role", requireAuth, requireAdmin, async (req, res) => {
-  const { id } = req.params;
-  const { role } = req.body;
-  await pool.query("UPDATE users SET role=$1 WHERE id=$2", [role, id]);
-  res.json({ message: "Role updated" });
-});
+app.post(
+  "/api/user/update-profile",
+  uploadProfile.single("photo"),
+  async (req, res) => {
+    try {
+      const u = decodeUserIfAny(req);
+      if (!u) return res.status(401).json({ message: "Unauthorized" });
 
+      const d = req.body;
+      const newPhotoUrl = req.file ? req.file.path : null;
 
-app.post("/api/user/update-profile", uploadProfile.single("photo"), async (req, res) => {
-  try {
-    const u = decodeUserIfAny(req);
-    if (!u) return res.status(401).json({ message: "Unauthorized" });
+      // Fetch old photo
+      const oldPhotoRes = await pool.query(
+        "SELECT photo_url FROM users WHERE id = $1",
+        [u.id]
+      );
+      const oldPhotoUrl = oldPhotoRes.rows[0]?.photo_url || null;
 
-    const d = req.body;
-    const newPhotoUrl = req.file ? req.file.path : null;
-
-    // Fetch old photo
-    const oldPhotoRes = await pool.query("SELECT photo_url FROM users WHERE id = $1", [u.id]);
-    const oldPhotoUrl = oldPhotoRes.rows[0]?.photo_url || null;
-
-    // Update user info
-    await pool.query(
-      `UPDATE users
+      // Update user info
+      await pool.query(
+        `UPDATE users
        SET name=$1, phone=$2, city=$3, photo_url=COALESCE($4, photo_url)
        WHERE id=$5`,
-      [d.name, d.phone, d.city, newPhotoUrl, u.id]
-    );
+        [d.name, d.phone, d.city, newPhotoUrl, u.id]
+      );
 
-    // 🧹 Delete old Cloudinary photo if replaced
-    if (newPhotoUrl && oldPhotoUrl) {
-      try {
-        const oldPublicId = oldPhotoUrl.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(`ravidassia_profile_dp/${oldPublicId}`);
-        console.log(`🧹 Deleted old profile photo: ${oldPublicId}`);
-      } catch (err) {
-        console.warn("⚠️ Failed to delete old profile photo:", err.message);
+      // 🧹 Delete old Cloudinary photo if replaced
+      if (newPhotoUrl && oldPhotoUrl) {
+        try {
+          const oldPublicId = oldPhotoUrl.split("/").pop().split(".")[0];
+          await cloudinary.uploader.destroy(
+            `ravidassia_profile_dp/${oldPublicId}`
+          );
+          console.log(`🧹 Deleted old profile photo: ${oldPublicId}`);
+        } catch (err) {
+          console.warn("⚠️ Failed to delete old profile photo:", err.message);
+        }
       }
+
+      res.json({
+        message: "✅ Profile updated successfully!",
+        photo_url: newPhotoUrl || oldPhotoUrl,
+      });
+    } catch (err) {
+      console.error("Profile update error:", err);
+      res.status(500).json({ message: "Server error" });
     }
-
-    res.json({
-      message: "✅ Profile updated successfully!",
-      photo_url: newPhotoUrl || oldPhotoUrl,
-    });
-  } catch (err) {
-    console.error("Profile update error:", err);
-    res.status(500).json({ message: "Server error" });
   }
-});
-
-
+);
 
 // ---- CONTENT REQUEST ----
 // Public submission
@@ -623,29 +771,40 @@ app.post("/api/content-requests", async (req, res) => {
 });
 
 // Admin view
-app.get("/api/admin/content-requests", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM content_requests ORDER BY created_at DESC"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Fetch content requests error:", err);
-    res.status(500).json({ message: "Server error" });
+app.get(
+  "/api/admin/content-requests",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM content_requests ORDER BY created_at DESC"
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Fetch content requests error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // Admin delete
-app.delete("/api/admin/content-requests/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    await pool.query("DELETE FROM content_requests WHERE id=$1", [req.params.id]);
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("Delete content request error:", err);
-    res.status(500).json({ message: "Server error" });
+app.delete(
+  "/api/admin/content-requests/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM content_requests WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "Deleted successfully" });
+    } catch (err) {
+      console.error("Delete content request error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
-
+);
 
 // ---- START SERVER ----
 app.listen(PORT, () => {
