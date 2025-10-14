@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
+import { apiFetch } from "../utils/api";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -13,23 +14,23 @@ function ScrollAndInit() {
 }
 
 export default function Layout() {
- const [user, setUser] = useState(() => {
-  const stored = localStorage.getItem("user");
-  return stored ? JSON.parse(stored) : null;
-});
-
-useEffect(() => {
-  const syncAuth = () => {
+  const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("user");
-    setUser(stored ? JSON.parse(stored) : null);
-  };
-  window.addEventListener("storage", syncAuth);
-  window.addEventListener("auth-updated", syncAuth);
-  return () => {
-    window.removeEventListener("storage", syncAuth);
-    window.removeEventListener("auth-updated", syncAuth);
-  };
-}, []);
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  useEffect(() => {
+    const syncAuth = () => {
+      const stored = localStorage.getItem("user");
+      setUser(stored ? JSON.parse(stored) : null);
+    };
+    window.addEventListener("storage", syncAuth);
+    window.addEventListener("auth-updated", syncAuth);
+    return () => {
+      window.removeEventListener("storage", syncAuth);
+      window.removeEventListener("auth-updated", syncAuth);
+    };
+  }, []);
 
   useEffect(() => {
     const navbarToggler = document.querySelector(".navbar-toggler");
@@ -58,35 +59,50 @@ useEffect(() => {
     return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const handleContentRequestSubmit = (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const name = (fd.get("name") || "").toString().trim();
-    const email = (fd.get("email") || "").toString().trim();
-    const type = (fd.get("type") || "Report").toString();
-    const contentUrl = (fd.get("contentUrl") || "").toString().trim();
-    const details = (fd.get("details") || "").toString().trim();
-
-    const subject = encodeURIComponent(
-      `[${type}] Content request from ${name || "Anonymous"}`
-    );
-    const body = encodeURIComponent(
-      `Name: ${name}\nEmail: ${email}\nType: ${type}\nContent URL/ID: ${contentUrl}\n\nDetails:\n${details}\n`
-    );
-
-    const to = "ravidassiaabroad@gmail.com";
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-
-    try {
-      const modalEl = document.getElementById("contentRequestModal");
-      if (modalEl && window.bootstrap) {
-        const modal =
-          window.bootstrap.Modal.getInstance(modalEl) ||
-          new window.bootstrap.Modal(modalEl);
-        modal.hide();
-      }
-    } catch {}
+const handleContentRequestSubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const data = {
+    name: fd.get("name"),
+    email: fd.get("email"),
+    content_url: fd.get("contentUrl"),
+    type: fd.get("type"),
+    details: fd.get("details"),
   };
+
+  try {
+    await apiFetch("/content-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    alert("✅ Your request has been submitted!");
+    e.target.reset();
+
+    const modalEl = document.getElementById("contentRequestModal");
+    if (modalEl && window.bootstrap) {
+      const modal =
+        window.bootstrap.Modal.getInstance(modalEl) ||
+        new window.bootstrap.Modal(modalEl);
+      modal.hide();
+    }
+
+    // ✅ Fix black overlay bug (force Bootstrap cleanup)
+    setTimeout(() => {
+      document.body.classList.remove("modal-open");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("padding-right");
+
+      const backdrops = document.querySelectorAll(".modal-backdrop");
+      backdrops.forEach((b) => b.parentNode.removeChild(b));
+    }, 400); // allow Bootstrap animation to complete
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Failed to submit request.");
+  }
+};
+
 
   return (
     <>
@@ -268,7 +284,7 @@ useEffect(() => {
                   {/* Auth Action Buttons */}
                   <div className="d-flex flex-column gap-2 px-4">
                     <Link
-                      to="/my-submissions"
+                      to="/profile"
                       className="btn btn-outline-dark rounded-pill"
                       onClick={() =>
                         document
@@ -276,7 +292,7 @@ useEffect(() => {
                           ?.classList.remove("show")
                       }
                     >
-                      My Submissions
+                      My Profile
                     </Link>
 
                     {user.role?.includes("admin") && (

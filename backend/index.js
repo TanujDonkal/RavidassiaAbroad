@@ -171,6 +171,20 @@ async function initDB() {
     );
   `);
 
+
+  await pool.query(`
+  CREATE TABLE IF NOT EXISTS content_requests (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    content_url TEXT NOT NULL,
+    request_type VARCHAR(20) NOT NULL,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+
   console.log("✅ Database initialized");
 }
 
@@ -537,6 +551,52 @@ app.post("/api/user/update-profile", uploadProfile.single("photo"), async (req, 
   }
 });
 
+
+
+// ---- CONTENT REQUEST ----
+// Public submission
+app.post("/api/content-requests", async (req, res) => {
+  try {
+    const { name, email, content_url, type, details } = req.body || {};
+    if (!name || !email || !content_url || !type)
+      return res.status(400).json({ message: "All fields required" });
+
+    await pool.query(
+      `INSERT INTO content_requests (name, email, content_url, request_type, details)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [name, email, content_url, type, details]
+    );
+
+    res.json({ message: "Request submitted successfully!" });
+  } catch (err) {
+    console.error("Content request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Admin view
+app.get("/api/admin/content-requests", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM content_requests ORDER BY created_at DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Fetch content requests error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Admin delete
+app.delete("/api/admin/content-requests/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM content_requests WHERE id=$1", [req.params.id]);
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    console.error("Delete content request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 
 // ---- START SERVER ----

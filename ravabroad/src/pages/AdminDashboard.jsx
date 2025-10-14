@@ -65,6 +65,15 @@ export default function AdminDashboard() {
           const recData = await getRecipients();
           setRecipients(Array.isArray(recData) ? recData : []);
         }
+
+        if (activeTab === "contentRequests") {
+          const res = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/content-requests`,
+            { headers }
+          );
+          const data = await res.json();
+          setSubmissions(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to fetch:", err);
       } finally {
@@ -109,6 +118,100 @@ export default function AdminDashboard() {
   };
 
   // --------------------------
+  // DELETE HANDLERS
+  // --------------------------
+  const handleDelete = async (type, id) => {
+    popup.open({
+      title: "⚠️ Confirm",
+      message: "Are you sure you want to delete this entry?",
+      type: "confirm",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
+
+          if (type === "scst-submissions") {
+            setSubmissions((prev) => prev.filter((s) => s.id !== id));
+          } else if (type === "matrimonial") {
+            setMatrimonialSubs((prev) => prev.filter((s) => s.id !== id));
+          } else if (type === "content-requests") {
+            setSubmissions((prev) => prev.filter((s) => s.id !== id));
+          }
+
+          setSelectedIds((prev) => prev.filter((i) => i !== id));
+          popup.open({
+            title: "🗑️ Deleted",
+            message: "The entry has been deleted successfully.",
+            type: "success",
+          });
+        } catch (err) {
+          popup.open({
+            title: "❌ Error",
+            message: "Failed to delete this entry.",
+            type: "error",
+          });
+        }
+      },
+    });
+  };
+
+  // DELETE MULTIPLE RECORDS
+  const handleBulkDelete = async (type) => {
+    if (selectedIds.length === 0) {
+      popup.open({
+        title: "⚠️ No Selection",
+        message: "Please select at least one entry to delete.",
+        type: "warning",
+      });
+      return;
+    }
+
+    popup.open({
+      title: "⚠️ Confirm Deletion",
+      message: `Are you sure you want to delete ${selectedIds.length} selected entries?`,
+      type: "confirm",
+      onConfirm: async () => {
+        try {
+          await Promise.all(
+            selectedIds.map((id) =>
+              apiFetch(`/admin/${type}/${id}`, { method: "DELETE" }).catch(
+                () => null
+              )
+            )
+          );
+
+          if (type === "scst-submissions") {
+            setSubmissions((prev) =>
+              prev.filter((s) => !selectedIds.includes(s.id))
+            );
+          } else if (type === "matrimonial") {
+            setMatrimonialSubs((prev) =>
+              prev.filter((s) => !selectedIds.includes(s.id))
+            );
+          } else if (type === "content-requests") {
+            setSubmissions((prev) =>
+              prev.filter((s) => !selectedIds.includes(s.id))
+            );
+          }
+
+          setSelectedIds([]);
+          setSelectAll(false);
+          popup.open({
+            title: "✅ Success",
+            message: "Selected entries deleted successfully.",
+            type: "success",
+          });
+        } catch (err) {
+          popup.open({
+            title: "❌ Error",
+            message: "Some deletions failed. Check console for details.",
+            type: "error",
+          });
+        }
+      },
+    });
+  };
+
+  // --------------------------
   // STATS
   // --------------------------
   const stats = [
@@ -137,68 +240,6 @@ export default function AdminDashboard() {
       color: "bg-danger",
     },
   ];
-
-  // DELETE single record instantly (used for red buttons)
-  const handleDelete = async (type, id) => {
-    if (!window.confirm("Are you sure you want to delete this entry?")) return;
-
-    try {
-      await apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
-
-      // Update UI instantly
-      if (type === "scst-submissions") {
-        setSubmissions((prev) => prev.filter((s) => s.id !== id));
-      } else if (type === "matrimonial") {
-        setMatrimonialSubs((prev) => prev.filter((s) => s.id !== id));
-      }
-
-      setSelectedIds((prev) => prev.filter((i) => i !== id));
-    } catch (err) {
-      console.error("Delete error:", err);
-      alert("Failed to delete this entry.");
-    }
-  };
-
-  // DELETE multiple records at once (no reload)
-  const handleBulkDelete = async (type) => {
-    if (selectedIds.length === 0) {
-      alert("No items selected!");
-      return;
-    }
-
-    if (
-      !window.confirm(`Delete ${selectedIds.length} selected ${type} entries?`)
-    )
-      return;
-
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          apiFetch(`/admin/${type}/${id}`, { method: "DELETE" }).catch(
-            () => null
-          )
-        )
-      );
-
-      if (type === "scst-submissions") {
-        setSubmissions((prev) =>
-          prev.filter((s) => !selectedIds.includes(s.id))
-        );
-      } else if (type === "matrimonial") {
-        setMatrimonialSubs((prev) =>
-          prev.filter((s) => !selectedIds.includes(s.id))
-        );
-      }
-
-      setSelectedIds([]);
-      setSelectAll(false);
-      alert("Selected entries deleted successfully!");
-    } catch (err) {
-      console.error("Bulk delete error:", err);
-      alert("Some deletions failed. Check console for details.");
-    }
-  };
-
   return (
     <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
       {/* Sidebar */}
@@ -216,6 +257,11 @@ export default function AdminDashboard() {
                 },
                 { tab: "recipients", icon: "bi-envelope", label: "Recipients" },
                 { tab: "matrimonial", icon: "bi-heart", label: "Matrimonial" },
+                {
+                  tab: "contentRequests",
+                  icon: "bi-flag",
+                  label: "Content Requests",
+                },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -638,6 +684,124 @@ export default function AdminDashboard() {
                                           type: "success",
                                         });
                                       }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "contentRequests" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">
+                        Add / Remove / Report Content Requests
+                      </h5>
+                      {selectedIds.length > 0 && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleBulkDelete("content-requests")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(
+                                    checked ? submissions.map((r) => r.id) : []
+                                  );
+                                }}
+                              />
+                            </th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Type</th>
+                            <th>Content URL</th>
+                            <th>Details</th>
+                            <th>Created</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loading ? (
+                            <tr>
+                              <td colSpan="9" className="text-center py-4">
+                                Loading...
+                              </td>
+                            </tr>
+                          ) : submissions.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="9"
+                                className="text-center text-muted py-4"
+                              >
+                                No content requests yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            submissions.map((r) => (
+                              <tr key={r.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(r.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, r.id]
+                                          : prev.filter((id) => id !== r.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
+                                <td>{r.id}</td>
+                                <td>{r.name}</td>
+                                <td>{r.email}</td>
+                                <td>{r.request_type}</td>
+                                <td>
+                                  <a
+                                    href={r.content_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    {r.content_url}
+                                  </a>
+                                </td>
+                                <td
+                                  className="text-wrap"
+                                  style={{ maxWidth: 300 }}
+                                >
+                                  {r.details}
+                                </td>
+                                <td>
+                                  {new Date(r.created_at).toLocaleDateString()}
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete("content-requests", r.id);
                                     }}
                                   >
                                     Delete

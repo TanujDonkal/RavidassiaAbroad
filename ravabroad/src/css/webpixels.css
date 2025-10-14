@@ -122,3 +122,48 @@ h1, h2, h3, h4, h5 {
 .table-hover tbody tr:hover {
   background-color: #fffdf2;
 }
+
+
+.modal-content {
+  border-radius: 1rem !important;
+}
+
+.modal-header {
+  border-bottom: none;
+}
+
+.modal-footer {
+  border-top: none;
+}
+
+
+/* Popup fade animations */
+.fade-in {
+  animation: popupFadeIn 0.25s ease forwards;
+}
+
+.fade-out {
+  animation: popupFadeOut 0.25s ease forwards;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popupFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
