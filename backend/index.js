@@ -411,6 +411,34 @@ app.post("/api/scst-submissions", async (req, res) => {
   }
 });
 
+
+/// ✅ Fetch the logged-in user's SC/ST submission
+app.get("/api/scst-submissions/mine", async (req, res) => {
+  try {
+    const user = decodeUserIfAny(req);
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: user not logged in" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM scst_submissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [user.id]
+    );
+
+    if (!result.rows.length) {
+      return res.json({ exists: false, data: null });
+    }
+
+    res.json({ exists: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Error fetching SC/ST submission:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 // ---- MATRIMONIAL SUBMISSION (Updated with new fields) ----
 
 app.post(

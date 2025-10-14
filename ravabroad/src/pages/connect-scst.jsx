@@ -1,10 +1,7 @@
-// src/pages/ConnectSCST.jsx
+// src/pages/connect-scst.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "bootstrap";
-
-// ✅ use the environment variable or fallback for local dev
-const API_BASE =
-  (process.env.REACT_APP_API_URL || "http://localhost:5000") + "/api";
+import { apiFetch } from "../utils/api";
 
 export default function ConnectSCST() {
   const thanksRef = useRef(null);
@@ -14,75 +11,102 @@ export default function ConnectSCST() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // ✅ New states for saved form logic
+  const [formValues, setFormValues] = useState({});
+  const [submissionData, setSubmissionData] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
   useEffect(() => {
     if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
     if (rulesRef.current) setRulesModal(new Modal(rulesRef.current));
     document.title = "Connect by Country — Ravidassia Abroad";
+    fetchMySubmission();
   }, []);
 
+  // ✅ Fetch logged-in user's submission
+  const fetchMySubmission = async () => {
+    try {
+      const res = await apiFetch("/scst-submissions/mine");
+      if (res.exists) {
+        setSubmitted(true);
+        setSubmissionData(res.data);
+        setFormValues(res.data);
+      }
+    } catch {
+      setSubmitted(false);
+    }
+  };
+
+  // ✅ Controlled inputs
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormValues({ ...formValues, [name]: value });
+  };
+
+  // ✅ Submit or Resubmit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-
-    const name = (fd.get("name") || "").toString().trim();
-    const email = (fd.get("email") || "").toString().trim();
-    const country = (fd.get("country") || "").toString().trim();
-    const city = (fd.get("city") || "").toString().trim();
-    const phone = (fd.get("phone") || "").toString().trim();
-    const platform = (fd.get("platform") || "").toString().trim(); // optional
-    const instagram = (fd.get("instagram") || "").toString().trim(); // optional
-    const proof = (fd.get("proof") || "").toString().trim(); // optional
-
-    // Put all extra fields inside message so backend can store them in one column
-    const message = [
-      `Platform: ${platform || "—"}`,
-      `Instagram: ${instagram || "—"}`,
-      `Proof: ${proof || "—"}`,
-    ].join("\n");
-
-    // Prepare request
-    const token = localStorage.getItem("token"); // may be null if user not logged in
-    const headers = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-
     try {
-      const res = await fetch(`${API_BASE}/scst-submissions`, {
-
+      await apiFetch("/scst-submissions", {
         method: "POST",
-        headers,
-        body: JSON.stringify({
-          name,
-          email,
-          country,
-          city: city || null,
-          phone: phone || null,
-          state: null, // add a state input later if you want; DB column already exists
-          message, // includes platform/instagram/proof
-        }),
+        body: JSON.stringify(formValues),
       });
-
-      const data = await res.json().catch(() => ({}));
-      console.log("🔍 SCST response:", res.status, data);
-      if (!res.ok) {
-        throw new Error(data?.message || `Server returned ${res.status}`);
-      }
-
-      // success
-      form.reset();
       thanksModal && thanksModal.show();
+      await fetchMySubmission();
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      setError(err.message || "Submission failed.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  // ✅ If already submitted
+  if (submitted && submissionData) {
+    return (
+      <div className="container py-5">
+        <h2 className="text-center mb-4 fw-bold text-primary">
+          Connect SC/ST Form
+        </h2>
+        <div className="card shadow-sm p-4 mx-auto mb-5" style={{ maxWidth: 850 }}>
+          <h4 className="text-success mb-3 text-center">
+            ✅ Your Submitted Details
+          </h4>
+
+          <table className="table table-striped table-bordered small">
+            <tbody>
+              {Object.entries(submissionData).map(([key, value]) => (
+                <tr key={key}>
+                  <th className="text-capitalize" style={{ width: "40%" }}>
+                    {key.replaceAll("_", " ")}
+                  </th>
+                  <td>{value || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="text-center mt-3">
+            <button
+              className="btn btn-outline-primary"
+              onClick={() => {
+                setSubmitted(false);
+                setIsEditing(true);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              ✏️ Edit / Resubmit Form
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Show the original form
   return (
     <div className="container py-5">
       <div className="text-center mb-4">
@@ -101,10 +125,7 @@ export default function ConnectSCST() {
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            className="row g-3 bg-light p-4 rounded"
-          >
+          <form onSubmit={handleSubmit} className="row g-3 bg-light p-4 rounded">
             {/* Full Name (required) */}
             <div className="col-md-6">
               <label htmlFor="name" className="form-label">
@@ -116,6 +137,8 @@ export default function ConnectSCST() {
                 type="text"
                 className="form-control"
                 required
+                value={formValues.name || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -130,6 +153,8 @@ export default function ConnectSCST() {
                 type="email"
                 className="form-control"
                 required
+                value={formValues.email || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -143,6 +168,8 @@ export default function ConnectSCST() {
                 name="country"
                 className="form-select"
                 required
+                value={formValues.country || ""}
+                onChange={handleChange}
               >
                 <option value="">Select your country</option>
                 <option>Canada</option>
@@ -168,6 +195,8 @@ export default function ConnectSCST() {
                 name="city"
                 type="text"
                 className="form-control"
+                value={formValues.city || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -183,6 +212,8 @@ export default function ConnectSCST() {
                 className="form-control"
                 placeholder="+1 902…"
                 required
+                value={formValues.phone || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -195,7 +226,8 @@ export default function ConnectSCST() {
                 id="platform"
                 name="platform"
                 className="form-select"
-                defaultValue="WhatsApp"
+                value={formValues.platform || "WhatsApp"}
+                onChange={handleChange}
               >
                 <option>WhatsApp</option>
                 <option>Telegram</option>
@@ -214,6 +246,8 @@ export default function ConnectSCST() {
                 type="text"
                 className="form-control"
                 placeholder="@yourhandle"
+                value={formValues.instagram || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -228,6 +262,8 @@ export default function ConnectSCST() {
                 type="text"
                 className="form-control"
                 placeholder="e.g., B3J…, NSCC Halifax, Tim Hortons Lady Hammond"
+                value={formValues.proof || ""}
+                onChange={handleChange}
               />
             </div>
 
@@ -288,55 +324,12 @@ export default function ConnectSCST() {
             </div>
             <div className="modal-body">
               <ol className="ps-3">
-                <li className="mb-2">
-                  <strong>Respect &amp; Safety:</strong> Be kind. No hate
-                  speech, harassment, or personal attacks.
-                </li>
-                <li className="mb-2">
-                  <strong>Country-Specific:</strong> Discuss local Sangat topics
-                  relevant to your country/channel.
-                </li>
-                <li className="mb-2">
-                  <strong>No Spam/Ads:</strong> No promotions, chain forwards,
-                  or mass DMs. Share community resources only.
-                </li>
-                <li className="mb-2">
-                  <strong>Privacy:</strong> Don’t post private info without
-                  consent. No doxxing.
-                </li>
-                <li className="mb-2">
-                  <strong>Events &amp; News:</strong> Verify before sharing. Use
-                  sources where possible.
-                </li>
-                <li className="mb-2">
-                  <strong>Faith &amp; Culture:</strong> Speak with reverence
-                  about Guru Ravidass Ji and all communities.
-                </li>
-                <li className="mb-2">
-                  <strong>Moderation:</strong> Admins may warn, mute, or remove
-                  members who break rules.
-                </li>
-                <li className="mb-2">
-                  <strong>Report Issues:</strong> Email{" "}
-                  <a href="mailto:RavidassiaAbroad@gmail.com">
-                    RavidassiaAbroad@gmail.com
-                  </a>{" "}
-                  to report problems.
+                <li>Be kind. No hate speech, harassment, or spam.</li>
+                <li>Share verified info only.</li>
+                <li>
+                  Respect Guru Ravidass Ji and all members of the community.
                 </li>
               </ol>
-              <p className="mb-0 small text-muted">
-                By checking the box on the form, you confirm you’ve read and
-                agree to follow these rules.
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                data-bs-dismiss="modal"
-              >
-                I understand
-              </button>
             </div>
           </div>
         </div>
@@ -365,20 +358,10 @@ export default function ConnectSCST() {
               />
             </div>
             <div className="modal-body">
-              <p className="mb-0">
-                Thank you! Our admins will review your request shortly. If
-                approved, you’ll receive a private WhatsApp invite link for your
-                country.
+              <p>
+                Thank you! Admins will review your request and contact you via
+                WhatsApp soon.
               </p>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-primary"
-                data-bs-dismiss="modal"
-              >
-                Ok, got it
-              </button>
             </div>
           </div>
         </div>
