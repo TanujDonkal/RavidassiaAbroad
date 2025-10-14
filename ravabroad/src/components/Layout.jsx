@@ -18,6 +18,41 @@ export default function Layout() {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
   });
+  // 🧹 Safe modal cleanup for frontend only
+useEffect(() => {
+  const cleanupFrontendModals = (event) => {
+    // Get modal ID (like "donateModal", "searchModal", etc.)
+    const modalId = event?.target?.id || "";
+
+    // ✅ Only clean up these frontend modals
+    const isFrontendModal =
+      modalId.includes("donate") ||
+      modalId.includes("contentRequest") ||
+      modalId.includes("search");
+
+    if (!isFrontendModal) return;
+
+    // Remove leftover Bootstrap backdrops and reset body scroll
+    document.querySelectorAll(".modal-backdrop").forEach((el) => el.remove());
+    document.body.classList.remove("modal-open");
+    document.body.style.overflow = "";
+    document.body.style.paddingRight = "";
+  };
+
+  // Clean up when frontend modals open or close
+  window.addEventListener("hidden.bs.modal", cleanupFrontendModals);
+  window.addEventListener("shown.bs.modal", cleanupFrontendModals);
+
+  // Run once on mount (in case something is stuck)
+  cleanupFrontendModals({ target: { id: "donateModal" } });
+
+  // Cleanup listeners on unmount
+  return () => {
+    window.removeEventListener("hidden.bs.modal", cleanupFrontendModals);
+    window.removeEventListener("shown.bs.modal", cleanupFrontendModals);
+  };
+}, []);
+
 
   // ✅ New: Sync user from backend automatically
   useEffect(() => {
@@ -52,77 +87,107 @@ export default function Layout() {
     };
   }, []);
 
-  useEffect(() => {
-    const navbarToggler = document.querySelector(".navbar-toggler");
-    const navbarCollapse = document.querySelector("#navbarCollapse");
+  // ✅ Navbar toggler fix for mobile menu open/close
+// ✅ Navbar toggle + auto-close on link click (Bootstrap + React safe)
+useEffect(() => {
+  const toggler = document.getElementById("navbarToggler");
+  const collapseEl = document.getElementById("navbarCollapse");
 
-    if (!navbarToggler || !navbarCollapse) return;
+  if (!toggler || !collapseEl || !window.bootstrap) return;
 
-    const collapse = new window.bootstrap.Collapse(navbarCollapse, {
-      toggle: false,
-    });
+  const collapse = new window.bootstrap.Collapse(collapseEl, {
+    toggle: false,
+  });
 
-    // Close navbar when clicking outside (ignore dropdown clicks)
-    const handleOutsideClick = (e) => {
-      const isDropdown = e.target.closest(".dropdown-menu, .dropdown-toggle");
-      if (
-        navbarCollapse.classList.contains("show") &&
-        !navbarCollapse.contains(e.target) &&
-        !navbarToggler.contains(e.target) &&
-        !isDropdown
-      ) {
-        collapse.hide();
-      }
-    };
-
-    document.addEventListener("click", handleOutsideClick);
-    return () => document.removeEventListener("click", handleOutsideClick);
-  }, []);
-
-const handleContentRequestSubmit = async (e) => {
-  e.preventDefault();
-  const fd = new FormData(e.currentTarget);
-  const data = {
-    name: fd.get("name"),
-    email: fd.get("email"),
-    content_url: fd.get("contentUrl"),
-    type: fd.get("type"),
-    details: fd.get("details"),
+  // Toggle menu on burger icon click
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    const isOpen = collapseEl.classList.contains("show");
+    if (isOpen) collapse.hide();
+    else collapse.show();
   };
 
-  try {
-    await apiFetch("/content-requests", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-
-    alert("✅ Your request has been submitted!");
-    e.target.reset();
-
-    const modalEl = document.getElementById("contentRequestModal");
-    if (modalEl && window.bootstrap) {
-      const modal =
-        window.bootstrap.Modal.getInstance(modalEl) ||
-        new window.bootstrap.Modal(modalEl);
-      modal.hide();
+  // Close when clicking outside
+  const handleOutsideClick = (e) => {
+    const isDropdown = e.target.closest(".dropdown-menu, .dropdown-toggle");
+    if (
+      collapseEl.classList.contains("show") &&
+      !collapseEl.contains(e.target) &&
+      !toggler.contains(e.target) &&
+      !isDropdown
+    ) {
+      collapse.hide();
     }
+  };
 
-    // ✅ Fix black overlay bug (force Bootstrap cleanup)
-    setTimeout(() => {
-      document.body.classList.remove("modal-open");
-      document.body.style.removeProperty("overflow");
-      document.body.style.removeProperty("padding-right");
+  // 🔥 Auto-close when clicking any NavLink inside menu
+  const handleNavLinkClick = () => {
+    if (collapseEl.classList.contains("show")) {
+      collapse.hide();
+    }
+  };
 
-      const backdrops = document.querySelectorAll(".modal-backdrop");
-      backdrops.forEach((b) => b.parentNode.removeChild(b));
-    }, 400); // allow Bootstrap animation to complete
+  // Attach listeners
+  toggler.addEventListener("click", handleToggle);
+  document.addEventListener("click", handleOutsideClick);
+  collapseEl.querySelectorAll(".nav-link").forEach((link) => {
+    link.addEventListener("click", handleNavLinkClick);
+  });
 
-  } catch (err) {
-    console.error(err);
-    alert("❌ Failed to submit request.");
-  }
-};
+  // Cleanup
+  return () => {
+    toggler.removeEventListener("click", handleToggle);
+    document.removeEventListener("click", handleOutsideClick);
+    collapseEl.querySelectorAll(".nav-link").forEach((link) => {
+      link.removeEventListener("click", handleNavLinkClick);
+    });
+  };
+}, []);
 
+
+
+  const handleContentRequestSubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const data = {
+      name: fd.get("name"),
+      email: fd.get("email"),
+      content_url: fd.get("contentUrl"),
+      type: fd.get("type"),
+      details: fd.get("details"),
+    };
+
+    try {
+      await apiFetch("/content-requests", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+
+      alert("✅ Your request has been submitted!");
+      e.target.reset();
+
+      const modalEl = document.getElementById("contentRequestModal");
+      if (modalEl && window.bootstrap) {
+        const modal =
+          window.bootstrap.Modal.getInstance(modalEl) ||
+          new window.bootstrap.Modal(modalEl);
+        modal.hide();
+      }
+
+      // ✅ Fix black overlay bug (force Bootstrap cleanup)
+      setTimeout(() => {
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("padding-right");
+
+        const backdrops = document.querySelectorAll(".modal-backdrop");
+        backdrops.forEach((b) => b.parentNode.removeChild(b));
+      }, 400); // allow Bootstrap animation to complete
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed to submit request.");
+    }
+  };
 
   return (
     <>
@@ -225,8 +290,7 @@ const handleContentRequestSubmit = async (e) => {
           <button
             className="navbar-toggler"
             type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarCollapse"
+            id="navbarToggler"
           >
             <span className="fa fa-bars"></span>
           </button>
