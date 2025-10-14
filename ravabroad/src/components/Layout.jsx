@@ -19,16 +19,36 @@ export default function Layout() {
     return stored ? JSON.parse(stored) : null;
   });
 
+  // ✅ New: Sync user from backend automatically
   useEffect(() => {
-    const syncAuth = () => {
-      const stored = localStorage.getItem("user");
-      setUser(stored ? JSON.parse(stored) : null);
+    const syncAuth = async () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const res = await apiFetch("/auth/me");
+          const latest = res.user;
+
+          localStorage.setItem("user", JSON.stringify(latest));
+          setUser(latest);
+        } catch (err) {
+          console.warn("Session invalid or expired:", err.message);
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          setUser(null);
+        }
+      } else {
+        const stored = localStorage.getItem("user");
+        setUser(stored ? JSON.parse(stored) : null);
+      }
     };
-    window.addEventListener("storage", syncAuth);
+
+    syncAuth(); // run on mount
     window.addEventListener("auth-updated", syncAuth);
+    window.addEventListener("storage", syncAuth);
+
     return () => {
-      window.removeEventListener("storage", syncAuth);
       window.removeEventListener("auth-updated", syncAuth);
+      window.removeEventListener("storage", syncAuth);
     };
   }, []);
 

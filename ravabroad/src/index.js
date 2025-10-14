@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './bootstrap-overrides.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 
 

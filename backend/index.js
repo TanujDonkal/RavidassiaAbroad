@@ -277,6 +277,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 // LOGIN
+// LOGIN
 app.post("/api/auth/login", async (req, res) => {
   try {
     let { email, password } = req.body || {};
@@ -284,10 +285,13 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
 
     email = email.toLowerCase();
+
+    // ✅ Now fetch photo_url, phone, and city as well
     const result = await pool.query(
-      "SELECT id,name,email,role,password_hash FROM users WHERE email=$1",
+      "SELECT id, name, email, role, password_hash, photo_url, phone, city FROM users WHERE email=$1",
       [email]
     );
+
     if (!result.rows.length)
       return res.status(401).json({ message: "Invalid credentials" });
 
@@ -295,12 +299,15 @@ app.post("/api/auth/login", async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
+    // Create a token with user ID and role
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // ✅ Return the complete user object including photo_url
+    delete user.password_hash;
     res.json({ token, user });
   } catch (err) {
     console.error("Login error:", err);
@@ -308,10 +315,24 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// CURRENT USER
-app.get("/api/auth/me", requireAuth, async (req, res) =>
-  res.json({ user: req.user })
-);
+
+// ✅ CURRENT USER – return full info from DB
+app.get("/api/auth/me", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role, photo_url, phone, city, created_at FROM users WHERE id=$1",
+      [req.user.id]
+    );
+
+    if (!result.rows.length)
+      return res.status(404).json({ message: 'User not found' });
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error('Fetch current user error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // ---- SC/ST SUBMISSION ----
 app.post("/api/scst-submissions", async (req, res) => {

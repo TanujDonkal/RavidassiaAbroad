@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import ConnectSCST from "./pages/connect-scst";
 import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
+import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
 import MatrimonialForm from "./pages/MatrimonialForm";
 import Profile from "./pages/Profile";
@@ -31,9 +32,42 @@ function ScrollAndInit() {
 }
 
 export default function App() {
+  const [loading, setLoading] = useState(false);
+  const location = useLocation();
+
+  // ✅ Show loader on route change
+  useEffect(() => {
+    setLoading(true);
+    const timeout = setTimeout(() => setLoading(false), 600); // show for 0.6s minimum
+    return () => clearTimeout(timeout);
+  }, [location]);
+
+  // ✅ Intercept all API calls globally
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        setLoading(true);
+        const res = await originalFetch(...args);
+        return res;
+      } finally {
+        setLoading(false);
+      }
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
   return (
     <PopupProvider>
+      {/* Global loader overlay (appears on any API or route change) */}
+      <GlobalLoader visible={loading} />
+
+      {/* Scroll restoration on route change */}
       <ScrollAndInit />
+
+      {/* App routes */}
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
@@ -47,9 +81,9 @@ export default function App() {
           <Route path="connect-scst" element={<ConnectSCST />} />
           <Route path="auth" element={<Auth />} />
           <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="*" element={<NotFound />} />
           <Route path="/matrimonial" element={<MatrimonialForm />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </PopupProvider>
