@@ -16,15 +16,19 @@ function getToken() {
 export async function apiFetch(path, options = {}) {
   let headers = options.headers || {};
 
-  // 🧠 Don't force JSON headers if using FormData (file uploads)
+  // 🧠 Detect if sending FormData (e.g. file upload)
   const isFormData = options.body instanceof FormData;
+
+  // ✅ Only set JSON header for non-FormData
   if (!isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
-  // attach JWT if logged in
+  // ✅ Always attach token — works for both FormData & JSON
   const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -40,6 +44,7 @@ export async function apiFetch(path, options = {}) {
 
   return data;
 }
+
 
 
 // ----------------------------

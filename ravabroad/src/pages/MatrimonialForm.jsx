@@ -1,4 +1,3 @@
-// src/pages/MatrimonialForm.jsx
 import React, { useRef, useState, useEffect } from "react";
 import { Modal } from "bootstrap";
 import imageCompression from "browser-image-compression";
@@ -12,22 +11,27 @@ export default function MatrimonialForm() {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submissionData, setSubmissionData] = useState(null);
+  const [formValues, setFormValues] = useState({});
   const thanksRef = useRef(null);
   const [thanksModal, setThanksModal] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
+  // Init
   useEffect(() => {
     if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
     document.title = "Ravidassia Matrimonial Form 💍";
     fetchMySubmission();
   }, []);
 
-  // 🔹 Check if logged-in user has already submitted
+  // Fetch logged-in user's submission
   const fetchMySubmission = async () => {
     try {
       const res = await apiFetch("/matrimonial-submissions/mine");
       if (res.exists) {
         setSubmitted(true);
         setSubmissionData(res.data);
+        setFormValues(res.data); // ✅ prefill state
+        if (res.data.photo_url) setPreview(res.data.photo_url);
       } else {
         setSubmitted(false);
       }
@@ -36,32 +40,71 @@ export default function MatrimonialForm() {
     }
   };
 
+  // Handle change for all inputs
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormValues({
+      ...formValues,
+      [name]: type === "checkbox" ? checked : value,
+    });
+  };
+
+  // Validate step
   const totalSteps = 5;
   const handleNext = () => {
+    const currentStepFields = document.querySelectorAll(
+      `form [data-step="${step}"] [required]`
+    );
+    let allValid = true;
+
+    currentStepFields.forEach((field) => {
+      if (!field.value.trim()) {
+        field.classList.add("is-invalid");
+        allValid = false;
+      } else {
+        field.classList.remove("is-invalid");
+      }
+    });
+
+    if (!allValid) {
+      setError("⚠️ Please fill all required fields before continuing.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setError("");
     if (step < totalSteps) setStep(step + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
   const handleBack = () => {
     if (step > 1) setStep(step - 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // 🔹 Submit form
+  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData();
+    Object.entries(formValues).forEach(([k, v]) => formData.append(k, v ?? ""));
+    const fileInput = document.querySelector('input[name="photo"]');
+    if (fileInput && fileInput.files.length > 0) {
+      formData.append("photo", fileInput.files[0]);
+    }
+
     try {
       const res = await apiFetch("/matrimonial-submissions", {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Failed to submit form");
+      if (!res.message?.includes("✅")) {
+        throw new Error(res.message || "Failed to submit form");
+      }
 
-      e.target.reset();
       setPreview(null);
       setStep(1);
       thanksModal && thanksModal.show();
@@ -81,13 +124,11 @@ export default function MatrimonialForm() {
 
       {/* ✅ Already submitted view */}
       {submitted && submissionData ? (
-        <div
-          className="card shadow-sm p-4 mx-auto mb-5"
-          style={{ maxWidth: 850 }}
-        >
+        <div className="card shadow-sm p-4 mx-auto mb-5" style={{ maxWidth: 850 }}>
           <h4 className="text-success mb-3 text-center">
             ✅ Your Submitted Biodata
           </h4>
+
           <div className="text-center mb-3">
             <img
               src={submissionData.photo_url || "/template/img/no-photo.png"}
@@ -97,6 +138,7 @@ export default function MatrimonialForm() {
               height="120"
             />
           </div>
+
           <table className="table table-striped table-bordered small">
             <tbody>
               {Object.entries(submissionData).map(([key, value]) => (
@@ -104,15 +146,32 @@ export default function MatrimonialForm() {
                   <th className="text-capitalize" style={{ width: "40%" }}>
                     {key.replaceAll("_", " ")}
                   </th>
-                  <td>{value || "—"}</td>
+                  <td>
+                    {key === "photo_url" && value ? (
+                      <img
+                        src={value}
+                        alt="profile"
+                        className="rounded-circle"
+                        width="60"
+                        height="60"
+                      />
+                    ) : (
+                      value || "—"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
           <div className="text-center mt-3">
             <button
               className="btn btn-outline-primary"
-              onClick={() => setSubmitted(false)}
+              onClick={() => {
+                setSubmitted(false);
+                setIsEditing(true);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
             >
               ✏️ Edit / Resubmit Form
             </button>
@@ -122,10 +181,10 @@ export default function MatrimonialForm() {
         <>
           <p className="text-center text-muted mb-4">
             We collect this information only for matchmaking within our
-            Ravidassia community. We never sell or misuse your data.
+            Ravidassia community.
           </p>
 
-          {/* Progress bar */}
+          {/* Progress */}
           <div className="progress mb-4" style={{ height: "10px" }}>
             <div
               className="progress-bar bg-warning"
@@ -136,9 +195,7 @@ export default function MatrimonialForm() {
             Step {step} of {totalSteps}
           </p>
 
-          {error && (
-            <div className="alert alert-danger text-center">{error}</div>
-          )}
+          {error && <div className="alert alert-danger text-center">{error}</div>}
 
           <form
             className="mx-auto bg-white p-4 p-md-5 rounded-4 shadow-lg"
@@ -147,32 +204,46 @@ export default function MatrimonialForm() {
             encType="multipart/form-data"
           >
             {/* === STEP 1 === */}
-            <div style={{ display: step === 1 ? "block" : "none" }}>
+            <div data-step="1" style={{ display: step === 1 ? "block" : "none" }}>
               <h5 className="section-title">👤 Personal Details</h5>
               <div className="row g-3">
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Full Name *</label>
-                  <input name="name" className="form-control" required />
+                  <input
+                    name="name"
+                    className="form-control"
+                    required
+                    value={formValues.name || ""}
+                    onChange={handleChange}
+                  />
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Gender *</label>
-                  <select name="gender" className="form-select" required>
+                  <select
+                    name="gender"
+                    className="form-select"
+                    required
+                    value={formValues.gender || ""}
+                    onChange={handleChange}
+                  >
                     <option value="">Select</option>
                     <option>Male</option>
                     <option>Female</option>
                     <option>Other</option>
                   </select>
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Email *</label>
                   <input
                     name="email"
                     type="email"
                     className="form-control"
                     required
+                    value={formValues.email || ""}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Phone / WhatsApp *</label>
                   <input
                     name="phone"
@@ -180,66 +251,94 @@ export default function MatrimonialForm() {
                     type="tel"
                     inputMode="numeric"
                     required
+                    value={formValues.phone || ""}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Date of Birth</label>
-                  <input name="dob" type="date" className="form-control" />
+                  <input
+                    name="dob"
+                    type="date"
+                    className="form-control"
+                    value={formValues.dob || ""}
+                    onChange={handleChange}
+                  />
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Height (cm or ft)</label>
-                  <input name="height" className="form-control" />
+                  <input
+                    name="height"
+                    className="form-control"
+                    value={formValues.height || ""}
+                    onChange={handleChange}
+                  />
                 </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">
-                    Caste (Within Ravidassia)
-                  </label>
-                  <input name="caste" className="form-control" />
+                <div className="col-md-6">
+                  <label className="form-label">Caste</label>
+                  <input
+                    name="caste"
+                    className="form-control"
+                    value={formValues.caste || ""}
+                    onChange={handleChange}
+                  />
                 </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">
-                    Religious Beliefs / Practices
-                  </label>
+                <div className="col-md-6">
+                  <label className="form-label">Religious Beliefs</label>
                   <textarea
                     name="religion_beliefs"
                     className="form-control"
                     rows="1"
+                    value={formValues.religion_beliefs || ""}
+                    onChange={handleChange}
                   ></textarea>
                 </div>
               </div>
             </div>
 
             {/* === STEP 2 === */}
-            <div style={{ display: step === 2 ? "block" : "none" }}>
+            <div data-step="2" style={{ display: step === 2 ? "block" : "none" }}>
               <h5 className="section-title">📍 Location</h5>
               <div className="row g-3">
-                <div className="col-md-6 col-12">
-                  <label className="form-label">
-                    Currently Living In (Country) *
-                  </label>
+                <div className="col-md-6">
+                  <label className="form-label">Country *</label>
                   <input
                     name="country_living"
                     className="form-control"
                     required
+                    value={formValues.country_living || ""}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">City / Province *</label>
-                  <input name="city_living" className="form-control" required />
-                </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">
-                    From (Home State in India) *
-                  </label>
+                <div className="col-md-6">
+                  <label className="form-label">City *</label>
                   <input
-                    name="home_state_india" 
+                    name="city_living"
                     className="form-control"
-                    required={step === 2}
+                    required
+                    value={formValues.city_living || ""}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">Current Visa / Status *</label>
-                  <select name="status_type" className="form-select" required={step === 2}>
+                <div className="col-md-6">
+                  <label className="form-label">Home State (India) *</label>
+                  <input
+                    name="home_state_india"
+                    className="form-control"
+                    required
+                    value={formValues.home_state_india || formValues.origin_state || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Status *</label>
+                  <select
+                    name="status_type"
+                    className="form-select"
+                    required
+                    value={formValues.status_type || formValues.current_status || ""}
+                    onChange={handleChange}
+                  >
                     <option value="">Select</option>
                     <option>Student</option>
                     <option>Work Permit</option>
@@ -252,87 +351,100 @@ export default function MatrimonialForm() {
             </div>
 
             {/* === STEP 3 === */}
-            <div style={{ display: step === 3 ? "block" : "none" }}>
+            <div data-step="3" style={{ display: step === 3 ? "block" : "none" }}>
               <h5 className="section-title">🎓 Education & Profession</h5>
               <div className="row g-3">
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Education *</label>
-                  <input name="education" className="form-control" required />
-                </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">Occupation *</label>
-                  <input name="occupation" className="form-control" required />
-                </div>
-                <div className="col-12">
-                  <label className="form-label">Work / Study Details</label>
-                  <textarea
-                    name="work_details"
+                  <input
+                    name="education"
                     className="form-control"
-                    rows="2"
-                  ></textarea>
+                    required
+                    value={formValues.education || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Occupation *</label>
+                  <input
+                    name="occupation"
+                    className="form-control"
+                    required
+                    value={formValues.occupation || ""}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
             </div>
 
             {/* === STEP 4 === */}
-            <div style={{ display: step === 4 ? "block" : "none" }}>
+            <div data-step="4" style={{ display: step === 4 ? "block" : "none" }}>
               <h5 className="section-title">👪 Family Background</h5>
               <div className="row g-3">
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Father’s Occupation</label>
-                  <input name="father_occupation" className="form-control" />
-                </div>
-                <div className="col-md-6 col-12">
-                  <label className="form-label">Mother’s Occupation</label>
-                  <input name="mother_occupation" className="form-control" />
-                </div>
-                <div className="col-12">
-                  <label className="form-label">Family Details</label>
-                  <textarea
-                    name="family_details"
+                  <input
+                    name="father_occupation"
                     className="form-control"
-                    rows="2"
-                  ></textarea>
+                    value={formValues.father_occupation || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Mother’s Occupation</label>
+                  <input
+                    name="mother_occupation"
+                    className="form-control"
+                    value={formValues.mother_occupation || ""}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
             </div>
 
             {/* === STEP 5 === */}
-            <div style={{ display: step === 5 ? "block" : "none" }}>
-              <h5 className="section-title">
-                💞 Partner Preferences & Profile Picture
-              </h5>
+            <div data-step="5" style={{ display: step === 5 ? "block" : "none" }}>
+              <h5 className="section-title">💞 Partner Preferences & Photo</h5>
               <div className="row g-3">
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Preferred Age Range</label>
                   <input
-                    name="partner_age"
+                    name="partner_age_range"
                     className="form-control"
                     placeholder="e.g. 25-30"
+                    value={formValues.partner_age_range || ""}
+                    onChange={handleChange}
                   />
                 </div>
-                <div className="col-md-6 col-12">
+                <div className="col-md-6">
                   <label className="form-label">Preferred Country</label>
-                  <input name="partner_country" className="form-control" />
+                  <input
+                    name="partner_country"
+                    className="form-control"
+                    value={formValues.partner_country || ""}
+                    onChange={handleChange}
+                  />
                 </div>
+
                 <div className="col-12">
                   <label className="form-label">Other Expectations</label>
                   <textarea
                     name="partner_expectations"
                     className="form-control"
                     rows="2"
+                    value={formValues.partner_expectations || ""}
+                    onChange={handleChange}
                   ></textarea>
                 </div>
 
                 <div className="col-12">
-                  <label className="form-label">
-                    Upload Your Photo (optional)
-                  </label>
+                  <label className="form-label">Upload Your Photo</label>
                   <input
                     type="file"
                     name="photo"
                     accept="image/*"
                     className="form-control"
+                    disabled={isEditing && preview}
                     onChange={async (e) => {
                       const file = e.target.files[0];
                       if (file) {
@@ -352,6 +464,7 @@ export default function MatrimonialForm() {
                       }
                     }}
                   />
+
                   {preview && (
                     <div className="mt-3 text-center">
                       <img
@@ -363,31 +476,26 @@ export default function MatrimonialForm() {
                       />
                     </div>
                   )}
-                </div>
 
-                <div className="form-check mt-4">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    required
-                    id="privacyCheck"
-                  />
-                  <label className="form-check-label" htmlFor="privacyCheck">
-                    I agree to the{" "}
-                    <a
-                      href="#!"
-                      data-bs-toggle="modal"
-                      data-bs-target="#privacyModal"
-                      className="text-primary"
-                    >
-                      Privacy Policy
-                    </a>
-                  </label>
+                  {isEditing && preview && (
+                    <div className="text-center mt-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => {
+                          setIsEditing(false);
+                          setPreview(null);
+                        }}
+                      >
+                        Change Photo
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* === Buttons === */}
+            {/* Buttons */}
             <div className="d-flex justify-content-between mt-4">
               {step > 1 && (
                 <button

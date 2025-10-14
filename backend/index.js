@@ -41,7 +41,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       const allowedPatterns = [
-        /^http:\/\/localhost(:\d+)?$/,
+        /^http:\/\/localhost(:\d+)?$/, // local dev
         /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
         /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
       ];
@@ -54,9 +54,10 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization"], // ✅ REQUIRED for JWT headers
   })
 );
+
 
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
@@ -412,26 +413,38 @@ app.post("/api/scst-submissions", async (req, res) => {
 
 // ---- MATRIMONIAL SUBMISSION (Updated with new fields) ----
 
-app.post("/api/matrimonial-submissions", uploadMatrimonial.single("photo"), async (req, res) => {
-  try {
-    const d = req.body || {};
-    const userId = decodeUserIfAny(req)?.id ?? null;
+app.post(
+  "/api/matrimonial-submissions",
+  uploadMatrimonial.single("photo"),
+  async (req, res) => {
+    try {
+      const d = req.body || {};
+      const userId = decodeUserIfAny(req)?.id ?? null;
 
-    console.log("🧾 Parsed form body:", d);
-    console.log("📸 File info:", req.file);
+      // 🔹 Normalize frontend field names to match DB columns
+      d.origin_state = d.home_state_india || d.origin_state;
+      d.current_status = d.status_type || d.current_status;
 
-    // ✅ Safety checks
-    if (!d.name?.trim() || !d.email?.trim() || !d.country_living?.trim()) {
-      console.log("❌ Missing required:", { name: d.name, email: d.email, country: d.country_living });
-      return res.status(400).json({ message: "Required fields missing" });
-    }
+      
+      console.log("🧾 Parsed form body:", d);
+      console.log("📸 File info:", req.file);
 
-    // ✅ Normalize date
-    const dobValue = d.dob && d.dob.trim() !== "" ? d.dob : null;
+      // ✅ Safety checks
+      if (!d.name?.trim() || !d.email?.trim() || !d.country_living?.trim()) {
+        console.log("❌ Missing required:", {
+          name: d.name,
+          email: d.email,
+          country: d.country_living,
+        });
+        return res.status(400).json({ message: "Required fields missing" });
+      }
 
-    // ✅ Insert into DB
-    const insertRes = await pool.query(
-      `INSERT INTO matrimonial_submissions
+      // ✅ Normalize date
+      const dobValue = d.dob && d.dob.trim() !== "" ? d.dob : null;
+
+      // ✅ Insert into DB
+      const insertRes = await pool.query(
+        `INSERT INTO matrimonial_submissions
        (user_id, name, gender, age, dob, height, marital_status,
         phone, email, instagram, country_living, state_living, city_living,
         origin_state, origin_district, current_status, education, occupation,
@@ -442,66 +455,73 @@ app.post("/api/matrimonial-submissions", uploadMatrimonial.single("photo"), asyn
         $14,$15,$16,$17,$18,
         $19,$20,$21,$22)
        RETURNING id`,
-      [
-        userId,
-        d.name,
-        d.gender,
-        d.age || null,
-        dobValue,
-        d.height || null,
-        d.marital_status || null,
-        d.phone || null,
-        d.email,
-        d.instagram || null,
-        d.country_living,
-        d.state_living || null,
-        d.city_living || null,
-        d.origin_state || null,
-        d.origin_district || null,
-        d.current_status || null,
-        d.education || null,
-        d.occupation || null,
-        d.company_or_institution || null,
-        d.income_range || null,
-        d.caste || null,
-        d.religion_beliefs || null,
-      ]
-    );
-
-    const newId = insertRes.rows[0].id;
-
-    // ✅ Save photo URL
-    const photoUrl = req.file?.path || null;
-    if (photoUrl) {
-      await pool.query(
-        "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
-        [photoUrl, newId]
+        [
+          userId,
+          d.name,
+          d.gender,
+          d.age || null,
+          dobValue,
+          d.height || null,
+          d.marital_status || null,
+          d.phone || null,
+          d.email,
+          d.instagram || null,
+          d.country_living,
+          d.state_living || null,
+          d.city_living || null,
+          d.origin_state || null,
+          d.origin_district || null,
+          d.current_status || null,
+          d.education || null,
+          d.occupation || null,
+          d.company_or_institution || null,
+          d.income_range || null,
+          d.caste || null,
+          d.religion_beliefs || null,
+        ]
       );
-    }
 
-    // ✅ Notify admins
-    sendNotificationEmail(
-      "💍 New Matrimonial Submission",
-      `
+      const newId = insertRes.rows[0].id;
+
+      // ✅ Save photo URL
+      const photoUrl = req.file?.path || null;
+      if (photoUrl) {
+        await pool.query(
+          "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
+          [photoUrl, newId]
+        );
+      }
+
+      // ✅ Notify admins
+      sendNotificationEmail(
+        "💍 New Matrimonial Submission",
+        `
         <h3>New Matrimonial Form Submitted</h3>
         <p><strong>Name:</strong> ${d.name}</p>
         <p><strong>Email:</strong> ${d.email}</p>
         <p><strong>Country:</strong> ${d.country_living}</p>
         <p><strong>City:</strong> ${d.city_living || "-"}</p>
         ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
-        ${d.religion_beliefs ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>` : ""}
+        ${
+          d.religion_beliefs
+            ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>`
+            : ""
+        }
         ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
         <hr>
         <p>Log in to your admin dashboard to view this biodata.</p>
       `
-    ).catch((err) => console.error("⚠️ Matrimonial email failed:", err.message));
+      ).catch((err) =>
+        console.error("⚠️ Matrimonial email failed:", err.message)
+      );
 
-    res.json({ message: "✅ Biodata submitted successfully!" });
-  } catch (err) {
-    console.error("❌ Matrimonial submit error:", err);
-    res.status(500).json({ message: "Server error" });
+      res.json({ message: "✅ Biodata submitted successfully!" });
+    } catch (err) {
+      console.error("❌ Matrimonial submit error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // ✅ Fetch the logged-in user's submitted matrimonial biodata
 app.get("/api/matrimonial-submissions/mine", async (req, res) => {
