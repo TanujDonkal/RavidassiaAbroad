@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Modal } from "bootstrap";
 import { apiFetch } from "../utils/api";
+import imageCompression from "browser-image-compression";
 
 export default function MatrimonialForm() {
   const [loading, setLoading] = useState(false);
@@ -85,7 +86,12 @@ export default function MatrimonialForm() {
           </div>
           <div className="col-md-6">
             <label className="form-label">Email *</label>
-            <input name="email" type="email" className="form-control" required />
+            <input
+              name="email"
+              type="email"
+              className="form-control"
+              required
+            />
           </div>
           <div className="col-md-6">
             <label className="form-label">Phone / WhatsApp *</label>
@@ -207,9 +213,35 @@ export default function MatrimonialForm() {
             name="photo"
             accept="image/*"
             className="form-control"
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files[0];
-              if (file) setPreview(URL.createObjectURL(file));
+              if (file) {
+                try {
+                  const compressed = await imageCompression(file, {
+                    maxSizeMB: 1, // limit image to ~1 MB
+                    maxWidthOrHeight: 1080, // resize to 1080px max
+                    useWebWorker: true,
+                  });
+
+                  // replace the original file in the input field
+                  const dataTransfer = new DataTransfer();
+                  dataTransfer.items.add(compressed);
+                  e.target.files = dataTransfer.files;
+
+                  setPreview(URL.createObjectURL(compressed));
+                  console.log(
+                    `✅ Compressed from ${(file.size / 1024 / 1024).toFixed(
+                      2
+                    )} MB → ${(compressed.size / 1024 / 1024).toFixed(2)} MB`
+                  );
+                } catch (err) {
+                  console.warn(
+                    "⚠️ Compression failed, uploading original:",
+                    err
+                  );
+                  setPreview(URL.createObjectURL(file));
+                }
+              }
             }}
           />
           {preview && (

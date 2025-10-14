@@ -19,6 +19,7 @@ import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
 import MatrimonialForm from "./pages/MatrimonialForm";
 import Profile from "./pages/Profile";
+import FormSubmitOverlay from "./components/FormSubmitOverlay"; // ✅ new overlay
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -42,7 +43,7 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [location]);
 
-  // ✅ Intercept all API calls globally
+  // ✅ Intercept all API calls globally (for navigation/data fetch)
   useEffect(() => {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
@@ -61,10 +62,13 @@ export default function App() {
 
   return (
     <PopupProvider>
-      {/* Global loader overlay (appears on any API or route change) */}
+      {/* ✅ Global form submit overlay (only when any form submits) */}
+      <FormSubmitOverlay />
+
+      {/* 🌐 Global loader for route/API changes */}
       <GlobalLoader visible={loading} />
 
-      {/* Scroll restoration on route change */}
+      {/* Scroll restoration */}
       <ScrollAndInit />
 
       {/* App routes */}

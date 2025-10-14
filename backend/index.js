@@ -376,54 +376,81 @@ app.post("/api/scst-submissions", async (req, res) => {
   }
 }); 
 
-// ---- MATRIMONIAL SUBMISSION ----
-const uploadFields = uploadMatrimonial.fields([{ name: "photo", maxCount: 1 }]);
-app.post("/api/matrimonial-submissions", uploadFields, async (req, res) => {
+// ---- MATRIMONIAL SUBMISSION (Optimized) ----
+const uploadSingle = uploadMatrimonial.single("photo"); // single upload field
+
+app.post("/api/matrimonial-submissions", async (req, res) => {
   try {
+    // Parse incoming form data manually
     const d = req.body || {};
     const userId = decodeUserIfAny(req)?.id ?? null;
-    const photoUrl = req.files?.photo?.[0]?.path || null;
 
     if (!d.name || !d.email || !d.country_living)
       return res.status(400).json({ message: "Required fields missing" });
 
-    await pool.query(
+    // ✅ Insert record first with no photo_url
+    const insertRes = await pool.query(
       `INSERT INTO matrimonial_submissions
         (user_id,name,gender,age,dob,height,marital_status,phone,email,instagram,
          country_living,state_living,city_living,origin_state,origin_district,current_status,
-         education,occupation,company_or_institution,income_range,photo_url)
+         education,occupation,company_or_institution,income_range)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       RETURNING id`,
       [
         userId,
         d.name, d.gender, d.age, d.dob, d.height, d.marital_status,
         d.phone, d.email, d.instagram, d.country_living, d.state_living,
         d.city_living, d.origin_state, d.origin_district, d.current_status,
         d.education, d.occupation, d.company_or_institution, d.income_range,
-        photoUrl
       ]
     );
 
-    await sendNotificationEmail(
-      "💍 New Matrimonial Submission",
-      `
-        <h3>New Matrimonial Form Submitted</h3>
-        <p><strong>Name:</strong> ${d.name}</p>
-        <p><strong>Email:</strong> ${d.email}</p>
-        <p><strong>Country:</strong> ${d.country_living}</p>
-        <p><strong>City:</strong> ${d.city_living}</p>
-        ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
-        <hr>
-        <p>Log in to your admin dashboard to view this biodata.</p>
-      `
-    );
+    const newId = insertRes.rows[0].id;
 
+    // ✅ Respond immediately (super fast)
     res.json({ message: "✅ Biodata submitted successfully!" });
+
+    // 📸 Upload photo in background (non-blocking)
+    uploadSingle(req, res, async (uploadErr) => {
+      if (uploadErr) {
+        console.warn("⚠️ Photo upload failed:", uploadErr.message);
+        return;
+      }
+
+      const photoUrl = req.file?.path || null;
+      if (photoUrl) {
+        await pool.query(
+          "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
+          [photoUrl, newId]
+        );
+      }
+
+      // 📧 Send email notification in background too
+      sendNotificationEmail(
+        "💍 New Matrimonial Submission",
+        `
+          <h3>New Matrimonial Form Submitted</h3>
+          <p><strong>Name:</strong> ${d.name}</p>
+          <p><strong>Email:</strong> ${d.email}</p>
+          <p><strong>Country:</strong> ${d.country_living}</p>
+          <p><strong>City:</strong> ${d.city_living}</p>
+          ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
+          <hr>
+          <p>Log in to your admin dashboard to view this biodata.</p>
+        `
+      )
+        .then(() => console.log("📧 Matrimonial email sent"))
+        .catch((err) =>
+          console.error("⚠️ Matrimonial email failed:", err.message)
+        );
+    });
   } catch (err) {
-    console.error("Matrimonial submit error:", err);
+    console.error("❌ Matrimonial submit error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 

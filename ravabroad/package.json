@@ -9,6 +9,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
+    "browser-image-compression": "^2.0.2",
     "materialize-css": "^1.0.0",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",

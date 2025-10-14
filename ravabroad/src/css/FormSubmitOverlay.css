@@ -1,0 +1,24 @@
+.form-submit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 6000;
+  transition: opacity 0.2s ease;
+}
+
+.form-submit-box {
+  background: #fff;
+  border: 2px solid #ffcc00;
+  border-radius: 20px;
+  padding: 14px 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #444;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
