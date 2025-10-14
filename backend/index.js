@@ -37,13 +37,34 @@ app.use(
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// increase default size limits for text fields
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+
+// Helper function for reusable uploaders
+function makeUploader(folder) {
+  return multer({
+    storage: new CloudinaryStorage({
+      cloudinary,
+      params: {
+        folder,
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+      },
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max per file
+  });
+}
+
+// Dedicated uploaders for each feature
+const uploadProfile = makeUploader("ravidassia_profile_dp");
+const uploadMatrimonial = makeUploader("ravidassia_matrimonials");
 
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -318,18 +339,15 @@ app.post("/api/scst-submissions", async (req, res) => {
     console.error("SCST submission error:", err);
     res.status(500).json({ message: "Server error" });
   }
-});
+}); 
 
 // ---- MATRIMONIAL SUBMISSION ----
-const uploadFields = upload.fields([{ name: "photo", maxCount: 1 }]);
+const uploadFields = uploadMatrimonial.fields([{ name: "photo", maxCount: 1 }]);
 app.post("/api/matrimonial-submissions", uploadFields, async (req, res) => {
   try {
-    console.log("Incoming fields:", req.body);
-console.log("Incoming file:", req.file);
-
     const d = req.body || {};
     const userId = decodeUserIfAny(req)?.id ?? null;
-    const photoUrl = req.file ? req.file.path : null; // 👈 Cloudinary URL if photo uploaded
+    const photoUrl = req.files?.photo?.[0]?.path || null;
 
     if (!d.name || !d.email || !d.country_living)
       return res.status(400).json({ message: "Required fields missing" });
@@ -371,6 +389,7 @@ console.log("Incoming file:", req.file);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // ---- ADMIN ROUTES ----
@@ -475,6 +494,49 @@ app.put("/api/admin/users/:id/role", requireAuth, requireAdmin, async (req, res)
   await pool.query("UPDATE users SET role=$1 WHERE id=$2", [role, id]);
   res.json({ message: "Role updated" });
 });
+
+
+app.post("/api/user/update-profile", uploadProfile.single("photo"), async (req, res) => {
+  try {
+    const u = decodeUserIfAny(req);
+    if (!u) return res.status(401).json({ message: "Unauthorized" });
+
+    const d = req.body;
+    const newPhotoUrl = req.file ? req.file.path : null;
+
+    // Fetch old photo
+    const oldPhotoRes = await pool.query("SELECT photo_url FROM users WHERE id = $1", [u.id]);
+    const oldPhotoUrl = oldPhotoRes.rows[0]?.photo_url || null;
+
+    // Update user info
+    await pool.query(
+      `UPDATE users
+       SET name=$1, phone=$2, city=$3, photo_url=COALESCE($4, photo_url)
+       WHERE id=$5`,
+      [d.name, d.phone, d.city, newPhotoUrl, u.id]
+    );
+
+    // 🧹 Delete old Cloudinary photo if replaced
+    if (newPhotoUrl && oldPhotoUrl) {
+      try {
+        const oldPublicId = oldPhotoUrl.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(`ravidassia_profile_dp/${oldPublicId}`);
+        console.log(`🧹 Deleted old profile photo: ${oldPublicId}`);
+      } catch (err) {
+        console.warn("⚠️ Failed to delete old profile photo:", err.message);
+      }
+    }
+
+    res.json({
+      message: "✅ Profile updated successfully!",
+      photo_url: newPhotoUrl || oldPhotoUrl,
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 
 // ---- START SERVER ----

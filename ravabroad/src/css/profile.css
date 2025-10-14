@@ -1,0 +1,12 @@
+.profile-page .card {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border-radius: .5rem;
+}
+
+.profile-page .main-breadcrumb .breadcrumb-item a {
+  text-decoration: none;
+}
+
+.profile-page .rounded-circle {
+  object-fit: cover;
+}

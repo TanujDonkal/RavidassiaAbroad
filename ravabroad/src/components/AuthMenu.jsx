@@ -105,10 +105,10 @@ export default function AuthMenu({ compact = false }) {
           <li>
             <Link
               className="dropdown-item"
-              to="/dashboard"
+              to="/profile"
               onClick={() => setOpen(false)}
             >
-              Dashboard
+              My Profile
             </Link>
           </li>
           {user.role?.includes("admin") && (

@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import { PopupProvider } from "./components/PopupProvider";
 import MatrimonialForm from "./pages/MatrimonialForm";
+import Profile from "./pages/Profile";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
           <Route path="/matrimonial" element={<MatrimonialForm />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
     </PopupProvider>

@@ -12,25 +12,35 @@ function getToken() {
 // ----------------------------
 // Generic request wrapper
 // ----------------------------
+
 export async function apiFetch(path, options = {}) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-  };
+  let headers = options.headers || {};
+
+  // 🧠 Don't force JSON headers if using FormData (file uploads)
+  const isFormData = options.body instanceof FormData;
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   // attach JWT if logged in
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     console.error("API error response:", res.status, data);
     throw new Error(data.message || "API error");
   }
+
   return data;
 }
+
 
 // ----------------------------
 // Auth endpoints
