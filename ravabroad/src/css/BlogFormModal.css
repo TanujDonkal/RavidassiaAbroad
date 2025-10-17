@@ -1,0 +1,50 @@
+body {
+  font-family: "Lato", sans-serif;
+}
+
+.card {
+  border-radius: 12px;
+}
+
+h4 {
+  font-weight: 600;
+}
+
+.form-label {
+  color: #222;
+}
+
+.btn-send {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  transition: 0.3s;
+}
+
+.btn-send:hover {
+  opacity: 0.9;
+}
+
+.form-control,
+.form-select {
+  border: 2px solid #e3e6ea;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
+}
+
+.ck-editor__editable {
+  min-height: 250px;
+}
+
+
+#imageUploadInput {
+  flex: 1;
+  max-width: 300px;
+}

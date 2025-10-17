@@ -19,7 +19,9 @@ import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
 import MatrimonialForm from "./pages/MatrimonialForm";
 import Profile from "./pages/Profile";
-import FormSubmitOverlay from "./components/FormSubmitOverlay"; // ✅ new overlay
+import FormSubmitOverlay from "./components/FormSubmitOverlay"; 
+import Blogs from "./pages/Blogs"; 
+import BlogDetail from "./pages/BlogDetail";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -88,6 +90,8 @@ export default function App() {
           <Route path="/matrimonial" element={<MatrimonialForm />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="/blogs" element={<Blogs />} />
+          <Route path="/blogs/:slug" element={<BlogDetail />} />
         </Route>
       </Routes>
     </PopupProvider>

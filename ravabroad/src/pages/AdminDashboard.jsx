@@ -4,6 +4,7 @@ import { updateUserRole } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { getRecipients, createUser, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
+import BlogFormModal from "../components/BlogFormModal";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -14,11 +15,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
+  const [blogs, setBlogs] = useState([]);
   const popup = usePopup();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [showBlogModal, setShowBlogModal] = useState(false);
+  const [selectedBlog, setSelectedBlog] = useState(null);
 
   // --------------------------
   // FETCH DATA
@@ -29,6 +32,17 @@ export default function AdminDashboard() {
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
+
+        if (activeTab === "blogs") {
+          const res = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/blogs`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setBlogs(Array.isArray(data) ? data : []);
+        }
 
         // USERS
         if (activeTab === "users" || activeTab === "dashboard") {
@@ -136,7 +150,9 @@ export default function AdminDashboard() {
           } else if (type === "content-requests") {
             setSubmissions((prev) => prev.filter((s) => s.id !== id));
           }
-
+          if (type === "blogs") {
+            setBlogs((prev) => prev.filter((b) => b.id !== id));
+          }
           setSelectedIds((prev) => prev.filter((i) => i !== id));
           popup.open({
             title: "🗑️ Deleted",
@@ -262,6 +278,7 @@ export default function AdminDashboard() {
                   icon: "bi-flag",
                   label: "Content Requests",
                 },
+                { tab: "blogs", icon: "bi-newspaper", label: "Blogs" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -318,6 +335,131 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+                {/* BLOGS TAB */}
+                {/* BLOGS TAB */}
+                {activeTab === "blogs" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Blog Posts</h5>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedBlog(null);
+                          setShowBlogModal(true);
+                        }}
+                      >
+                        + New Post
+                      </button>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Views</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {blogs.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="7"
+                                className="text-center text-muted py-4"
+                              >
+                                No blog posts yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            blogs.map((b) => (
+                              <tr key={b.id}>
+                                <td>{b.id}</td>
+                                <td>{b.title}</td>
+                                <td>{b.category_name || "—"}</td>
+                                <td>{b.views}</td>
+                                <td>{b.status}</td>
+                                <td>
+                                  {new Date(b.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-warning btn-sm me-2"
+                                    onClick={() => {
+                                      setSelectedBlog(b);
+                                      setShowBlogModal(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => handleDelete("blogs", b.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* ✅ Blog Form Modal */}
+                    {showBlogModal && (
+                      <BlogFormModal
+                        blog={selectedBlog}
+                        onClose={() => {
+                          setShowBlogModal(false);
+                          setSelectedBlog(null);
+                        }}
+                        onSubmit={(updatedBlog) => {
+                          // ✅ Instantly update local list (no manual refresh)
+                          if (updatedBlog?.id) {
+                            // existing blog edited
+                            setBlogs((prev) =>
+                              prev.map((b) =>
+                                b.id === updatedBlog.id ? updatedBlog : b
+                              )
+                            );
+                          } else if (updatedBlog) {
+                            // new blog added
+                            setBlogs((prev) => [updatedBlog, ...prev]);
+                          }
+
+                          // Optional: background re-fetch for accuracy
+                          (async () => {
+                            try {
+                              const token = localStorage.getItem("token");
+                              const res = await fetch(
+                                `${process.env.REACT_APP_API_URL}/api/admin/blogs`,
+                                {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                }
+                              );
+                              const refreshed = await res.json();
+                              setBlogs(
+                                Array.isArray(refreshed) ? refreshed : []
+                              );
+                            } catch (err) {
+                              console.warn(
+                                "⚠️ Blog list refresh failed:",
+                                err.message
+                              );
+                            }
+                          })();
+
+                          setShowBlogModal(false);
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 

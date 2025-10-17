@@ -58,7 +58,6 @@ app.use(
   })
 );
 
-
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -204,6 +203,48 @@ async function initDB() {
   );
 `);
 
+  // ---- BLOG TABLES ----
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blog_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      parent_id INT REFERENCES blog_categories(id) ON DELETE SET NULL,
+      description TEXT
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blog_posts (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      content TEXT,
+      excerpt TEXT,
+      image_url TEXT,
+      category_id INT REFERENCES blog_categories(id) ON DELETE SET NULL,
+      author_id INT REFERENCES users(id) ON DELETE SET NULL,
+      tags TEXT[],
+      status TEXT DEFAULT 'published',
+      views INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blog_comments (
+      id SERIAL PRIMARY KEY,
+      post_id INT REFERENCES blog_posts(id) ON DELETE CASCADE,
+      user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      name TEXT,
+      email TEXT,
+      comment_text TEXT NOT NULL,
+      is_approved BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   console.log("✅ Database initialized");
 }
 
@@ -312,7 +353,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     // Create a token with user ID and role
     const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name },
+      { id: user.id, role: user.role, name: user.name, email: user.email },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -411,33 +452,27 @@ app.post("/api/scst-submissions", async (req, res) => {
   }
 });
 
-
-/// ✅ Fetch the logged-in user's SC/ST submission
+// ✅ Fetch the logged-in user's SC/ST submission
 app.get("/api/scst-submissions/mine", async (req, res) => {
   try {
     const user = decodeUserIfAny(req);
-    if (!user) {
+    if (!user)
       return res
         .status(401)
         .json({ message: "Unauthorized: user not logged in" });
-    }
 
     const result = await pool.query(
       "SELECT * FROM scst_submissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
       [user.id]
     );
 
-    if (!result.rows.length) {
-      return res.json({ exists: false, data: null });
-    }
-
+    if (!result.rows.length) return res.json({ exists: false, data: null });
     res.json({ exists: true, data: result.rows[0] });
   } catch (err) {
     console.error("❌ Error fetching SC/ST submission:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 // ---- MATRIMONIAL SUBMISSION (Updated with new fields) ----
 
@@ -453,7 +488,6 @@ app.post(
       d.origin_state = d.home_state_india || d.origin_state;
       d.current_status = d.status_type || d.current_status;
 
-      
       console.log("🧾 Parsed form body:", d);
       console.log("📸 File info:", req.file);
 
@@ -853,6 +887,221 @@ app.delete(
     }
   }
 );
+// -------------------- BLOG ROUTES --------------------
+
+// 🟢 Public: get all published blogs
+app.get("/api/blogs", async (req, res) => {
+  try {
+    const { category } = req.query;
+    const query = category
+      ? "SELECT * FROM blog_posts WHERE category_id=$1 AND status='published' ORDER BY created_at DESC"
+      : "SELECT * FROM blog_posts WHERE status='published' ORDER BY created_at DESC";
+    const result = await pool.query(query, category ? [category] : []);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching blogs:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🟢 Public: get single blog by slug
+app.get("/api/blogs/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const postRes = await pool.query("SELECT * FROM blog_posts WHERE slug=$1", [
+      slug,
+    ]);
+    if (!postRes.rows.length)
+      return res.status(404).json({ message: "Blog not found" });
+
+    await pool.query("UPDATE blog_posts SET views=views+1 WHERE slug=$1", [
+      slug,
+    ]);
+    res.json(postRes.rows[0]);
+  } catch (err) {
+    console.error("❌ Error fetching blog:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🟢 Public: post a comment (logged in or not)
+app.post("/api/blogs/:id/comments", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, name, email, comment_text } = req.body;
+    await pool.query(
+      `INSERT INTO blog_comments (post_id, user_id, name, email, comment_text)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, user_id || null, name || null, email || null, comment_text]
+    );
+    res.json({ message: "✅ Comment added successfully!" });
+  } catch (err) {
+    console.error("❌ Comment error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🔒 Admin: fetch all blogs
+app.get("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    console.log("🔥 /api/admin/blogs hit", req.user);
+    const result = await pool.query(`
+      SELECT bp.*, 
+             bc.name AS category_name, 
+             u.name AS author_name
+      FROM blog_posts bp
+      LEFT JOIN blog_categories bc ON bp.category_id = bc.id
+      LEFT JOIN users u ON bp.author_id = u.id
+      ORDER BY bp.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Blog fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    let {
+      title,
+      slug,
+      content,
+      excerpt,
+      image_url,
+      category_id,
+      tags,
+      status,
+    } = req.body;
+    const author_id = req.user.id;
+
+    // ✅ Auto-generate slug if not provided
+    if (!slug || slug.trim() === "") {
+      slug = title
+        ? title
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)+/g, "")
+        : "untitled-" + Date.now();
+    }
+
+    // ✅ Ensure slug uniqueness
+    const check = await pool.query(
+      "SELECT slug FROM blog_posts WHERE slug = $1",
+      [slug]
+    );
+    if (check.rows.length > 0) {
+      slug = `${slug}-${Date.now()}`;
+    }
+
+    // ✅ Defaults
+    if (!category_id) category_id = 1;
+    if (!status) status = "published";
+
+    // ✅ Insert and return the new blog
+    const insertRes = await pool.query(
+      `INSERT INTO blog_posts 
+        (title, slug, content, excerpt, image_url, category_id, author_id, tags, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id, title, slug, status, image_url, created_at`,
+      [
+        title,
+        slug,
+        content,
+        excerpt,
+        image_url,
+        category_id,
+        author_id,
+        tags || [],
+        status,
+      ]
+    );
+
+    const newBlog = insertRes.rows[0];
+    console.log(`📝 Blog created by ${req.user.email}: ${title} (${slug})`);
+    res.json({
+      message: "✅ Blog post created successfully!",
+      blog: newBlog, // <-- return blog object here
+    });
+  } catch (err) {
+    console.error("❌ Blog create error:", err);
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+
+app.put("/api/admin/blogs/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { title, content, excerpt, image_url, category_id, status } = req.body;
+
+    // ✅ Update existing blog
+    await pool.query(
+      `UPDATE blog_posts
+       SET title=$1, content=$2, excerpt=$3, image_url=$4, 
+           category_id=$5, status=$6, updated_at=NOW()
+       WHERE id=$7`,
+      [title, content, excerpt, image_url, category_id, status, req.params.id]
+    );
+
+    // ✅ Fetch the updated row to return to frontend
+    const result = await pool.query(
+      `SELECT bp.*, 
+              bc.name AS category_name, 
+              u.name AS author_name
+       FROM blog_posts bp
+       LEFT JOIN blog_categories bc ON bp.category_id = bc.id
+       LEFT JOIN users u ON bp.author_id = u.id
+       WHERE bp.id = $1`,
+      [req.params.id]
+    );
+
+    res.json({
+      message: "✅ Blog post updated successfully!",
+      blog: result.rows[0],
+    });
+  } catch (err) {
+    console.error("❌ Blog update error:", err);
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+
+// 🔒 Admin: delete blog
+app.delete(
+  "/api/admin/blogs/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM blog_posts WHERE id=$1", [req.params.id]);
+      res.json({ message: "🗑️ Blog deleted successfully!" });
+    } catch (err) {
+      console.error("❌ Blog delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🖼️ Admin: Upload blog image
+app.post(
+  "/api/admin/blogs/upload",
+  requireAuth,
+  requireAdmin,
+  makeUploader("ravidassia_blog_images").single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file?.path)
+        return res.status(400).json({ message: "No file uploaded" });
+
+      res.json({ image_url: req.file.path });
+    } catch (err) {
+      console.error("❌ Blog image upload error:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  }
+);
+
 
 // ---- START SERVER ----
 app.listen(PORT, () => {

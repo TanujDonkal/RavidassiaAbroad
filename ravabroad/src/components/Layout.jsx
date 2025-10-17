@@ -303,8 +303,8 @@ useEffect(() => {
               <NavLink to="/about" className="nav-item nav-link">
                 About
               </NavLink>
-              <NavLink to="/service" className="nav-item nav-link">
-                Community
+              <NavLink to="/blogs" className="nav-item nav-link">
+                Blogs / News
               </NavLink>
 
               {/* Pages dropdown (kept as plain dropdown; links inside use NavLink) */}
