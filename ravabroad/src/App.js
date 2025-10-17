@@ -19,9 +19,12 @@ import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
 import MatrimonialForm from "./pages/MatrimonialForm";
 import Profile from "./pages/Profile";
-import FormSubmitOverlay from "./components/FormSubmitOverlay"; 
-import Blogs from "./pages/Blogs"; 
+import FormSubmitOverlay from "./components/FormSubmitOverlay";
+import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
+
+// 🔒 NEW IMPORT
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -41,11 +44,11 @@ export default function App() {
   // ✅ Show loader on route change
   useEffect(() => {
     setLoading(true);
-    const timeout = setTimeout(() => setLoading(false), 600); // show for 0.6s minimum
+    const timeout = setTimeout(() => setLoading(false), 600);
     return () => clearTimeout(timeout);
   }, [location]);
 
-  // ✅ Intercept all API calls globally (for navigation/data fetch)
+  // ✅ Intercept all API calls globally
   useEffect(() => {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
@@ -64,16 +67,10 @@ export default function App() {
 
   return (
     <PopupProvider>
-      {/* ✅ Global form submit overlay (only when any form submits) */}
       <FormSubmitOverlay />
-
-      {/* 🌐 Global loader for route/API changes */}
       <GlobalLoader visible={loading} />
-
-      {/* Scroll restoration */}
       <ScrollAndInit />
 
-      {/* App routes */}
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
@@ -86,7 +83,17 @@ export default function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="connect-scst" element={<ConnectSCST />} />
           <Route path="auth" element={<Auth />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          
+          {/* 🔒 Admin Dashboard Protected */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/matrimonial" element={<MatrimonialForm />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
