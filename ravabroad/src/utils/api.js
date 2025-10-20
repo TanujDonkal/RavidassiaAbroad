@@ -1,6 +1,7 @@
 // src/utils/api.js
 // ✅ We keep "/api" only here — not in each fetch path
-const API_BASE = process.env.REACT_APP_API_URL + "/api";
+export const API_BASE = process.env.REACT_APP_API_URL + "/api";
+
 
 // ----------------------------
 // Helper to get token

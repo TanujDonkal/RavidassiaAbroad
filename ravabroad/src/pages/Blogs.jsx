@@ -8,18 +8,58 @@ import "../bootstrap-overrides.css";
 import "../css/Blogs.css";
 import { Link } from "react-router-dom";
 
+const BegampuraHeading = () => (
+  <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
+    <div
+      style={{
+        flex: 1,
+        height: "2px",
+        background:
+          "linear-gradient(to right, transparent, #e63946, transparent)",
+      }}
+    ></div>
+    <img
+      src="/template/img/6Qt0bpw3_400x400-removebg-preview.png
+"
+      alt="Begampura Logo"
+      style={{
+        width: "55px",
+        height: "55px",
+        borderRadius: "50%",
+        objectFit: "cover",
+      }}
+    />
+    <h3 className="fw-bold text-uppercase mb-0">The Begampura News</h3>
+    <div
+      style={{
+        flex: 1,
+        height: "2px",
+        background:
+          "linear-gradient(to right, transparent, #e63946, transparent)",
+      }}
+    ></div>
+  </div>
+);
+
 const Blogs = () => {
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchBlogs();
+    fetchCategories();
   }, []);
 
-  const fetchBlogs = async () => {
+  const fetchBlogs = async (category = "") => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/blogs`);
+      const url = category
+        ? `${process.env.REACT_APP_API_URL}/api/blogs?category=${category}`
+        : `${process.env.REACT_APP_API_URL}/api/blogs`;
+
+      const res = await fetch(url);
       const data = await res.json();
       setBlogs(data || []);
     } catch (err) {
@@ -29,13 +69,57 @@ const Blogs = () => {
     }
   };
 
+const fetchCategories = async () => {
+  try {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/categories`);
+    const data = await res.json();
+    setCategories(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error("❌ Failed to load categories:", err);
+  }
+};
+
   return (
     <main className="gray-bg">
       {/* ===== Trending Section ===== */}
       <section className="trending-area pt-25 gray-bg">
         <div className="container">
           <div className="section-tittle mb-4 text-center">
-            <h3>🔥 The Begampura News</h3>
+            <BegampuraHeading />
+          </div>
+          {/* 🏷 Category Filter Bar */}
+          <div className="text-center my-4">
+            <div className="d-inline-flex flex-wrap justify-content-center gap-2">
+              <button
+                className={`btn btn-sm ${
+                  selectedCategory === ""
+                    ? "btn-primary"
+                    : "btn-outline-primary"
+                }`}
+                onClick={() => {
+                  setSelectedCategory("");
+                  fetchBlogs("");
+                }}
+              >
+                All
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  className={`btn btn-sm ${
+                    selectedCategory === cat.id
+                      ? "btn-primary"
+                      : "btn-outline-primary"
+                  }`}
+                  onClick={() => {
+                    setSelectedCategory(cat.id);
+                    fetchBlogs(cat.id);
+                  }}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
@@ -104,7 +188,7 @@ const Blogs = () => {
                               {post.author_name || "Admin"}
                             </h6>
                             <p className="profile-followers mb-0 small text-muted">
-                              {new Date(post.created_at).toLocaleDateString()}
+  {new Date(post.created_at).toLocaleDateString()} • 👁 {post.views || 0}
                             </p>
                           </div>
                         </div>

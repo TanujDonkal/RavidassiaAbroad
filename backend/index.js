@@ -53,10 +53,28 @@ app.use(
       }
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"], // ✅ REQUIRED for JWT headers
+    // ✅ Added PATCH here
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ✅ FIXED: Explicitly allow PATCH and preflight for all routes
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With"
+  );
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
@@ -888,15 +906,52 @@ app.delete(
   }
 );
 // -------------------- BLOG ROUTES --------------------
-
-// 🟢 Public: get all published blogs
+// 🟢 Public: get all published blogs with category + author info
 app.get("/api/blogs", async (req, res) => {
   try {
     const { category } = req.query;
+
     const query = category
-      ? "SELECT * FROM blog_posts WHERE category_id=$1 AND status='published' ORDER BY created_at DESC"
-      : "SELECT * FROM blog_posts WHERE status='published' ORDER BY created_at DESC";
-    const result = await pool.query(query, category ? [category] : []);
+      ? `
+        SELECT 
+          b.id, 
+          b.title, 
+          b.slug, 
+          b.excerpt, 
+          b.image_url, 
+          b.status, 
+          b.created_at, 
+          b.views,
+          c.name AS category_name,
+          u.name AS author_name
+        FROM blog_posts b
+        LEFT JOIN blog_categories c ON b.category_id = c.id
+        LEFT JOIN users u ON b.author_id = u.id
+        WHERE b.category_id = $1 AND b.status = 'published'
+        ORDER BY b.created_at DESC
+      `
+      : `
+        SELECT 
+          b.id, 
+          b.title, 
+          b.slug, 
+          b.excerpt, 
+          b.image_url, 
+          b.status, 
+          b.created_at, 
+          b.views,
+          c.name AS category_name,
+          u.name AS author_name
+        FROM blog_posts b
+        LEFT JOIN blog_categories c ON b.category_id = c.id
+        LEFT JOIN users u ON b.author_id = u.id
+        WHERE b.status = 'published'
+        ORDER BY b.created_at DESC
+      `;
+
+    const params = category ? [category] : [];
+    const result = await pool.query(query, params);
+
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error fetching blogs:", err);
@@ -904,59 +959,74 @@ app.get("/api/blogs", async (req, res) => {
   }
 });
 
-// 🟢 Public: get single blog by slug
+
+// 🟢 Public: get single blog by slug (with category and author) + increment views
 app.get("/api/blogs/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const postRes = await pool.query("SELECT * FROM blog_posts WHERE slug=$1", [
-      slug,
-    ]);
-    if (!postRes.rows.length)
+
+    // 🔹 1. Fetch blog details
+    const query = `
+      SELECT 
+        b.*, 
+        c.name AS category_name, 
+        c.id AS category_id, 
+        u.name AS author_name
+      FROM blog_posts b
+      LEFT JOIN blog_categories c ON b.category_id = c.id
+      LEFT JOIN users u ON b.author_id = u.id
+      WHERE b.slug = $1
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [slug]);
+
+    if (result.rowCount === 0)
       return res.status(404).json({ message: "Blog not found" });
 
-    await pool.query("UPDATE blog_posts SET views=views+1 WHERE slug=$1", [
-      slug,
+    const blog = result.rows[0];
+
+    // 🔹 2. Increment views count
+    await pool.query(`UPDATE blog_posts SET views = views + 1 WHERE id = $1`, [
+      blog.id,
     ]);
-    res.json(postRes.rows[0]);
+
+    // 🔹 3. Return updated view count
+    blog.views = blog.views + 1;
+
+    res.json(blog);
   } catch (err) {
-    console.error("❌ Error fetching blog:", err);
+    console.error("❌ Error fetching blog detail:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// 🟢 Public: post a comment (logged in or not)
-app.post("/api/blogs/:id/comments", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { user_id, name, email, comment_text } = req.body;
-    await pool.query(
-      `INSERT INTO blog_comments (post_id, user_id, name, email, comment_text)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, user_id || null, name || null, email || null, comment_text]
-    );
-    res.json({ message: "✅ Comment added successfully!" });
-  } catch (err) {
-    console.error("❌ Comment error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
 
-// 🔒 Admin: fetch all blogs
+
+
+// 🔒 Admin: Get all blogs (with category + author info)
 app.get("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
   try {
-    console.log("🔥 /api/admin/blogs hit", req.user);
     const result = await pool.query(`
-      SELECT bp.*, 
-             bc.name AS category_name, 
-             u.name AS author_name
-      FROM blog_posts bp
-      LEFT JOIN blog_categories bc ON bp.category_id = bc.id
-      LEFT JOIN users u ON bp.author_id = u.id
-      ORDER BY bp.created_at DESC
+      SELECT 
+        b.id,
+        b.title,
+        b.slug,
+        b.status,
+        b.views,
+        b.created_at,
+        b.updated_at,
+        b.image_url,
+        c.name AS category_name,
+        u.name AS author_name
+      FROM blog_posts b
+      LEFT JOIN blog_categories c ON b.category_id = c.id
+      LEFT JOIN users u ON b.author_id = u.id
+      ORDER BY b.created_at DESC
     `);
+
     res.json(result.rows);
   } catch (err) {
-    console.error("❌ Blog fetch error:", err);
+    console.error("❌ Admin blogs fetch error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -1030,10 +1100,10 @@ app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-
 app.put("/api/admin/blogs/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, content, excerpt, image_url, category_id, status } = req.body;
+    const { title, content, excerpt, image_url, category_id, status } =
+      req.body;
 
     // ✅ Update existing blog
     await pool.query(
@@ -1066,18 +1136,30 @@ app.put("/api/admin/blogs/:id", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-
-// 🔒 Admin: delete blog
+// 🔒 Admin delete blog + all related comments
 app.delete(
   "/api/admin/blogs/:id",
   requireAuth,
   requireAdmin,
   async (req, res) => {
     try {
-      await pool.query("DELETE FROM blog_posts WHERE id=$1", [req.params.id]);
-      res.json({ message: "🗑️ Blog deleted successfully!" });
+      const { id } = req.params;
+
+      // 1️⃣ Delete the blog (cascade handles comments)
+      const result = await pool.query(
+        "DELETE FROM blog_posts WHERE id=$1 RETURNING *",
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+
+      res.json({
+        message: "🗑️ Blog and all related comments deleted successfully",
+      });
     } catch (err) {
-      console.error("❌ Blog delete error:", err);
+      console.error("❌ Admin blog delete error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }
@@ -1101,6 +1183,237 @@ app.post(
     }
   }
 );
+
+// -------------------- BLOG COMMENTS SYSTEM --------------------
+
+// 🟢 Get comments + replies (hide user-deleted ones)
+app.get("/api/blogs/:id/comments", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT * FROM blog_comments 
+       WHERE post_id=$1 
+       AND is_approved=true
+       AND deleted_by_user=false
+       ORDER BY created_at ASC`,
+      [id]
+    );
+
+    const comments = result.rows.filter((c) => !c.parent_id);
+    const replies = result.rows.filter((c) => c.parent_id);
+
+    comments.forEach((c) => {
+      c.replies = replies.filter((r) => r.parent_id === c.id);
+    });
+
+    res.json(comments);
+  } catch (err) {
+    console.error("❌ Fetch comments error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🟢 Public: add a comment or reply
+// 🟢 Public: add a comment or reply
+app.post("/api/blogs/:id/comments", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, name, email, comment_text, parent_id } = req.body;
+
+    // 1️⃣ Validate blog existence
+    const blogCheck = await pool.query("SELECT id FROM blog_posts WHERE id=$1", [id]);
+    if (blogCheck.rowCount === 0)
+      return res.status(404).json({ message: "Blog not found" });
+
+    // 2️⃣ Validate parent (and inherit correct post_id)
+    if (parent_id) {
+      const parent = await pool.query(
+        "SELECT id, post_id FROM blog_comments WHERE id=$1",
+        [parent_id]
+      );
+      if (parent.rowCount === 0)
+        return res.status(400).json({ message: "Parent comment not found" });
+
+      // ✅ Ensure same blog (in case of reply-to-reply)
+      if (parent.rows[0].post_id !== parseInt(id)) {
+        return res
+          .status(400)
+          .json({ message: "Invalid parent comment relationship" });
+      }
+    }
+
+    // 3️⃣ Insert comment (safe even for reply-of-reply)
+    const result = await pool.query(
+      `INSERT INTO blog_comments 
+       (post_id, user_id, name, email, comment_text, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [id, user_id || null, name || null, email || null, comment_text, parent_id || null]
+    );
+
+    // 4️⃣ Return the newly created comment for instant UI update
+    res.json({
+      message: "✅ Comment added successfully!",
+      comment: result.rows[0],
+    });
+  } catch (err) {
+    console.error("❌ Comment insert error:", err.message);
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
+
+
+// 🔒 Admin: fetch all comments (with post title)
+// 🔒 Admin: fetch all comments (including deleted)
+app.get("/api/admin/comments", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, b.title AS post_title 
+      FROM blog_comments c
+      LEFT JOIN blog_posts b ON c.post_id=b.id
+      ORDER BY c.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Admin comments fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🔒 Admin: toggle approval
+app.patch(
+  "/api/admin/comments/:id/approve",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query(
+        "UPDATE blog_comments SET is_approved = NOT is_approved WHERE id=$1",
+        [req.params.id]
+      );
+      res.json({ message: "✅ Comment approval toggled" });
+    } catch (err) {
+      console.error("❌ Comment approve toggle error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔒 Admin: delete comment (and replies auto-deleted via cascade)
+app.delete(
+  "/api/admin/comments/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM blog_comments WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "🗑️ Comment deleted" });
+    } catch (err) {
+      console.error("❌ Comment delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🟢 USER SOFT DELETE
+app.patch("/api/blogs/comments/:id/delete", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "UPDATE blog_comments SET deleted_by_user = true WHERE id=$1 RETURNING *",
+      [id]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ message: "Comment not found" });
+
+    res.json({ message: "🗑️ Comment soft-deleted by user" });
+  } catch (err) {
+    console.error("❌ Soft delete error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🔒 ADMIN HARD DELETE
+app.delete(
+  "/api/blogs/comments/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM blog_comments WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "🗑️ Comment permanently deleted by admin" });
+    } catch (err) {
+      console.error("❌ Admin delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+
+// ---- BLOG CATEGORIES ----
+app.get("/api/admin/categories", requireAuth, requireAdmin, async (req, res) => {
+  const result = await pool.query("SELECT * FROM blog_categories ORDER BY id ASC");
+  res.json(result.rows);
+});
+
+app.post("/api/admin/categories", requireAuth, requireAdmin, async (req, res) => {
+  const { name, slug, parent_id, description } = req.body;
+  if (!name) return res.status(400).json({ message: "Name required" });
+  const slugValue =
+    slug ||
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+  await pool.query(
+    "INSERT INTO blog_categories (name, slug, parent_id, description) VALUES ($1,$2,$3,$4)",
+    [name, slugValue, parent_id || null, description || null]
+  );
+  res.json({ message: "✅ Category created" });
+});
+
+app.put("/api/admin/categories/:id", requireAuth, requireAdmin, async (req, res) => {
+  const { name, slug, parent_id, description } = req.body;
+  await pool.query(
+    "UPDATE blog_categories SET name=$1, slug=$2, parent_id=$3, description=$4 WHERE id=$5",
+    [name, slug, parent_id || null, description || null, req.params.id]
+  );
+  res.json({ message: "✅ Category updated" });
+});
+
+app.delete("/api/admin/categories/:id", requireAuth, requireAdmin, async (req, res) => {
+  await pool.query("DELETE FROM blog_categories WHERE id=$1", [req.params.id]);
+  res.json({ message: "🗑 Category deleted" });
+});
+
+// 🟢 Public: get all blog categories (for filters)
+app.get("/api/categories", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, slug, parent_id FROM blog_categories ORDER BY id ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching categories:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
 
 
 // ---- START SERVER ----

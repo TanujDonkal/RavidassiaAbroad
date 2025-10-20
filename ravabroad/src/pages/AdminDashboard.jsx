@@ -5,6 +5,7 @@ import { usePopup } from "../components/PopupProvider";
 import { getRecipients, createUser, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import BlogFormModal from "../components/BlogFormModal";
+import CategoryFormModal from "../components/CategoryFormModal";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -22,6 +23,9 @@ export default function AdminDashboard() {
   const [selectAll, setSelectAll] = useState(false);
   const [showBlogModal, setShowBlogModal] = useState(false);
   const [selectedBlog, setSelectedBlog] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   // --------------------------
   // FETCH DATA
@@ -87,6 +91,17 @@ export default function AdminDashboard() {
           );
           const data = await res.json();
           setSubmissions(Array.isArray(data) ? data : []);
+        }
+
+        if (activeTab === "categories") {
+          const res = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setCategories(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error("Failed to fetch:", err);
@@ -279,6 +294,7 @@ export default function AdminDashboard() {
                   label: "Content Requests",
                 },
                 { tab: "blogs", icon: "bi-newspaper", label: "Blogs" },
+                { tab: "categories", icon: "bi-tags", label: "Categories" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -338,7 +354,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
                 {/* BLOGS TAB */}
-                {/* BLOGS TAB */}
+
                 {activeTab === "blogs" && (
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
@@ -421,6 +437,8 @@ export default function AdminDashboard() {
                           setSelectedBlog(null);
                         }}
                         onSubmit={(updatedBlog) => {
+                          // Add a re-fetch so views/other data refresh
+                          const token = localStorage.getItem("token");
                           // ✅ Instantly update local list (no manual refresh)
                           if (updatedBlog?.id) {
                             // existing blog edited
@@ -457,6 +475,101 @@ export default function AdminDashboard() {
                           })();
 
                           setShowBlogModal(false);
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* CATEGORIES TAB */}
+                {activeTab === "categories" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Blog Categories</h5>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedCategory(null);
+                          setShowCategoryModal(true);
+                        }}
+                      >
+                        + New Category
+                      </button>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Slug</th>
+                            <th>Parent</th>
+                            <th>Description</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {categories.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="6"
+                                className="text-center text-muted py-4"
+                              >
+                                No categories yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            categories.map((c) => (
+                              <tr key={c.id}>
+                                <td>{c.id}</td>
+                                <td>{c.name}</td>
+                                <td>{c.slug}</td>
+                                <td>{c.parent_id || "—"}</td>
+                                <td>{c.description || "—"}</td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-warning btn-sm me-2"
+                                    onClick={() => {
+                                      setSelectedCategory(c);
+                                      setShowCategoryModal(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() =>
+                                      handleDelete("categories", c.id)
+                                    }
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {showCategoryModal && (
+                      <CategoryFormModal
+                        category={selectedCategory}
+                        onClose={() => {
+                          setShowCategoryModal(false);
+                          setSelectedCategory(null);
+                        }}
+                        onSubmit={async () => {
+                          const token = localStorage.getItem("token");
+                          const res = await fetch(
+                            `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+                            { headers: { Authorization: `Bearer ${token}` } }
+                          );
+                          const refreshed = await res.json();
+                          setCategories(
+                            Array.isArray(refreshed) ? refreshed : []
+                          );
                         }}
                       />
                     )}

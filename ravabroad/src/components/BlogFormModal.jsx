@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import { apiFetch } from "../utils/api";
@@ -8,20 +8,71 @@ import GlobalLoader from "../components/GlobalLoader";
 
 export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
   const popup = usePopup();
+
   const [form, setForm] = useState({
-    id: blog?.id || null,
-    title: blog?.title || "",
-    excerpt: blog?.excerpt || "",
-    content: blog?.content || "",
+    id: "",
+    title: "",
+    excerpt: "",
+    content: "",
     image_file: null,
-    image_url: blog?.image_url || "",
-    category_id: blog?.category_id || 1,
-    status: blog?.status || "published",
+    image_url: "",
+    category_id: "",
+    status: "published",
   });
 
-  const [preview, setPreview] = useState(blog?.image_url || "");
+  const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState([]);
 
+  // 🟢 Fetch categories once
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        const normalized = Array.isArray(data)
+          ? data.map((c) => ({ ...c, id: String(c.id) }))
+          : [];
+        setCategories(normalized);
+      } catch (err) {
+        console.error("❌ Failed to load categories:", err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // 🧠 Fill form when blog prop changes (for Edit)
+  useEffect(() => {
+    if (blog) {
+      setForm({
+        id: blog.id || "",
+        title: blog.title || "",
+        excerpt: blog.excerpt || "",
+        content: blog.content || "",
+        image_file: null,
+        image_url: blog.image_url || "",
+        category_id: blog.category_id ? String(blog.category_id) : "",
+        status: blog.status || "published",
+      });
+      setPreview(blog.image_url || "");
+    }
+  }, [blog]);
+
+  // ✅ If categories arrive late, reapply category_id
+  useEffect(() => {
+    if (blog?.category_id && categories.length > 0) {
+      setForm((prev) => ({
+        ...prev,
+        category_id: String(blog.category_id),
+      }));
+    }
+  }, [categories, blog]);
+
+  // ✅ Input Handlers
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -30,7 +81,6 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
     setForm({ ...form, content: editor.getData() });
   };
 
-  // ✅ Show preview when file is selected
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -39,20 +89,34 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
     }
   };
 
-  // ✅ Handle submit → upload → save
+  // ✅ Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUploading(true);
 
     try {
+      if (
+        !form.title.trim() ||
+        !form.excerpt.trim() ||
+        !form.content.trim() ||
+        !form.category_id
+      ) {
+        popup.open({
+          title: "⚠️ Missing Fields",
+          message: "Please fill in all required fields before saving.",
+          type: "warning",
+        });
+        setUploading(false);
+        return;
+      }
+
       let imageUrl = form.image_url;
 
-      // 🟢 Upload to Cloudinary if file selected
+      // 🟢 Upload image if new one selected
       if (form.image_file) {
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append("image", form.image_file);
-
         const res = await fetch(
           `${process.env.REACT_APP_API_URL}/api/admin/blogs/upload`,
           {
@@ -61,13 +125,12 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
             body: formData,
           }
         );
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Image upload failed");
         imageUrl = data.image_url;
       }
 
-      // 🟢 Save blog post to DB
+      // 🟢 Save / Update blog
       const response = await apiFetch(
         form.id ? `/admin/blogs/${form.id}` : "/admin/blogs",
         {
@@ -89,10 +152,9 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
         type: "success",
       });
 
-      // ✅ Safely call parent only if blog object exists
-      if (typeof onSubmit === "function" && response.blog) onSubmit(response.blog);
+      if (typeof onSubmit === "function" && response.blog)
+        onSubmit(response.blog);
       if (typeof onClose === "function") onClose();
-
     } catch (err) {
       console.error("❌ Error saving blog:", err);
       popup.open({
@@ -107,9 +169,7 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
 
   return (
     <>
-      {/* Global Loader */}
       <GlobalLoader visible={uploading} />
-
       <div
         className="modal fade show"
         style={{
@@ -120,7 +180,6 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
       >
         <div className="modal-dialog modal-dialog-centered modal-fullscreen">
           <div className="modal-content border-0 shadow-lg rounded-3">
-            {/* Header */}
             <div className="modal-header bg-light border-0">
               <h5 className="modal-title fw-semibold text-primary">
                 {form.id ? "✏️ Edit Blog Post" : "📝 Create New Blog Post"}
@@ -132,7 +191,6 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
               ></button>
             </div>
 
-            {/* Body */}
             <div className="modal-body bg-light py-4">
               <div className="container">
                 <div className="row justify-content-center">
@@ -158,17 +216,39 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
                             </div>
                             <div className="col-md-6 mb-3">
                               <label className="form-label fw-semibold">
-                                Short Description
+                                Short Description *
                               </label>
                               <input
                                 type="text"
                                 name="excerpt"
                                 className="form-control"
-                                placeholder="Brief summary (optional)"
+                                placeholder="Enter short description"
                                 value={form.excerpt}
                                 onChange={handleChange}
+                                required
                               />
                             </div>
+                          </div>
+
+                          {/* Category */}
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">
+                              Category *
+                            </label>
+                            <select
+                              name="category_id"
+                              className="form-select"
+                              value={form.category_id || ""}
+                              onChange={handleChange}
+                              required
+                            >
+                              <option value="">Select Category</option>
+                              {categories.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
                           {/* Content */}
@@ -176,7 +256,14 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
                             <label className="form-label fw-semibold">
                               Content *
                             </label>
-                            <div className="border rounded p-2">
+                            <div
+                              className="border rounded p-2"
+                              style={{
+                                maxHeight: "400px",
+                                overflowY: "auto",
+                                backgroundColor: "#fff",
+                              }}
+                            >
                               <CKEditor
                                 editor={ClassicEditor}
                                 data={form.content}
@@ -189,9 +276,8 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
                           <div className="row align-items-start">
                             <div className="col-md-8 mb-3">
                               <label className="form-label fw-semibold">
-                                Image
+                                Image *
                               </label>
-
                               {preview && (
                                 <div className="text-center mb-3">
                                   <img
@@ -206,20 +292,19 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
                                   />
                                 </div>
                               )}
-
                               <input
                                 type="file"
                                 accept="image/*"
                                 className="form-control"
                                 onChange={handleFileSelect}
                                 disabled={uploading}
+                                required={!form.id}
                               />
                               <small className="text-muted">
                                 Supported: JPG, PNG, WEBP (max 5 MB)
                               </small>
                             </div>
 
-                            {/* Post Status */}
                             <div className="col-md-4 mb-3">
                               <label className="form-label fw-semibold">
                                 Post Status
@@ -230,7 +315,9 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
                                 value={form.status}
                                 onChange={handleChange}
                               >
-                                <option value="published">Save & Publish</option>
+                                <option value="published">
+                                  Save & Publish
+                                </option>
                                 <option value="draft">Save as Draft</option>
                               </select>
                             </div>

@@ -19,40 +19,39 @@ export default function Layout() {
     return stored ? JSON.parse(stored) : null;
   });
   // 🧹 Safe modal cleanup for frontend only
-useEffect(() => {
-  const cleanupFrontendModals = (event) => {
-    // Get modal ID (like "donateModal", "searchModal", etc.)
-    const modalId = event?.target?.id || "";
+  useEffect(() => {
+    const cleanupFrontendModals = (event) => {
+      // Get modal ID (like "donateModal", "searchModal", etc.)
+      const modalId = event?.target?.id || "";
 
-    // ✅ Only clean up these frontend modals
-    const isFrontendModal =
-      modalId.includes("donate") ||
-      modalId.includes("contentRequest") ||
-      modalId.includes("search");
+      // ✅ Only clean up these frontend modals
+      const isFrontendModal =
+        modalId.includes("donate") ||
+        modalId.includes("contentRequest") ||
+        modalId.includes("search");
 
-    if (!isFrontendModal) return;
+      if (!isFrontendModal) return;
 
-    // Remove leftover Bootstrap backdrops and reset body scroll
-    document.querySelectorAll(".modal-backdrop").forEach((el) => el.remove());
-    document.body.classList.remove("modal-open");
-    document.body.style.overflow = "";
-    document.body.style.paddingRight = "";
-  };
+      // Remove leftover Bootstrap backdrops and reset body scroll
+      document.querySelectorAll(".modal-backdrop").forEach((el) => el.remove());
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    };
 
-  // Clean up when frontend modals open or close
-  window.addEventListener("hidden.bs.modal", cleanupFrontendModals);
-  window.addEventListener("shown.bs.modal", cleanupFrontendModals);
+    // Clean up when frontend modals open or close
+    window.addEventListener("hidden.bs.modal", cleanupFrontendModals);
+    window.addEventListener("shown.bs.modal", cleanupFrontendModals);
 
-  // Run once on mount (in case something is stuck)
-  cleanupFrontendModals({ target: { id: "donateModal" } });
+    // Run once on mount (in case something is stuck)
+    cleanupFrontendModals({ target: { id: "donateModal" } });
 
-  // Cleanup listeners on unmount
-  return () => {
-    window.removeEventListener("hidden.bs.modal", cleanupFrontendModals);
-    window.removeEventListener("shown.bs.modal", cleanupFrontendModals);
-  };
-}, []);
-
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener("hidden.bs.modal", cleanupFrontendModals);
+      window.removeEventListener("shown.bs.modal", cleanupFrontendModals);
+    };
+  }, []);
 
   // ✅ New: Sync user from backend automatically
   useEffect(() => {
@@ -70,6 +69,26 @@ useEffect(() => {
           localStorage.removeItem("user");
           localStorage.removeItem("token");
           setUser(null);
+
+          // 🧩 Dispatch auth update to hide dropdowns immediately
+          window.dispatchEvent(new Event("auth-updated"));
+
+          // 🧠 Show global popup before redirect
+          const popupEvent = new CustomEvent("open-popup", {
+            detail: {
+              title: "🔒 Session Expired",
+              message: "Your session has ended. Please sign in again.",
+              type: "warning",
+            },
+          });
+          window.dispatchEvent(popupEvent);
+
+          // ⏳ Give user time to see popup before redirect
+          setTimeout(() => {
+            if (!window.location.pathname.startsWith("/auth")) {
+              window.location.href = "/auth";
+            }
+          }, 1800);
         }
       } else {
         const stored = localStorage.getItem("user");
@@ -88,63 +107,61 @@ useEffect(() => {
   }, []);
 
   // ✅ Navbar toggler fix for mobile menu open/close
-// ✅ Navbar toggle + auto-close on link click (Bootstrap + React safe)
-useEffect(() => {
-  const toggler = document.getElementById("navbarToggler");
-  const collapseEl = document.getElementById("navbarCollapse");
+  // ✅ Navbar toggle + auto-close on link click (Bootstrap + React safe)
+  useEffect(() => {
+    const toggler = document.getElementById("navbarToggler");
+    const collapseEl = document.getElementById("navbarCollapse");
 
-  if (!toggler || !collapseEl || !window.bootstrap) return;
+    if (!toggler || !collapseEl || !window.bootstrap) return;
 
-  const collapse = new window.bootstrap.Collapse(collapseEl, {
-    toggle: false,
-  });
-
-  // Toggle menu on burger icon click
-  const handleToggle = (e) => {
-    e.stopPropagation();
-    const isOpen = collapseEl.classList.contains("show");
-    if (isOpen) collapse.hide();
-    else collapse.show();
-  };
-
-  // Close when clicking outside
-  const handleOutsideClick = (e) => {
-    const isDropdown = e.target.closest(".dropdown-menu, .dropdown-toggle");
-    if (
-      collapseEl.classList.contains("show") &&
-      !collapseEl.contains(e.target) &&
-      !toggler.contains(e.target) &&
-      !isDropdown
-    ) {
-      collapse.hide();
-    }
-  };
-
-  // 🔥 Auto-close when clicking any NavLink inside menu
-  const handleNavLinkClick = () => {
-    if (collapseEl.classList.contains("show")) {
-      collapse.hide();
-    }
-  };
-
-  // Attach listeners
-  toggler.addEventListener("click", handleToggle);
-  document.addEventListener("click", handleOutsideClick);
-  collapseEl.querySelectorAll(".nav-link").forEach((link) => {
-    link.addEventListener("click", handleNavLinkClick);
-  });
-
-  // Cleanup
-  return () => {
-    toggler.removeEventListener("click", handleToggle);
-    document.removeEventListener("click", handleOutsideClick);
-    collapseEl.querySelectorAll(".nav-link").forEach((link) => {
-      link.removeEventListener("click", handleNavLinkClick);
+    const collapse = new window.bootstrap.Collapse(collapseEl, {
+      toggle: false,
     });
-  };
-}, []);
 
+    // Toggle menu on burger icon click
+    const handleToggle = (e) => {
+      e.stopPropagation();
+      const isOpen = collapseEl.classList.contains("show");
+      if (isOpen) collapse.hide();
+      else collapse.show();
+    };
 
+    // Close when clicking outside
+    const handleOutsideClick = (e) => {
+      const isDropdown = e.target.closest(".dropdown-menu, .dropdown-toggle");
+      if (
+        collapseEl.classList.contains("show") &&
+        !collapseEl.contains(e.target) &&
+        !toggler.contains(e.target) &&
+        !isDropdown
+      ) {
+        collapse.hide();
+      }
+    };
+
+    // 🔥 Auto-close when clicking any NavLink inside menu
+    const handleNavLinkClick = () => {
+      if (collapseEl.classList.contains("show")) {
+        collapse.hide();
+      }
+    };
+
+    // Attach listeners
+    toggler.addEventListener("click", handleToggle);
+    document.addEventListener("click", handleOutsideClick);
+    collapseEl.querySelectorAll(".nav-link").forEach((link) => {
+      link.addEventListener("click", handleNavLinkClick);
+    });
+
+    // Cleanup
+    return () => {
+      toggler.removeEventListener("click", handleToggle);
+      document.removeEventListener("click", handleOutsideClick);
+      collapseEl.querySelectorAll(".nav-link").forEach((link) => {
+        link.removeEventListener("click", handleNavLinkClick);
+      });
+    };
+  }, []);
 
   const handleContentRequestSubmit = async (e) => {
     e.preventDefault();
@@ -287,11 +304,7 @@ useEffect(() => {
             />
           </Link>
 
-          <button
-            className="navbar-toggler"
-            type="button"
-            id="navbarToggler"
-          >
+          <button className="navbar-toggler" type="button" id="navbarToggler">
             <span className="fa fa-bars"></span>
           </button>
 

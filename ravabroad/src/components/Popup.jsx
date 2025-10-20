@@ -32,14 +32,17 @@ const Popup = forwardRef((_, ref) => {
     },
   }));
 
-  // Auto-close timer (3 s for info/success/warning)
-  useEffect(() => {
-    if (!visible) return;
-    if (["confirm", "error"].includes(options.type)) return;
+// Auto-close timer
+useEffect(() => {
+  if (!visible) return;
 
-    const timer = setTimeout(() => triggerClose(), 3000);
-    return () => clearTimeout(timer);
-  }, [visible, options.type]);
+  // Don't auto-close for confirm, error, or success popups
+  if (["confirm", "error", "success"].includes(options.type)) return;
+
+  const timer = setTimeout(() => triggerClose(), 4000); // 4 s default
+  return () => clearTimeout(timer);
+}, [visible, options.type]);
+
 
   const triggerClose = () => {
     setFadeOut(true);
