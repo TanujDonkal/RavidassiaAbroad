@@ -6,6 +6,7 @@ import { getRecipients, createUser, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import BlogFormModal from "../components/BlogFormModal";
 import CategoryFormModal from "../components/CategoryFormModal";
+import { API_BASE } from "../utils/api";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -39,7 +40,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "blogs") {
           const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/blogs`,
+            `${API_BASE}/api/admin/blogs`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -51,7 +52,7 @@ export default function AdminDashboard() {
         // USERS
         if (activeTab === "users" || activeTab === "dashboard") {
           const usersRes = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/users`,
+            `${API_BASE}/api/admin/users`,
             { headers }
           );
           const usersData = await usersRes.json();
@@ -61,7 +62,7 @@ export default function AdminDashboard() {
         // SC/ST SUBMISSIONS
         if (activeTab === "submissions" || activeTab === "dashboard") {
           const subsRes = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/scst-submissions`,
+            `${API_BASE}/api/admin/scst-submissions`,
             { headers }
           );
           const subsData = await subsRes.json();
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
         // MATRIMONIAL SUBMISSIONS
         if (activeTab === "matrimonial" || activeTab === "dashboard") {
           const matrRes = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/matrimonial`,
+            `${API_BASE}/api/admin/matrimonial`,
             { headers }
           );
           const matrData = await matrRes.json();
@@ -86,7 +87,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "contentRequests") {
           const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/content-requests`,
+            `${API_BASE}/api/admin/content-requests`,
             { headers }
           );
           const data = await res.json();
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "categories") {
           const res = await fetch(
-            `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+            `${API_BASE}/api/admin/categories`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -595,7 +596,7 @@ export default function AdminDashboard() {
                             try {
                               const token = localStorage.getItem("token");
                               const res = await fetch(
-                                `${process.env.REACT_APP_API_URL}/api/admin/blogs`,
+                                `${API_BASE}/api/admin/blogs`,
                                 {
                                   headers: { Authorization: `Bearer ${token}` },
                                 }
@@ -701,7 +702,7 @@ export default function AdminDashboard() {
                         onSubmit={async () => {
                           const token = localStorage.getItem("token");
                           const res = await fetch(
-                            `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+                            `${API_BASE}/api/admin/categories`,
                             { headers: { Authorization: `Bearer ${token}` } }
                           );
                           const refreshed = await res.json();
