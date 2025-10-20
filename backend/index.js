@@ -8,12 +8,13 @@ import nodemailer from "nodemailer";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { OAuth2Client } from "google-auth-library";
 
 dotenv.config();
 
 const { Pool } = pkg;
 const app = express();
-
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Safely decode token if exists in Authorization header
 function decodeUserIfAny(req) {
   try {
@@ -382,6 +383,44 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  try {
+    const { credential } = req.body;
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    let userRes = await pool.query("SELECT * FROM users WHERE email=$1", [
+      email.toLowerCase(),
+    ]);
+    let user;
+
+    if (userRes.rows.length === 0) {
+      const hash = await bcrypt.hash(jwt.sign({ email }, JWT_SECRET), 10);
+      const insert = await pool.query(
+        "INSERT INTO users (name,email,password_hash,photo_url) VALUES ($1,$2,$3,$4) RETURNING *",
+        [name, email.toLowerCase(), hash, picture]
+      );
+      user = insert.rows[0];
+    } else user = userRes.rows[0];
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role, name: user.name, email: user.email },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    delete user.password_hash;
+    res.json({ token, user });
+  } catch (err) {
+    console.error("❌ Google auth error:", err);
+    res.status(400).json({ message: "Invalid Google token" });
   }
 });
 
@@ -959,7 +998,6 @@ app.get("/api/blogs", async (req, res) => {
   }
 });
 
-
 // 🟢 Public: get single blog by slug (with category and author) + increment views
 app.get("/api/blogs/:slug", async (req, res) => {
   try {
@@ -999,9 +1037,6 @@ app.get("/api/blogs/:slug", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 // 🔒 Admin: Get all blogs (with category + author info)
 app.get("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
@@ -1222,7 +1257,10 @@ app.post("/api/blogs/:id/comments", async (req, res) => {
     const { user_id, name, email, comment_text, parent_id } = req.body;
 
     // 1️⃣ Validate blog existence
-    const blogCheck = await pool.query("SELECT id FROM blog_posts WHERE id=$1", [id]);
+    const blogCheck = await pool.query(
+      "SELECT id FROM blog_posts WHERE id=$1",
+      [id]
+    );
     if (blogCheck.rowCount === 0)
       return res.status(404).json({ message: "Blog not found" });
 
@@ -1249,7 +1287,14 @@ app.post("/api/blogs/:id/comments", async (req, res) => {
        (post_id, user_id, name, email, comment_text, parent_id)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [id, user_id || null, name || null, email || null, comment_text, parent_id || null]
+      [
+        id,
+        user_id || null,
+        name || null,
+        email || null,
+        comment_text,
+        parent_id || null,
+      ]
     );
 
     // 4️⃣ Return the newly created comment for instant UI update
@@ -1262,7 +1307,6 @@ app.post("/api/blogs/:id/comments", async (req, res) => {
     res.status(500).json({ message: err.message || "Server error" });
   }
 });
-
 
 // 🔒 Admin: fetch all comments (with post title)
 // 🔒 Admin: fetch all comments (including deleted)
@@ -1355,42 +1399,65 @@ app.delete(
   }
 );
 
-
 // ---- BLOG CATEGORIES ----
-app.get("/api/admin/categories", requireAuth, requireAdmin, async (req, res) => {
-  const result = await pool.query("SELECT * FROM blog_categories ORDER BY id ASC");
-  res.json(result.rows);
-});
+app.get(
+  "/api/admin/categories",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const result = await pool.query(
+      "SELECT * FROM blog_categories ORDER BY id ASC"
+    );
+    res.json(result.rows);
+  }
+);
 
-app.post("/api/admin/categories", requireAuth, requireAdmin, async (req, res) => {
-  const { name, slug, parent_id, description } = req.body;
-  if (!name) return res.status(400).json({ message: "Name required" });
-  const slugValue =
-    slug ||
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
-  await pool.query(
-    "INSERT INTO blog_categories (name, slug, parent_id, description) VALUES ($1,$2,$3,$4)",
-    [name, slugValue, parent_id || null, description || null]
-  );
-  res.json({ message: "✅ Category created" });
-});
+app.post(
+  "/api/admin/categories",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { name, slug, parent_id, description } = req.body;
+    if (!name) return res.status(400).json({ message: "Name required" });
+    const slugValue =
+      slug ||
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "");
+    await pool.query(
+      "INSERT INTO blog_categories (name, slug, parent_id, description) VALUES ($1,$2,$3,$4)",
+      [name, slugValue, parent_id || null, description || null]
+    );
+    res.json({ message: "✅ Category created" });
+  }
+);
 
-app.put("/api/admin/categories/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { name, slug, parent_id, description } = req.body;
-  await pool.query(
-    "UPDATE blog_categories SET name=$1, slug=$2, parent_id=$3, description=$4 WHERE id=$5",
-    [name, slug, parent_id || null, description || null, req.params.id]
-  );
-  res.json({ message: "✅ Category updated" });
-});
+app.put(
+  "/api/admin/categories/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const { name, slug, parent_id, description } = req.body;
+    await pool.query(
+      "UPDATE blog_categories SET name=$1, slug=$2, parent_id=$3, description=$4 WHERE id=$5",
+      [name, slug, parent_id || null, description || null, req.params.id]
+    );
+    res.json({ message: "✅ Category updated" });
+  }
+);
 
-app.delete("/api/admin/categories/:id", requireAuth, requireAdmin, async (req, res) => {
-  await pool.query("DELETE FROM blog_categories WHERE id=$1", [req.params.id]);
-  res.json({ message: "🗑 Category deleted" });
-});
+app.delete(
+  "/api/admin/categories/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    await pool.query("DELETE FROM blog_categories WHERE id=$1", [
+      req.params.id,
+    ]);
+    res.json({ message: "🗑 Category deleted" });
+  }
+);
 
 // 🟢 Public: get all blog categories (for filters)
 app.get("/api/categories", async (req, res) => {
@@ -1404,17 +1471,6 @@ app.get("/api/categories", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
 
 // ---- START SERVER ----
 app.listen(PORT, () => {

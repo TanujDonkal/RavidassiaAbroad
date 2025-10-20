@@ -5,7 +5,10 @@
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" type="image/png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Connecting Chamar's in Abroad Countries" />
+    <meta
+      name="description"
+      content="Connecting Chamar's in Abroad Countries"
+    />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
@@ -16,6 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@200;300;400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!-- Icons -->
     <link
@@ -29,13 +33,14 @@
 
     <!-- Template Styles -->
     <link href="/template/lib/animate/animate.min.css" rel="stylesheet" />
-    <link href="/template/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet" />
+    <link
+      href="/template/lib/owlcarousel/assets/owl.carousel.min.css"
+      rel="stylesheet"
+    />
     <link href="/template/css/style.css" rel="stylesheet" />
     <link href="/template/css/react-fixes.css" rel="stylesheet" />
 
-    <script
-      src="https://www.paypal.com/sdk/js?client-id=BAAQ-e54As5wN0bz8qEAwajeUbM4FKFlkYsy1kyoJ-inuEtJpY27p-Cd4jsS19MUwAeHkGiUkQ&components=hosted-buttons&disable-funding=venmo&currency=CAD"
-    ></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=BAAQ-e54As5wN0bz8qEAwajeUbM4FKFlkYsy1kyoJ-inuEtJpY27p-Cd4jsS19MUwAeHkGiUkQ&components=hosted-buttons&disable-funding=venmo&currency=CAD"></script>
 
     <title>Ravidassia Abroad</title>
   </head>
@@ -75,7 +80,11 @@
             window.__wowInited = true;
           }
 
-          if (window.$ && window.$(".owl-carousel").length && window.$(".owl-carousel").owlCarousel) {
+          if (
+            window.$ &&
+            window.$(".owl-carousel").length &&
+            window.$(".owl-carousel").owlCarousel
+          ) {
             window.$(".owl-carousel").each(function () {
               const $el = window.$(this);
               if (!$el.data("owl.carousel")) {
@@ -84,7 +93,12 @@
             });
           }
 
-          if (window.$ && window.$.fn && window.$.fn.counterUp && window.waypoints) {
+          if (
+            window.$ &&
+            window.$.fn &&
+            window.$.fn.counterUp &&
+            window.waypoints
+          ) {
             window.$(".counter-value").each(function () {
               const $el = window.$(this);
               if (!$el.data("__counterInited")) {

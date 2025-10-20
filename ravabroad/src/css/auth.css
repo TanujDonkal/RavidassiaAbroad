@@ -389,3 +389,31 @@
   border-radius: 20px;
   font-weight: 500;
 }
+
+
+/* ---------- GOOGLE SIGN-IN BUTTON FIX ---------- */
+#googleSignInBtn,
+#googleSignUpBtn {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0 15px;
+  min-height: 40px;
+  width: 100%;
+}
+
+#googleSignInBtn div[role="button"],
+#googleSignUpBtn div[role="button"] {
+  width: 100% !important;
+  max-width: 260px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 6px !important;
+  overflow: hidden;
+}
+
+/* Optional: if you want it to look more integrated with your theme */
+#googleSignInBtn div[role="button"]:hover,
+#googleSignUpBtn div[role="button"]:hover {
+  transform: scale(1.03);
+  transition: transform 0.15s ease-in-out;
+}

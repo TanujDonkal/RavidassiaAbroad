@@ -271,6 +271,144 @@ export default function AdminDashboard() {
       color: "bg-danger",
     },
   ];
+  // ✅ PRINT MATRIMONIAL POST / REEL IN BRAND STYLE WITH GOLD GLOW ANIMATION
+  const handlePrintPost = (data, format = "post") => {
+    const isReel = format === "reel";
+    const width = 1080;
+    const height = isReel ? 1920 : 1080;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>${data.name} | Ravidassia Abroad Matrimonial</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+          body {
+            margin: 0;
+            width: ${width}px;
+            height: ${height}px;
+            font-family: 'Poppins', sans-serif;
+            background: #000;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: ${isReel ? "flex-start" : "center"};
+            padding: ${isReel ? "120px 60px" : "80px 60px"};
+            box-sizing: border-box;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .photo {
+            border-radius: 50%;
+            width: ${isReel ? "300px" : "220px"};
+            height: ${isReel ? "300px" : "220px"};
+            object-fit: cover;
+            border: 5px solid #ffcc33;
+            box-shadow: 0 0 25px rgba(255, 204, 51, 0.4);
+            margin-bottom: ${isReel ? "50px" : "30px"};
+          }
+
+          h1 {
+            font-size: ${isReel ? "58px" : "36px"};
+            color: #ffcc33;
+            margin: 0 0 10px;
+          }
+
+          h3 {
+            font-size: ${isReel ? "32px" : "22px"};
+            font-weight: 400;
+            margin-bottom: 20px;
+            color: #eee;
+          }
+
+          p {
+            font-size: ${isReel ? "30px" : "18px"};
+            margin: 5px 0;
+          }
+
+          .section {
+            margin-top: ${isReel ? "30px" : "20px"};
+            max-width: 850px;
+          }
+
+          .divider {
+            width: 60%;
+            height: 2px;
+            background: #444;
+            margin: 20px 0;
+          }
+
+          /* ✨ Animated Gold Glow */
+          @keyframes shimmer {
+            0% { color: #ffcc33; text-shadow: 0 0 5px #ffcc33, 0 0 10px #ffea00, 0 0 20px #ffcc33; }
+            50% { color: #fff5cc; text-shadow: 0 0 15px #ffe066, 0 0 25px #ffcc33, 0 0 35px #ffcc33; }
+            100% { color: #ffcc33; text-shadow: 0 0 5px #ffcc33, 0 0 10px #ffea00, 0 0 20px #ffcc33; }
+          }
+
+          footer {
+            position: absolute;
+            bottom: ${isReel ? "60px" : "40px"};
+            width: 100%;
+            text-align: center;
+            font-size: ${isReel ? "28px" : "18px"};
+            animation: shimmer 3s infinite ease-in-out;
+            letter-spacing: 1px;
+          }
+
+          .logo {
+            width: ${isReel ? "240px" : "160px"};
+            opacity: ${isReel ? "0.15" : "0.2"};
+            position: absolute;
+            bottom: ${isReel ? "40px" : "30px"};
+            left: 50%;
+            transform: translateX(-50%);
+          }
+        </style>
+      </head>
+      <body>
+        ${
+          isReel
+            ? ""
+            : `<img class="logo" src="/template/img/6Qt0bpw3_400x400-removebg-preview.png" alt="Logo" />`
+        }
+
+        <img
+          class="photo"
+          src="${data.photo_url || "/template/img/no-photo.png"}"
+          alt="Profile"
+        />
+        <h1>${data.name}</h1>
+        <h3>${data.gender || ""} | ${data.status_type || ""}</h3>
+
+        <div class="section">
+          <div class="divider"></div>
+          <p>📍 ${data.city_living || ""}, ${data.country_living || ""}</p>
+          <p>🎓 ${data.education || "—"} | 💼 ${data.occupation || "—"}</p>
+          <div class="divider"></div>
+          <p><strong>Partner Preference:</strong></p>
+          <p>${data.partner_expectations || "Not specified"}</p>
+        </div>
+
+        <footer>💍 Ravidassia Abroad Matrimonial 💍</footer>
+
+        ${
+          isReel
+            ? `<img class="logo" src="/template/img/6Qt0bpw3_400x400-removebg-preview.png" alt="Logo" />`
+            : ""
+        }
+
+        <script>window.print();</script>
+      </body>
+    </html>
+  `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
       {/* Sidebar */}
@@ -777,7 +915,7 @@ export default function AdminDashboard() {
                             <th>Country</th>
                             <th>City</th>
                             <th>Created</th>
-                            <th></th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -815,7 +953,41 @@ export default function AdminDashboard() {
                                 <td>
                                   {new Date(s.created_at).toLocaleDateString()}
                                 </td>
-                                <td>
+                                <td className="d-flex gap-2">
+                                  {/* 🎨 Instagram Export Dropdown */}
+                                  <div className="btn-group">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-secondary dropdown-toggle"
+                                      data-bs-toggle="dropdown"
+                                      aria-expanded="false"
+                                    >
+                                      📸 Download for Instagram
+                                    </button>
+                                    <ul className="dropdown-menu">
+                                      <li>
+                                        <button
+                                          className="dropdown-item"
+                                          onClick={() =>
+                                            handlePrintPost(s, "post")
+                                          }
+                                        >
+                                          🖼️ Instagram Post (1:1)
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button
+                                          className="dropdown-item"
+                                          onClick={() =>
+                                            handlePrintPost(s, "reel")
+                                          }
+                                        >
+                                          🎬 Instagram Reel (9:16)
+                                        </button>
+                                      </li>
+                                    </ul>
+                                  </div>
+
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={async (e) => {

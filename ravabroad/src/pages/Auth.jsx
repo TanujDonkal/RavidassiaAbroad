@@ -1,9 +1,10 @@
-// src/pages/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import "../css/auth.css";
 import { register, login } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
+
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
@@ -12,19 +13,15 @@ export default function Auth() {
   const navigate = useNavigate();
   const popup = usePopup();
 
-  // false = Sign In, true = Sign Up
   const [panelRight, setPanelRight] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [signIn, setSignIn] = useState({ email: "", password: "" });
+  const [signUp, setSignUp] = useState({ name: "", email: "", password: "" });
 
-  // open /auth?mode=signup directly on the Sign Up panel
   useEffect(() => {
     const mode = (searchParams.get("mode") || "").toLowerCase();
     setPanelRight(mode === "signup");
   }, [searchParams]);
-
-  const [msg, setMsg] = useState(null);
-
-  const [signIn, setSignIn] = useState({ email: "", password: "" });
-  const [signUp, setSignUp] = useState({ name: "", email: "", password: "" });
 
   const handleChange = (setFn) => (e) => {
     const { name, value } = e.target;
@@ -37,7 +34,6 @@ export default function Auth() {
     try {
       const data = await register(signUp);
       setMsg(data.message || "User created successfully. Please sign in.");
-
       popup.open({
         title: "Success 🎉",
         message: data.message || "User created successfully. Please sign in.",
@@ -57,20 +53,14 @@ export default function Auth() {
     setMsg(null);
     try {
       const data = await login(signIn);
-
-      // store token + user
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("auth-updated"));
-
-      setMsg("Logged in successfully.");
-
       popup.open({
         title: "Welcome 👋",
         message: "Logged in successfully!",
         type: "success",
       });
-
       navigate("/");
     } catch (err) {
       popup.open({
@@ -81,17 +71,97 @@ export default function Auth() {
     }
   };
 
+  // ✅ GOOGLE LOGIN HANDLER
+  async function handleGoogleResponse(response) {
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/auth/google`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: response.credential }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      window.dispatchEvent(new Event("auth-updated"));
+
+      popup.open({
+        title: "Welcome 👋",
+        message: "Signed in with Google successfully!",
+        type: "success",
+      });
+      navigate("/");
+    } catch (err) {
+      popup.open({
+        title: "Google Login Failed ❌",
+        message: err.message,
+        type: "error",
+      });
+    }
+  }
+
+useEffect(() => {
+  function initGoogle() {
+    if (window.google && GOOGLE_CLIENT_ID) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+      });
+
+      const btnSignIn = document.getElementById("googleSignInBtn");
+      const btnSignUp = document.getElementById("googleSignUpBtn");
+
+      if (btnSignIn) {
+        window.google.accounts.id.renderButton(btnSignIn, {
+          theme: "outline",
+          size: "large",
+          width: 240,
+        });
+      }
+
+      if (btnSignUp) {
+        window.google.accounts.id.renderButton(btnSignUp, {
+          theme: "outline",
+          size: "large",
+          width: 240,
+        });
+      }
+    } else {
+      console.warn("⏳ Google SDK not ready yet");
+    }
+  }
+
+  // If script already loaded
+  if (window.google) {
+    initGoogle();
+  } else {
+    // Wait until Google script loads
+    const interval = setInterval(() => {
+      if (window.google) {
+        clearInterval(interval);
+        initGoogle();
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }
+}, []);
+
+
+
   return (
     <div className="auth-root">
       <h2>Sign in / Sign up</h2>
 
-      {/* MOBILE TABS (shown under 768px via CSS) */}
       <div className="auth-mobile-tabs" role="tablist" aria-label="Auth tabs">
         <button
           type="button"
           className={`tab ${!panelRight ? "active" : ""}`}
           onClick={() => setPanelRight(false)}
-          aria-selected={!panelRight}
         >
           Sign In
         </button>
@@ -99,7 +169,6 @@ export default function Auth() {
           type="button"
           className={`tab ${panelRight ? "active" : ""}`}
           onClick={() => setPanelRight(true)}
-          aria-selected={panelRight}
         >
           Sign Up
         </button>
@@ -126,19 +195,11 @@ export default function Auth() {
         <div className="form-container sign-up-container">
           <form onSubmit={handleSignUp}>
             <h1>Create Account</h1>
-            <div className="social-container">
-              <a href="#" className="social" aria-label="Facebook">
-                <i className="fab fa-facebook-f" />
-              </a>
-              <a href="#" className="social" aria-label="Google">
-                <i className="fab fa-google-plus-g" />
-              </a>
-              <a href="#" className="social" aria-label="LinkedIn">
-                <i className="fab fa-linkedin-in" />
-              </a>
-            </div>
-            <span>or use your email for registration</span>
 
+            {/* ✅ Google Sign Up Button */}
+            <div id="googleSignUpBtn"></div>
+
+            <span>or use your email for registration</span>
             <input
               type="text"
               name="name"
@@ -183,19 +244,11 @@ export default function Auth() {
         <div className="form-container sign-in-container">
           <form onSubmit={handleSignIn}>
             <h1>Sign in</h1>
-            <div className="social-container">
-              <a href="#" className="social" aria-label="Facebook">
-                <i className="fab fa-facebook-f" />
-              </a>
-              <a href="#" className="social" aria-label="Google">
-                <i className="fab fa-google-plus-g" />
-              </a>
-              <a href="#" className="social" aria-label="LinkedIn">
-                <i className="fab fa-linkedin-in" />
-              </a>
-            </div>
-            <span>or use your account</span>
 
+            {/* ✅ Google Sign In Button */}
+            <div id="googleSignInBtn"></div>
+
+            <span>or use your account</span>
             <input
               type="email"
               name="email"
@@ -228,7 +281,7 @@ export default function Auth() {
           </form>
         </div>
 
-        {/* DESKTOP OVERLAY */}
+        {/* Overlay */}
         <div className="overlay-container">
           <div className="overlay">
             <div className="overlay-panel overlay-left">
@@ -252,17 +305,7 @@ export default function Auth() {
       </div>
 
       <footer className="auth-footer">
-        <p>
-          UI inspired by Florin Pop’s challenge —{" "}
-          <a
-            target="_blank"
-            rel="noreferrer"
-            href="https://www.florin-pop.com/blog/2019/03/double-slider-sign-in-up-form/"
-          >
-            how it was built
-          </a>
-          .
-        </p>
+        <p>© Ravidassia Abroad</p>
       </footer>
     </div>
   );
