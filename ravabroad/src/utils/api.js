@@ -1,6 +1,17 @@
 // src/utils/api.js
+
+// 🌍 Automatically detect local or production environment
+const isLocalhost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
+// ✅ Use the right backend based on where the site runs
+const BASE_URL = isLocalhost
+  ? process.env.REACT_APP_API_URL_LOCAL
+  : process.env.REACT_APP_API_URL_PROD;
+
 // ✅ We keep "/api" only here — not in each fetch path
-export const API_BASE = process.env.REACT_APP_API_URL + "/api";
+export const API_BASE = `${BASE_URL}/api`;
 
 
 // ----------------------------
