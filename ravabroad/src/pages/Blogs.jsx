@@ -7,6 +7,7 @@ import "swiper/css/pagination";
 import "../bootstrap-overrides.css";
 import "../css/Blogs.css";
 import { Link } from "react-router-dom";
+import { API_BASE } from "../utils/api";
 
 const BegampuraHeading = () => (
   <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
@@ -56,8 +57,8 @@ const Blogs = () => {
   const fetchBlogs = async (category = "") => {
     try {
       const url = category
-        ? `${process.env.REACT_APP_API_URL}/api/blogs?category=${category}`
-        : `${process.env.REACT_APP_API_URL}/api/blogs`;
+        ? `${API_BASE}/blogs?category=${category}`
+        : `${API_BASE}/blogs`;
 
       const res = await fetch(url);
       const data = await res.json();
@@ -71,7 +72,7 @@ const Blogs = () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/categories`);
+    const res = await fetch(`${API_BASE}/categories`);
     const data = await res.json();
     setCategories(Array.isArray(data) ? data : []);
   } catch (err) {

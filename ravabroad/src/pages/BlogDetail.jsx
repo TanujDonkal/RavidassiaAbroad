@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Comments from "../components/Comments";
+import { API_BASE } from "../utils/api";
 
 const BegampuraHeading = () => (
   <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
@@ -41,18 +42,16 @@ export default function BlogDetail() {
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState([]);
 
-  const API_BASE =
-    process.env.REACT_APP_API_URL?.replace(/\/+$/, "") ||
-    "http://localhost:5000";
+
 
   // 🧠 Fetch single post
   useEffect(() => {
     const fetchPost = async () => {
 
       try {
-        const res = await fetch(`${API_BASE}/api/blogs/${slug}`);
+        const res = await fetch(`${API_BASE}/blogs/${slug}`);
         const data = await res.json();
-              
+              console.log("Fetched post:", data);
 
         if (!res.ok) throw new Error(data.message || "Blog not found");
         setPost(data);
@@ -73,7 +72,7 @@ export default function BlogDetail() {
   // 📰 Fetch related posts
   const fetchRelated = async (categoryId, excludeId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/blogs?category=${categoryId}`);
+      const res = await fetch(`${API_BASE}/blogs?category=${categoryId}`);
       const data = await res.json();
       
       const filtered = (data || []).filter((p) => p.id !== excludeId);

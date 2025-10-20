@@ -131,7 +131,7 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
       name: user?.name || form.name,
       email: user?.email || form.email,
       comment_text: form.comment_text,
-      parent_id,
+      parent_id, post_id: postId,
     };
 
     try {

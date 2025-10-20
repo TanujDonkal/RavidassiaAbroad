@@ -5,6 +5,7 @@ import { apiFetch } from "../utils/api";
 import "../css/BlogFormModal.css";
 import { usePopup } from "../components/PopupProvider";
 import GlobalLoader from "../components/GlobalLoader";
+import { API_BASE } from "../utils/api";
 
 export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
   const popup = usePopup();
@@ -30,7 +31,7 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/admin/categories`,
+          `${API_BASE}/admin/categories`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
@@ -118,7 +119,7 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
         const formData = new FormData();
         formData.append("image", form.image_file);
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/admin/blogs/upload`,
+          `${API_BASE}/admin/blogs/upload`,
           {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` },

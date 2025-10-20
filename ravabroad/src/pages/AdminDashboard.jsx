@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+const token = localStorage.getItem("token");
 
   // --------------------------
   // FETCH DATA
@@ -40,7 +41,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "blogs") {
           const res = await fetch(
-            `${API_BASE}/api/admin/blogs`,
+            `${API_BASE.replace("/api", "")}/api/admin/blogs`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
         // USERS
         if (activeTab === "users" || activeTab === "dashboard") {
           const usersRes = await fetch(
-            `${API_BASE}/api/admin/users`,
+            `${API_BASE.replace("/api", "")}/api/admin/users`,
             { headers }
           );
           const usersData = await usersRes.json();
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
         // SC/ST SUBMISSIONS
         if (activeTab === "submissions" || activeTab === "dashboard") {
           const subsRes = await fetch(
-            `${API_BASE}/api/admin/scst-submissions`,
+            `${API_BASE.replace("/api", "")}/api/admin/scst-submissions`,
             { headers }
           );
           const subsData = await subsRes.json();
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
         // MATRIMONIAL SUBMISSIONS
         if (activeTab === "matrimonial" || activeTab === "dashboard") {
           const matrRes = await fetch(
-            `${API_BASE}/api/admin/matrimonial`,
+            `${API_BASE.replace("/api", "")}/api/admin/matrimonial`,
             { headers }
           );
           const matrData = await matrRes.json();
@@ -87,7 +88,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "contentRequests") {
           const res = await fetch(
-            `${API_BASE}/api/admin/content-requests`,
+            `${API_BASE.replace("/api", "")}/api/admin/content-requests`,
             { headers }
           );
           const data = await res.json();
@@ -96,7 +97,7 @@ export default function AdminDashboard() {
 
         if (activeTab === "categories") {
           const res = await fetch(
-            `${API_BASE}/api/admin/categories`,
+            `${API_BASE.replace("/api", "")}/api/admin/categories`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -150,98 +151,83 @@ export default function AdminDashboard() {
   // --------------------------
   // DELETE HANDLERS
   // --------------------------
-  const handleDelete = async (type, id) => {
-    popup.open({
-      title: "⚠️ Confirm",
-      message: "Are you sure you want to delete this entry?",
-      type: "confirm",
-      onConfirm: async () => {
-        try {
-          await apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
+const handleDelete = async (type, id) => {
+  if (!window.confirm("Are you sure you want to delete this item?")) return;
 
-          if (type === "scst-submissions") {
-            setSubmissions((prev) => prev.filter((s) => s.id !== id));
-          } else if (type === "matrimonial") {
-            setMatrimonialSubs((prev) => prev.filter((s) => s.id !== id));
-          } else if (type === "content-requests") {
-            setSubmissions((prev) => prev.filter((s) => s.id !== id));
-          }
-          if (type === "blogs") {
-            setBlogs((prev) => prev.filter((b) => b.id !== id));
-          }
-          setSelectedIds((prev) => prev.filter((i) => i !== id));
-          popup.open({
-            title: "🗑️ Deleted",
-            message: "The entry has been deleted successfully.",
-            type: "success",
-          });
-        } catch (err) {
-          popup.open({
-            title: "❌ Error",
-            message: "Failed to delete this entry.",
-            type: "error",
-          });
-        }
-      },
+  try {
+    const res = await fetch(`${API_BASE}/admin/${type}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
     });
-  };
+    const data = await res.json();
+    popup.open({
+      title: "Deleted",
+      message: data.message || "Item deleted successfully.",
+      type: "success",
+    });
+
+    // ✅ Instantly update UI
+    if (type === "users") {
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } else if (type === "matrimonial") {
+      setMatrimonialSubs((prev) => prev.filter((m) => m.id !== id));
+    } else if (type === "scst-submissions" || type === "scst") {
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+    }
+  } catch (err) {
+    console.error("❌ Delete error:", err);
+    popup.open({
+      title: "Error",
+      message: "Delete failed. Please try again.",
+      type: "error",
+    });
+  }
+};
+
 
   // DELETE MULTIPLE RECORDS
-  const handleBulkDelete = async (type) => {
-    if (selectedIds.length === 0) {
-      popup.open({
-        title: "⚠️ No Selection",
-        message: "Please select at least one entry to delete.",
-        type: "warning",
-      });
-      return;
-    }
+ const handleBulkDelete = async (type) => {
+  if (!window.confirm("Delete selected items?")) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ids: selectedIds }),
+    });
+    const data = await res.json();
 
     popup.open({
-      title: "⚠️ Confirm Deletion",
-      message: `Are you sure you want to delete ${selectedIds.length} selected entries?`,
-      type: "confirm",
-      onConfirm: async () => {
-        try {
-          await Promise.all(
-            selectedIds.map((id) =>
-              apiFetch(`/admin/${type}/${id}`, { method: "DELETE" }).catch(
-                () => null
-              )
-            )
-          );
-
-          if (type === "scst-submissions") {
-            setSubmissions((prev) =>
-              prev.filter((s) => !selectedIds.includes(s.id))
-            );
-          } else if (type === "matrimonial") {
-            setMatrimonialSubs((prev) =>
-              prev.filter((s) => !selectedIds.includes(s.id))
-            );
-          } else if (type === "content-requests") {
-            setSubmissions((prev) =>
-              prev.filter((s) => !selectedIds.includes(s.id))
-            );
-          }
-
-          setSelectedIds([]);
-          setSelectAll(false);
-          popup.open({
-            title: "✅ Success",
-            message: "Selected entries deleted successfully.",
-            type: "success",
-          });
-        } catch (err) {
-          popup.open({
-            title: "❌ Error",
-            message: "Some deletions failed. Check console for details.",
-            type: "error",
-          });
-        }
-      },
+      title: "Deleted",
+      message: data.message || "Bulk delete successful.",
+      type: "success",
     });
-  };
+
+    // ✅ Update lists instantly
+    if (type === "users") {
+      setUsers((prev) => prev.filter((u) => !selectedIds.includes(u.id)));
+    } else if (type === "matrimonial") {
+      setMatrimonialSubs((prev) =>
+        prev.filter((m) => !selectedIds.includes(m.id))
+      );
+    } else if (type === "scst-submissions" || type === "scst") {
+      setSubmissions((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
+    }
+
+    setSelectedIds([]);
+  } catch (err) {
+    console.error("❌ Bulk delete error:", err);
+    popup.open({
+      title: "Error",
+      message: "Bulk delete failed. Please try again.",
+      type: "error",
+    });
+  }
+};
+
 
   // --------------------------
   // STATS
@@ -596,7 +582,10 @@ export default function AdminDashboard() {
                             try {
                               const token = localStorage.getItem("token");
                               const res = await fetch(
-                                `${API_BASE}/api/admin/blogs`,
+                                `${API_BASE.replace(
+                                  "/api",
+                                  ""
+                                )}/api/admin/blogs`,
                                 {
                                   headers: { Authorization: `Bearer ${token}` },
                                 }
@@ -702,7 +691,10 @@ export default function AdminDashboard() {
                         onSubmit={async () => {
                           const token = localStorage.getItem("token");
                           const res = await fetch(
-                            `${API_BASE}/api/admin/categories`,
+                            `${API_BASE.replace(
+                              "/api",
+                              ""
+                            )}/api/admin/categories`,
                             { headers: { Authorization: `Bearer ${token}` } }
                           );
                           const refreshed = await res.json();

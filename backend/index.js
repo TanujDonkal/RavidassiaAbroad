@@ -9,12 +9,14 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 
 dotenv.config();
 
 const { Pool } = pkg;
 const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const otpStore = new Map();
 // Safely decode token if exists in Authorization header
 function decodeUserIfAny(req) {
   try {
@@ -140,7 +142,10 @@ const pool = new Pool({
 // ---- EMAIL TRANSPORTER ----
 const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS, // App password
+  },
 });
 
 // ---- DB INIT ----
@@ -293,6 +298,83 @@ function requireAdmin(req, res, next) {
     return res.status(403).json({ message: "Forbidden" });
   next();
 }
+
+
+// 🟢 Step 1: Request password reset (send OTP)
+app.post("/api/auth/request-reset", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+
+    const user = await pool.query("SELECT id, email, name FROM users WHERE email=$1", [email]);
+    if (user.rows.length === 0)
+      return res.status(404).json({ message: "No account with that email" });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // valid 5 minutes
+    otpStore.set(email, { otp, expiresAt });
+
+    // Send OTP via email
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS, // App password
+      },
+    });
+
+    await transporter.sendMail({
+  from: `"Ravidassia Abroad Support" <${process.env.SMTP_USER}>`,
+  to: email,
+  subject: "🔐 Ravidassia Abroad Password Reset",
+  html: `
+    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
+      <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
+      <p>Jai Gurudev Ji,</p>
+      <p>Your one-time password (OTP) for resetting your account password is:</p>
+      <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
+      <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
+      <p>Best regards,<br/>The Ravidassia Abroad Team</p>
+      <hr/>
+      <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
+    </div>
+  `,
+});
+
+
+    res.json({ message: "OTP sent to your email" });
+  } catch (err) {
+    console.error("❌ Reset request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🟢 Step 2: Verify OTP and reset password
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword)
+      return res.status(400).json({ message: "Missing fields" });
+
+    const record = otpStore.get(email);
+    if (!record) return res.status(400).json({ message: "OTP expired or invalid" });
+
+    if (record.otp !== otp) return res.status(400).json({ message: "Incorrect OTP" });
+    if (Date.now() > record.expiresAt)
+      return res.status(400).json({ message: "OTP expired" });
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query("UPDATE users SET password_hash=$1 WHERE email=$2", [passwordHash, email]);
+
+    otpStore.delete(email);
+    res.json({ message: "Password reset successful" });
+  } catch (err) {
+    console.error("❌ Reset password error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 // ---- EMAIL NOTIFICATION HELPER ----
 async function sendNotificationEmail(subject, html) {

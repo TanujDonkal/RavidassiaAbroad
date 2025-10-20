@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import "../css/auth.css";
 import { register, login } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
+import { API_BASE } from "../utils/api";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-
-const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -74,14 +73,11 @@ export default function Auth() {
   // ✅ GOOGLE LOGIN HANDLER
   async function handleGoogleResponse(response) {
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/auth/google`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ credential: response.credential }),
-        }
-      );
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -105,53 +101,51 @@ export default function Auth() {
     }
   }
 
-useEffect(() => {
-  function initGoogle() {
-    if (window.google && GOOGLE_CLIENT_ID) {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleResponse,
-      });
-
-      const btnSignIn = document.getElementById("googleSignInBtn");
-      const btnSignUp = document.getElementById("googleSignUpBtn");
-
-      if (btnSignIn) {
-        window.google.accounts.id.renderButton(btnSignIn, {
-          theme: "outline",
-          size: "large",
-          width: 240,
+  useEffect(() => {
+    function initGoogle() {
+      if (window.google && GOOGLE_CLIENT_ID) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
         });
-      }
 
-      if (btnSignUp) {
-        window.google.accounts.id.renderButton(btnSignUp, {
-          theme: "outline",
-          size: "large",
-          width: 240,
-        });
+        const btnSignIn = document.getElementById("googleSignInBtn");
+        const btnSignUp = document.getElementById("googleSignUpBtn");
+
+        if (btnSignIn) {
+          window.google.accounts.id.renderButton(btnSignIn, {
+            theme: "outline",
+            size: "large",
+            width: 240,
+          });
+        }
+
+        if (btnSignUp) {
+          window.google.accounts.id.renderButton(btnSignUp, {
+            theme: "outline",
+            size: "large",
+            width: 240,
+          });
+        }
+      } else {
+        console.warn("⏳ Google SDK not ready yet");
       }
-    } else {
-      console.warn("⏳ Google SDK not ready yet");
     }
-  }
 
-  // If script already loaded
-  if (window.google) {
-    initGoogle();
-  } else {
-    // Wait until Google script loads
-    const interval = setInterval(() => {
-      if (window.google) {
-        clearInterval(interval);
-        initGoogle();
-      }
-    }, 500);
-    return () => clearInterval(interval);
-  }
-}, []);
-
-
+    // If script already loaded
+    if (window.google) {
+      initGoogle();
+    } else {
+      // Wait until Google script loads
+      const interval = setInterval(() => {
+        if (window.google) {
+          clearInterval(interval);
+          initGoogle();
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   return (
     <div className="auth-root">
@@ -237,7 +231,9 @@ useEffect(() => {
                 Sign in
               </button>
             </p>
+            
           </form>
+          
         </div>
 
         {/* SIGN IN */}
@@ -265,7 +261,13 @@ useEffect(() => {
               onChange={handleChange(setSignIn)}
               required
             />
-            <a href="#">Forgot your password?</a>
+            <Link
+              to="/forgot-password"
+              className="text-decoration-none text-warning"
+            >
+              Forgot your password?
+            </Link>
+            {/* <a href="#">Forgot your password?</a> */}
             <button type="submit">Sign In</button>
 
             <p className="auth-mobile-only">
@@ -304,9 +306,7 @@ useEffect(() => {
         </div>
       </div>
 
-      <footer className="auth-footer">
-        <p>© Ravidassia Abroad</p>
-      </footer>
+      
     </div>
   );
 }

@@ -22,8 +22,7 @@ import Profile from "./pages/Profile";
 import FormSubmitOverlay from "./components/FormSubmitOverlay";
 import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
-
-// 🔒 NEW IMPORT
+import ForgotPassword from "./pages/ForgotPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function ScrollAndInit() {
@@ -83,7 +82,7 @@ export default function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="connect-scst" element={<ConnectSCST />} />
           <Route path="auth" element={<Auth />} />
-          
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           {/* 🔒 Admin Dashboard Protected */}
           <Route
             path="/admin"

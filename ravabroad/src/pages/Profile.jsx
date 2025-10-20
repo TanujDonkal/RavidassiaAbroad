@@ -224,6 +224,17 @@ export default function Profile() {
                         {loading ? "Saving..." : "Update"}
                       </button>
                     </div>
+                    <div className="col-sm-12 mt-3">
+                      <button
+                        type="button"
+                        className="btn btn-warning"
+                        onClick={() =>
+                          (window.location.href = "/forgot-password")
+                        }
+                      >
+                        Change Password
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>
@@ -236,7 +247,9 @@ export default function Profile() {
                   <div className="card h-100">
                     <div className="card-body">
                       <h6 className="d-flex align-items-center mb-3">
-                        <i className="material-icons text-info mr-2">assignment</i>
+                        <i className="material-icons text-info mr-2">
+                          assignment
+                        </i>
                         Project Status
                       </h6>
                       {[
@@ -248,7 +261,10 @@ export default function Profile() {
                       ].map(([label, percent]) => (
                         <React.Fragment key={label}>
                           <small>{label}</small>
-                          <div className="progress mb-3" style={{ height: "5px" }}>
+                          <div
+                            className="progress mb-3"
+                            style={{ height: "5px" }}
+                          >
                             <div
                               className="progress-bar bg-primary"
                               role="progressbar"
