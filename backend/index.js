@@ -838,6 +838,78 @@ app.put(
   }
 );
 
+// 🔒 DELETE SINGLE USER — only main_admin can delete, and cannot delete another main_admin
+app.delete(
+  "/api/admin/users/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch the user making the request
+      const requester = req.user; // added by requireAuth middleware
+      if (requester.role !== "main_admin") {
+        return res.status(403).json({ message: "Only main_admin can delete users" });
+      }
+
+      // Get target user
+      const target = await pool.query("SELECT role FROM users WHERE id=$1", [id]);
+      if (target.rows.length === 0)
+        return res.status(404).json({ message: "User not found" });
+
+      if (target.rows[0].role === "main_admin")
+        return res.status(403).json({ message: "Cannot delete another main_admin" });
+
+      await pool.query("DELETE FROM users WHERE id=$1", [id]);
+      res.json({ message: "🗑️ User deleted successfully" });
+    } catch (err) {
+      console.error("❌ User delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔒 BULK DELETE USERS — only main_admin can bulk delete, and skips main_admin users
+app.post(
+  "/api/admin/users/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No user IDs provided" });
+      }
+
+      // Fetch requester
+      const requester = req.user;
+      if (requester.role !== "main_admin") {
+        return res.status(403).json({ message: "Only main_admin can bulk delete users" });
+      }
+
+      // Exclude main_admin users from deletion
+      const { rows } = await pool.query(
+        "SELECT id FROM users WHERE id = ANY($1) AND role != 'main_admin'",
+        [ids]
+      );
+
+      if (rows.length === 0) {
+        return res.status(400).json({ message: "No eligible users to delete" });
+      }
+
+      const eligibleIds = rows.map((r) => r.id);
+      await pool.query("DELETE FROM users WHERE id = ANY($1)", [eligibleIds]);
+
+      res.json({ message: `🗑️ Deleted ${eligibleIds.length} users successfully` });
+    } catch (err) {
+      console.error("❌ Bulk delete users error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+
 app.post(
   "/api/user/update-profile",
   uploadProfile.single("photo"),

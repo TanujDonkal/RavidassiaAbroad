@@ -491,8 +491,8 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 )}
-                {/* BLOGS TAB */}
 
+                {/* BLOGS TAB */}
                 {activeTab === "blogs" && (
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
@@ -717,25 +717,48 @@ export default function AdminDashboard() {
                 {/* USERS */}
                 {activeTab === "users" && (
                   <div className="card shadow border-0 mb-7">
-                    <div className="card-header">
+                    <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Users</h5>
+                      {currentUser.role === "main_admin" &&
+                        selectedIds.length > 0 && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleBulkDelete("users")}
+                          >
+                            Delete Selected ({selectedIds.length})
+                          </button>
+                        )}
                     </div>
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(
+                                    checked ? users.map((u) => u.id) : []
+                                  );
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
                             <th>Role</th>
                             <th>Created</th>
+                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
                           {users.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="5"
+                                colSpan="7"
                                 className="text-center text-muted py-4"
                               >
                                 No users found.
@@ -744,6 +767,20 @@ export default function AdminDashboard() {
                           ) : (
                             users.map((u) => (
                               <tr key={u.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(u.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, u.id]
+                                          : prev.filter((id) => id !== u.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{u.id}</td>
                                 <td>{u.name}</td>
                                 <td>{u.email}</td>
@@ -767,6 +804,18 @@ export default function AdminDashboard() {
                                 </td>
                                 <td>
                                   {new Date(u.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="text-end">
+                                  {currentUser.role === "main_admin" && (
+                                    <button
+                                      className="btn btn-sm btn-danger"
+                                      onClick={() =>
+                                        handleDelete("users", u.id)
+                                      }
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             ))

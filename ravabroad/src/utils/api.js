@@ -6,9 +6,11 @@ const isLocalhost =
   window.location.hostname === "127.0.0.1";
 
 // ✅ Use the right backend based on where the site runs
-const BASE_URL = isLocalhost
-  ? process.env.REACT_APP_API_URL_LOCAL
-  : process.env.REACT_APP_API_URL_PROD;
+const BASE_URL =
+  (isLocalhost
+    ? process.env.REACT_APP_API_URL_LOCAL
+    : process.env.REACT_APP_API_URL_PROD) ||
+  "http://localhost:5000"; // fallback for safety
 
 // ✅ We keep "/api" only here — not in each fetch path
 export const API_BASE = `${BASE_URL}/api`;
