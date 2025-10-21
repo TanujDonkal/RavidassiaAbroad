@@ -25,6 +25,7 @@ import BlogDetail from "./pages/BlogDetail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DynamicPage from "./pages/DynamicPage";
+import FamousPersonalities from "./pages/FamousPersonalities";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -100,6 +101,9 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
           <Route path="/blogs" element={<Blogs />} />
           <Route path="/blogs/:slug" element={<BlogDetail />} />
+          <Route path="/personalities" element={<FamousPersonalities />} />
+
+
         </Route>
       </Routes>
     </PopupProvider>

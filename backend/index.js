@@ -1774,6 +1774,59 @@ app.delete("/api/admin/menus/:id", requireAuth, requireAdmin, async (req, res) =
 });
 
 
+// 🌍 Public - get personalities with filters
+app.get("/api/personalities", async (req, res) => {
+  try {
+    const { caste, region, category, sc_st_type } = req.query;
+    let query = "SELECT * FROM famous_personalities WHERE 1=1";
+    const params = [];
+
+    if (caste) { params.push(caste); query += ` AND caste=$${params.length}`; }
+    if (region) { params.push(region); query += ` AND region=$${params.length}`; }
+    if (category) { params.push(category); query += ` AND category=$${params.length}`; }
+    if (sc_st_type) { params.push(sc_st_type); query += ` AND sc_st_type=$${params.length}`; }
+
+    query += " ORDER BY created_at DESC";
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching personalities:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 🔒 Admin CRUD
+app.get("/api/admin/personalities", requireAuth, requireAdmin, async (req, res) => {
+  const result = await pool.query("SELECT * FROM famous_personalities ORDER BY id DESC");
+  res.json(result.rows);
+});
+
+app.post("/api/admin/personalities", requireAuth, requireAdmin, async (req, res) => {
+  const { name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url } = req.body;
+  await pool.query(
+    `INSERT INTO famous_personalities 
+     (name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url]
+  );
+  res.json({ message: "✅ Personality added successfully" });
+});
+
+app.put("/api/admin/personalities/:id", requireAuth, requireAdmin, async (req, res) => {
+  const { name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url } = req.body;
+  await pool.query(
+    `UPDATE famous_personalities SET
+     name=$1, caste=$2, category=$3, region=$4, sc_st_type=$5,
+     short_bio=$6, full_bio=$7, photo_url=$8 WHERE id=$9`,
+    [name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url, req.params.id]
+  );
+  res.json({ message: "✅ Updated successfully" });
+});
+
+app.delete("/api/admin/personalities/:id", requireAuth, requireAdmin, async (req, res) => {
+  await pool.query("DELETE FROM famous_personalities WHERE id=$1", [req.params.id]);
+  res.json({ message: "🗑️ Deleted successfully" });
+});
 
 
 

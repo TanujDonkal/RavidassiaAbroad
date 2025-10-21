@@ -5,6 +5,7 @@ import { usePopup } from "../components/PopupProvider";
 import { getRecipients, createUser, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import BlogFormModal from "../components/BlogFormModal";
+import PersonalityFormModal from "../components/PersonalityFormModal";
 import CategoryFormModal from "../components/CategoryFormModal";
 import { API_BASE } from "../utils/api";
 
@@ -30,6 +31,10 @@ export default function AdminDashboard() {
   const token = localStorage.getItem("token");
   const [menus, setMenus] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
+
+const [personalities, setPersonalities] = useState([]);
+const [showPersonalityModal, setShowPersonalityModal] = useState(false);
+const [selectedPersonality, setSelectedPersonality] = useState(null);
 
   // --------------------------
   // FETCH DATA
@@ -160,6 +165,24 @@ export default function AdminDashboard() {
     setShowModal(false);
     setSelectedSubmission(null);
   };
+
+const fetchPersonalities = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_BASE}/admin/personalities`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setPersonalities(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error("❌ Failed to fetch personalities:", err);
+  }
+};
+
+  // Call it once when component mounts
+  useEffect(() => {
+    fetchPersonalities();
+  }, []);
 
   // --------------------------
   // DELETE HANDLERS
@@ -434,6 +457,11 @@ export default function AdminDashboard() {
                 { tab: "blogs", icon: "bi-newspaper", label: "Blogs" },
                 { tab: "categories", icon: "bi-tags", label: "Categories" },
                 { tab: "menus", icon: "bi-list", label: "Menus" },
+                {
+                  tab: "personalities",
+                  icon: "bi-stars",
+                  label: "Famous Personalities",
+                },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -872,7 +900,8 @@ export default function AdminDashboard() {
                             <th>Platform</th>
                             <th>Phone</th>
                             <th>Created</th>
-                            <th></th>
+                            <th>Data</th>
+                            <th>Delete</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -911,6 +940,14 @@ export default function AdminDashboard() {
                                 <td>{s.phone || "-"}</td>
                                 <td>
                                   {new Date(s.created_at).toLocaleDateString()}
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-info"
+                                    onClick={() => handleOpenModal(s)}
+                                  >
+                                    View All
+                                  </button>
                                 </td>
                                 <td>
                                   <button
@@ -971,7 +1008,9 @@ export default function AdminDashboard() {
                             <th>Country</th>
                             <th>City</th>
                             <th>Created</th>
-                            <th>Actions</th>
+                            <th>Data</th>
+                            <th>Download Data</th>
+                            <th>Delete</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1009,6 +1048,14 @@ export default function AdminDashboard() {
                                 <td>
                                   {new Date(s.created_at).toLocaleDateString()}
                                 </td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-info"
+                                    onClick={() => handleOpenModal(s)}
+                                  >
+                                    View All
+                                  </button>
+                                </td>
                                 <td className="d-flex gap-2">
                                   {/* 🎨 Instagram Export Dropdown */}
                                   <div className="btn-group">
@@ -1043,7 +1090,8 @@ export default function AdminDashboard() {
                                       </li>
                                     </ul>
                                   </div>
-
+                                </td>
+                                <td>
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={async (e) => {
@@ -1299,207 +1347,340 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {activeTab === "personalities" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Famous Personalities</h5>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedPersonality(null);
+                          setShowPersonalityModal(true);
+                        }}
+                      >
+                        + Add Personality
+                      </button>
+                    </div>
+
+                    {/* Table list */}
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Photo</th>
+                            <th>Name</th>
+                            <th>Caste</th>
+                            <th>Region</th>
+                            <th>Category</th>
+                            <th>SC/ST</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {personalities.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="8"
+                                className="text-center py-4 text-muted"
+                              >
+                                No personalities yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            personalities.map((p) => (
+                              <tr key={p.id}>
+                                <td>{p.id}</td>
+                                <td>
+                                  <img
+                                    src={p.photo_url}
+                                    alt={p.name}
+                                    width="50"
+                                    className="rounded-circle"
+                                  />
+                                </td>
+                                <td>{p.name}</td>
+                                <td>{p.caste}</td>
+                                <td>{p.region}</td>
+                                <td>{p.category}</td>
+                                <td>{p.sc_st_type}</td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-warning btn-sm me-2"
+                                    onClick={() => {
+                                      setSelectedPersonality(p);
+                                      setShowPersonalityModal(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() =>
+                                      handleDelete("personalities", p.id)
+                                    }
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {showPersonalityModal && (
+                      <PersonalityFormModal
+                        personality={selectedPersonality}
+                        onClose={() => {
+                          setShowPersonalityModal(false);
+                          setSelectedPersonality(null);
+                        }}
+                        onSubmit={fetchPersonalities}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {/* MENUS TAB */}
-{activeTab === "menus" && (
-  <div className="card shadow border-0 mb-7">
-    <div className="card-header d-flex justify-content-between align-items-center">
-      <h5 className="mb-0">Dynamic Site Menus</h5>
-      <button
-        className="btn btn-primary btn-sm"
-        onClick={() => {
-          setSelectedMenu({ label: "", path: "", parent_id: null, position: 0 });
-        }}
-      >
-        + New Menu
-      </button>
-    </div>
+                {activeTab === "menus" && (
+                  <div className="card shadow border-0 mb-7">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Dynamic Site Menus</h5>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedMenu({
+                            label: "",
+                            path: "",
+                            parent_id: null,
+                            position: 0,
+                          });
+                        }}
+                      >
+                        + New Menu
+                      </button>
+                    </div>
 
-    <div className="table-responsive">
-      <table className="table table-hover table-nowrap">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Label</th>
-            <th>Path</th>
-            <th>Parent</th>
-            <th>Position</th>
-            <th>Created</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {menus.length === 0 ? (
-            <tr>
-              <td colSpan="7" className="text-center text-muted py-4">
-                No menus yet.
-              </td>
-            </tr>
-          ) : (
-            menus.map((m) => (
-              <tr key={m.id}>
-                <td>{m.id}</td>
-                <td>{m.label}</td>
-                <td>{m.path}</td>
-                <td>{m.parent_id || "—"}</td>
-                <td>{m.position}</td>
-                <td>{new Date(m.created_at).toLocaleDateString()}</td>
-                <td className="text-end">
-                  <button
-                    className="btn btn-warning btn-sm me-2"
-                    onClick={() => setSelectedMenu(m)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={async () => {
-                      if (window.confirm("Delete this menu?")) {
-                        await apiFetch(`/admin/menus/${m.id}`, { method: "DELETE" });
-                        setMenus((prev) => prev.filter((x) => x.id !== m.id));
-                        popup.open({
-                          title: "🗑️ Deleted",
-                          message: "Menu deleted successfully",
-                          type: "success",
-                        });
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover table-nowrap">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Label</th>
+                            <th>Path</th>
+                            <th>Parent</th>
+                            <th>Position</th>
+                            <th>Created</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menus.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan="7"
+                                className="text-center text-muted py-4"
+                              >
+                                No menus yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            menus.map((m) => (
+                              <tr key={m.id}>
+                                <td>{m.id}</td>
+                                <td>{m.label}</td>
+                                <td>{m.path}</td>
+                                <td>{m.parent_id || "—"}</td>
+                                <td>{m.position}</td>
+                                <td>
+                                  {new Date(m.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-warning btn-sm me-2"
+                                    onClick={() => setSelectedMenu(m)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={async () => {
+                                      if (window.confirm("Delete this menu?")) {
+                                        await apiFetch(`/admin/menus/${m.id}`, {
+                                          method: "DELETE",
+                                        });
+                                        setMenus((prev) =>
+                                          prev.filter((x) => x.id !== m.id)
+                                        );
+                                        popup.open({
+                                          title: "🗑️ Deleted",
+                                          message: "Menu deleted successfully",
+                                          type: "success",
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
 
-    {/* Add/Edit Modal */}
-    {selectedMenu && (
-      <div
-        className="modal fade show"
-        style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-      >
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  const method = selectedMenu.id ? "PUT" : "POST";
-                  const url = selectedMenu.id
-                    ? `/admin/menus/${selectedMenu.id}`
-                    : "/admin/menus";
-                  await apiFetch(url, {
-                    method,
-                    body: JSON.stringify(selectedMenu),
-                  });
-                  const refreshed = await fetch(
-                    `${API_BASE.replace("/api", "")}/api/admin/menus`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  );
-                  const data = await refreshed.json();
-                  setMenus(Array.isArray(data) ? data : []);
-                  popup.open({
-                    title: "✅ Saved",
-                    message: "Menu saved successfully",
-                    type: "success",
-                  });
-                  setSelectedMenu(null);
-                } catch (err) {
-                  popup.open({
-                    title: "❌ Error",
-                    message: err.message,
-                    type: "error",
-                  });
-                }
-              }}
-            >
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  {selectedMenu.id ? "Edit Menu" : "New Menu"}
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setSelectedMenu(null)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label">Label</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={selectedMenu.label}
-                    onChange={(e) =>
-                      setSelectedMenu((p) => ({ ...p, label: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Path</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="/connect-canada"
-                    value={selectedMenu.path}
-                    onChange={(e) =>
-                      setSelectedMenu((p) => ({ ...p, path: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Parent ID (optional)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={selectedMenu.parent_id || ""}
-                    onChange={(e) =>
-                      setSelectedMenu((p) => ({
-                        ...p,
-                        parent_id: e.target.value || null,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Position (order)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={selectedMenu.position}
-                    onChange={(e) =>
-                      setSelectedMenu((p) => ({
-                        ...p,
-                        position: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  onClick={() => setSelectedMenu(null)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
+                    {/* Add/Edit Modal */}
+                    {selectedMenu && (
+                      <div
+                        className="modal fade show"
+                        style={{
+                          display: "block",
+                          backgroundColor: "rgba(0,0,0,0.5)",
+                        }}
+                      >
+                        <div className="modal-dialog">
+                          <div className="modal-content">
+                            <form
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                try {
+                                  const method = selectedMenu.id
+                                    ? "PUT"
+                                    : "POST";
+                                  const url = selectedMenu.id
+                                    ? `/admin/menus/${selectedMenu.id}`
+                                    : "/admin/menus";
+                                  await apiFetch(url, {
+                                    method,
+                                    body: JSON.stringify(selectedMenu),
+                                  });
+                                  const refreshed = await fetch(
+                                    `${API_BASE.replace(
+                                      "/api",
+                                      ""
+                                    )}/api/admin/menus`,
+                                    {
+                                      headers: {
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                    }
+                                  );
+                                  const data = await refreshed.json();
+                                  setMenus(Array.isArray(data) ? data : []);
+                                  popup.open({
+                                    title: "✅ Saved",
+                                    message: "Menu saved successfully",
+                                    type: "success",
+                                  });
+                                  setSelectedMenu(null);
+                                } catch (err) {
+                                  popup.open({
+                                    title: "❌ Error",
+                                    message: err.message,
+                                    type: "error",
+                                  });
+                                }
+                              }}
+                            >
+                              <div className="modal-header">
+                                <h5 className="modal-title">
+                                  {selectedMenu.id ? "Edit Menu" : "New Menu"}
+                                </h5>
+                                <button
+                                  type="button"
+                                  className="btn-close"
+                                  onClick={() => setSelectedMenu(null)}
+                                ></button>
+                              </div>
+                              <div className="modal-body">
+                                <div className="mb-3">
+                                  <label className="form-label">Label</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    value={selectedMenu.label}
+                                    onChange={(e) =>
+                                      setSelectedMenu((p) => ({
+                                        ...p,
+                                        label: e.target.value,
+                                      }))
+                                    }
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Path</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="/connect-canada"
+                                    value={selectedMenu.path}
+                                    onChange={(e) =>
+                                      setSelectedMenu((p) => ({
+                                        ...p,
+                                        path: e.target.value,
+                                      }))
+                                    }
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">
+                                    Parent ID (optional)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control"
+                                    value={selectedMenu.parent_id || ""}
+                                    onChange={(e) =>
+                                      setSelectedMenu((p) => ({
+                                        ...p,
+                                        parent_id: e.target.value || null,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">
+                                    Position (order)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="form-control"
+                                    value={selectedMenu.position}
+                                    onChange={(e) =>
+                                      setSelectedMenu((p) => ({
+                                        ...p,
+                                        position: parseInt(e.target.value) || 0,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div className="modal-footer">
+                                <button
+                                  type="button"
+                                  className="btn btn-light"
+                                  onClick={() => setSelectedMenu(null)}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  className="btn btn-primary"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1526,55 +1707,73 @@ export default function AdminDashboard() {
                 ></button>
               </div>
               <div className="modal-body">
-                {activeTab === "submissions" ? (
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <strong>Email:</strong> {selectedSubmission.email}
-                    </div>
-                    <div className="col-md-6">
-                      <strong>Country:</strong> {selectedSubmission.country}
-                    </div>
-                    <div className="col-md-6">
-                      <strong>City:</strong> {selectedSubmission.city || "-"}
-                    </div>
-                    <div className="col-md-6">
-                      <strong>Phone:</strong> {selectedSubmission.phone || "-"}
-                    </div>
-                    <div className="col-md-6">
-                      <strong>Platform:</strong>{" "}
-                      {selectedSubmission.platform || "-"}
-                    </div>
-                    <div className="col-md-6">
-                      <strong>Instagram:</strong>{" "}
-                      {selectedSubmission.instagram || "-"}
-                    </div>
-                    <div className="col-md-12">
-                      <strong>Proof:</strong> {selectedSubmission.proof || "-"}
-                    </div>
-                    <div className="col-md-12">
-                      <strong>Message:</strong>{" "}
-                      <pre className="mb-0">
-                        {selectedSubmission.message || "-"}
-                      </pre>
-                    </div>
-                    <hr />
-                    <div className="col-md-12 text-muted small">
-                      Submitted on{" "}
-                      {new Date(selectedSubmission.created_at).toLocaleString()}
-                      {selectedSubmission.user_name && (
-                        <>
-                          <br />
-                          Linked User:{" "}
-                          <strong>{selectedSubmission.user_name}</strong> (
-                          {selectedSubmission.user_email})
-                        </>
+                {activeTab === "submissions" && selectedSubmission && (
+                  <table className="table table-striped small">
+                    <tbody>
+                      {Object.entries(selectedSubmission).map(
+                        ([key, value]) => (
+                          <tr key={key}>
+                            <th
+                              className="text-capitalize"
+                              style={{ width: "40%" }}
+                            >
+                              {key.replaceAll("_", " ")}
+                            </th>
+                            <td>
+                              {key.includes("photo") && value ? (
+                                <img
+                                  src={value}
+                                  alt="profile"
+                                  className="rounded-circle"
+                                  width="60"
+                                  height="60"
+                                />
+                              ) : (
+                                value || "—"
+                              )}
+                            </td>
+                          </tr>
+                        )
                       )}
+                    </tbody>
+                  </table>
+                )}
+
+                {activeTab === "matrimonial" && selectedSubmission && (
+                  <div>
+                    <div className="text-center mb-3">
+                      <img
+                        src={
+                          selectedSubmission.photo_url ||
+                          "/template/img/no-photo.png"
+                        }
+                        alt="profile"
+                        className="rounded-circle shadow-sm"
+                        width="100"
+                        height="100"
+                      />
                     </div>
+                    <table className="table table-striped small">
+                      <tbody>
+                        {Object.entries(selectedSubmission).map(
+                          ([key, value]) => (
+                            <tr key={key}>
+                              <th
+                                className="text-capitalize"
+                                style={{ width: "40%" }}
+                              >
+                                {key.replaceAll("_", " ")}
+                              </th>
+                              <td>{value || "—"}</td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <p>No details available.</p>
                 )}
               </div>
+
               <div className="modal-footer">
                 <button
                   className="btn btn-secondary"
