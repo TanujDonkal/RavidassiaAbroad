@@ -614,7 +614,7 @@ app.get("/api/scst-submissions/mine", async (req, res) => {
 });
 
 // ---- MATRIMONIAL SUBMISSION (Updated with new fields) ----
-
+// ✅ Create / Update Matrimonial Submission
 app.post(
   "/api/matrimonial-submissions",
   uploadMatrimonial.single("photo"),
@@ -623,39 +623,98 @@ app.post(
       const d = req.body || {};
       const userId = decodeUserIfAny(req)?.id ?? null;
 
-      // 🔹 Normalize frontend field names to match DB columns
+      // Normalize fields from frontend
       d.origin_state = d.home_state_india || d.origin_state;
       d.current_status = d.status_type || d.current_status;
 
-      console.log("🧾 Parsed form body:", d);
-      console.log("📸 File info:", req.file);
-
-      // ✅ Safety checks
+      // Validate minimum required fields
       if (!d.name?.trim() || !d.email?.trim() || !d.country_living?.trim()) {
-        console.log("❌ Missing required:", {
-          name: d.name,
-          email: d.email,
-          country: d.country_living,
-        });
         return res.status(400).json({ message: "Required fields missing" });
       }
 
-      // ✅ Normalize date
-      const dobValue = d.dob && d.dob.trim() !== "" ? d.dob : null;
+      const dobValue = d.dob?.trim() ? d.dob : null;
+      const photoUrl = req.file?.path || d.photo_url || null;
 
-      // ✅ Insert into DB
-      const insertRes = await pool.query(
+      // Check if this user already has a submission
+      const existing = await pool.query(
+        "SELECT id FROM matrimonial_submissions WHERE user_id=$1",
+        [userId]
+      );
+
+      if (existing.rows.length > 0) {
+        // 🟡 UPDATE existing submission
+        const id = existing.rows[0].id;
+        await pool.query(
+          `UPDATE matrimonial_submissions SET
+            name=$1, gender=$2, age=$3, dob=$4, height=$5, marital_status=$6,
+            phone=$7, email=$8, instagram=$9, country_living=$10, state_living=$11,
+            city_living=$12, origin_state=$13, origin_district=$14,
+            current_status=$15, education=$16, occupation=$17,
+            company_or_institution=$18, income_range=$19, annual_income=$20,
+            father_name=$21, father_occupation=$22, mother_name=$23, mother_occupation=$24,
+            siblings=$25, family_type=$26, religion=$27, caste=$28,
+            partner_expectations=$29, partner_age_range=$30, partner_country=$31,
+            privacy_accepted=$32, photo_url=$33, religion_beliefs=$34
+          WHERE user_id=$35`,
+          [
+            d.name,
+            d.gender,
+            d.age || null,
+            dobValue,
+            d.height || null,
+            d.marital_status || null,
+            d.phone || null,
+            d.email,
+            d.instagram || null,
+            d.country_living || null,
+            d.state_living || null,
+            d.city_living || null,
+            d.origin_state || null,
+            d.origin_district || null,
+            d.current_status || null,
+            d.education || null,
+            d.occupation || null,
+            d.company_or_institution || null,
+            d.income_range || null,
+            d.annual_income || null,
+            d.father_name || null,
+            d.father_occupation || null,
+            d.mother_name || null,
+            d.mother_occupation || null,
+            d.siblings ? parseInt(d.siblings) : null,
+            d.family_type || null,
+            d.religion || null,
+            d.caste || null,
+            d.partner_expectations || null,
+            d.partner_age_range || null,
+            d.partner_country || null,
+            d.privacy_accepted || null,
+            photoUrl || null,
+            d.religion_beliefs || null,
+            userId,
+          ]
+        );
+
+        return res.json({ message: "✅ Biodata updated successfully!" });
+      }
+
+      // 🟢 INSERT new submission
+      await pool.query(
         `INSERT INTO matrimonial_submissions
-       (user_id, name, gender, age, dob, height, marital_status,
-        phone, email, instagram, country_living, state_living, city_living,
-        origin_state, origin_district, current_status, education, occupation,
-        company_or_institution, income_range, caste, religion_beliefs)
-       VALUES
-       ($1,$2,$3,$4,$5,$6,$7,
-        $8,$9,$10,$11,$12,$13,
-        $14,$15,$16,$17,$18,
-        $19,$20,$21,$22)
-       RETURNING id`,
+          (user_id, name, gender, age, dob, height, marital_status,
+           phone, email, instagram, country_living, state_living, city_living,
+           origin_state, origin_district, current_status, education, occupation,
+           company_or_institution, income_range, annual_income,
+           father_name, father_occupation, mother_name, mother_occupation, siblings,
+           family_type, religion, caste, partner_expectations, partner_age_range,
+           partner_country, privacy_accepted, photo_url, religion_beliefs)
+         VALUES
+          ($1,$2,$3,$4,$5,$6,$7,
+           $8,$9,$10,$11,$12,$13,
+           $14,$15,$16,$17,$18,$19,
+           $20,$21,$22,$23,$24,$25,
+           $26,$27,$28,$29,$30,$31,
+           $32,$33,$34,$35)`,
         [
           userId,
           d.name,
@@ -677,41 +736,38 @@ app.post(
           d.occupation || null,
           d.company_or_institution || null,
           d.income_range || null,
+          d.annual_income || null,
+          d.father_name || null,
+          d.father_occupation || null,
+          d.mother_name || null,
+          d.mother_occupation || null,
+          d.siblings ? parseInt(d.siblings) : null,
+          d.family_type || null,
+          d.religion || null,
           d.caste || null,
+          d.partner_expectations || null,
+          d.partner_age_range || null,
+          d.partner_country || null,
+          d.privacy_accepted || null,
+          photoUrl || null,
           d.religion_beliefs || null,
         ]
       );
 
-      const newId = insertRes.rows[0].id;
-
-      // ✅ Save photo URL
-      const photoUrl = req.file?.path || null;
-      if (photoUrl) {
-        await pool.query(
-          "UPDATE matrimonial_submissions SET photo_url=$1 WHERE id=$2",
-          [photoUrl, newId]
-        );
-      }
-
-      // ✅ Notify admins
+      // ✅ Send notification to admins (optional)
       sendNotificationEmail(
         "💍 New Matrimonial Submission",
         `
-        <h3>New Matrimonial Form Submitted</h3>
-        <p><strong>Name:</strong> ${d.name}</p>
-        <p><strong>Email:</strong> ${d.email}</p>
-        <p><strong>Country:</strong> ${d.country_living}</p>
-        <p><strong>City:</strong> ${d.city_living || "-"}</p>
-        ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
-        ${
-          d.religion_beliefs
-            ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>`
-            : ""
-        }
-        ${photoUrl ? `<p><img src="${photoUrl}" width="150" /></p>` : ""}
-        <hr>
-        <p>Log in to your admin dashboard to view this biodata.</p>
-      `
+          <h3>New Matrimonial Form Submitted</h3>
+          <p><strong>Name:</strong> ${d.name}</p>
+          <p><strong>Email:</strong> ${d.email}</p>
+          <p><strong>Country:</strong> ${d.country_living}</p>
+          <p><strong>City:</strong> ${d.city_living || "-"}</p>
+          ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
+          ${d.religion_beliefs ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>` : ""}
+          ${photoUrl ? `<p><img src="${photoUrl}" width="150"/></p>` : ""}
+          <hr><p>Log in to your admin dashboard to view this biodata.</p>
+        `
       ).catch((err) =>
         console.error("⚠️ Matrimonial email failed:", err.message)
       );
@@ -723,6 +779,7 @@ app.post(
     }
   }
 );
+
 
 // ✅ Fetch the logged-in user's submitted matrimonial biodata
 app.get("/api/matrimonial-submissions/mine", async (req, res) => {
@@ -1625,6 +1682,9 @@ app.get("/api/categories", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
+
 
 // ---- START SERVER ----
 app.listen(PORT, () => {

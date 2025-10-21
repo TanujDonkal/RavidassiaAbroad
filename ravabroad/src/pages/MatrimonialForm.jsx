@@ -124,7 +124,10 @@ export default function MatrimonialForm() {
 
       {/* ✅ Already submitted view */}
       {submitted && submissionData ? (
-        <div className="card shadow-sm p-4 mx-auto mb-5" style={{ maxWidth: 850 }}>
+        <div
+          className="card shadow-sm p-4 mx-auto mb-5"
+          style={{ maxWidth: 850 }}
+        >
           <h4 className="text-success mb-3 text-center">
             ✅ Your Submitted Biodata
           </h4>
@@ -195,7 +198,9 @@ export default function MatrimonialForm() {
             Step {step} of {totalSteps}
           </p>
 
-          {error && <div className="alert alert-danger text-center">{error}</div>}
+          {error && (
+            <div className="alert alert-danger text-center">{error}</div>
+          )}
 
           <form
             className="mx-auto bg-white p-4 p-md-5 rounded-4 shadow-lg"
@@ -204,7 +209,10 @@ export default function MatrimonialForm() {
             encType="multipart/form-data"
           >
             {/* === STEP 1 === */}
-            <div data-step="1" style={{ display: step === 1 ? "block" : "none" }}>
+            <div
+              data-step="1"
+              style={{ display: step === 1 ? "block" : "none" }}
+            >
               <h5 className="section-title">👤 Personal Details</h5>
               <div className="row g-3">
                 <div className="col-md-6">
@@ -293,11 +301,54 @@ export default function MatrimonialForm() {
                     onChange={handleChange}
                   ></textarea>
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">Instagram</label>
+                  <input
+                    name="instagram"
+                    className="form-control"
+                    value={formValues.instagram || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Marital Status *</label>
+                  <select
+                    name="marital_status"
+                    className="form-select"
+                    required
+                    value={formValues.marital_status || ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select</option>
+                    <option>Never Married</option>
+                    <option>Divorced</option>
+                    <option>Widowed</option>
+                  </select>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Complexion</label>
+                  <select
+                    name="complexion"
+                    className="form-select"
+                    value={formValues.complexion || ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select</option>
+                    <option>Fair</option>
+                    <option>Wheatish</option>
+                    <option>Dark</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* === STEP 2 === */}
-            <div data-step="2" style={{ display: step === 2 ? "block" : "none" }}>
+            <div
+              data-step="2"
+              style={{ display: step === 2 ? "block" : "none" }}
+            >
               <h5 className="section-title">📍 Location</h5>
               <div className="row g-3">
                 <div className="col-md-6">
@@ -326,7 +377,11 @@ export default function MatrimonialForm() {
                     name="home_state_india"
                     className="form-control"
                     required
-                    value={formValues.home_state_india || formValues.origin_state || ""}
+                    value={
+                      formValues.home_state_india ||
+                      formValues.origin_state ||
+                      ""
+                    }
                     onChange={handleChange}
                   />
                 </div>
@@ -336,7 +391,9 @@ export default function MatrimonialForm() {
                     name="status_type"
                     className="form-select"
                     required
-                    value={formValues.status_type || formValues.current_status || ""}
+                    value={
+                      formValues.status_type || formValues.current_status || ""
+                    }
                     onChange={handleChange}
                   >
                     <option value="">Select</option>
@@ -351,7 +408,10 @@ export default function MatrimonialForm() {
             </div>
 
             {/* === STEP 3 === */}
-            <div data-step="3" style={{ display: step === 3 ? "block" : "none" }}>
+            <div
+              data-step="3"
+              style={{ display: step === 3 ? "block" : "none" }}
+            >
               <h5 className="section-title">🎓 Education & Profession</h5>
               <div className="row g-3">
                 <div className="col-md-6">
@@ -374,19 +434,69 @@ export default function MatrimonialForm() {
                     onChange={handleChange}
                   />
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">Annual Income</label>
+                  <input
+                    name="annual_income"
+                    className="form-control"
+                    placeholder="e.g. ₹8 LPA or $80K"
+                    value={formValues.annual_income || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Company / Institution</label>
+                  <input
+                    name="company_or_institution"
+                    className="form-control"
+                    value={formValues.company_or_institution || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Income Range</label>
+                  <input
+                    name="income_range"
+                    className="form-control"
+                    placeholder="e.g. $50k–$70k"
+                    value={formValues.income_range || ""}
+                    onChange={handleChange}
+                  />
+                </div>
               </div>
             </div>
 
             {/* === STEP 4 === */}
-            <div data-step="4" style={{ display: step === 4 ? "block" : "none" }}>
+            <div
+              data-step="4"
+              style={{ display: step === 4 ? "block" : "none" }}
+            >
               <h5 className="section-title">👪 Family Background</h5>
               <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Father’s Name</label>
+                  <input
+                    name="father_name"
+                    className="form-control"
+                    value={formValues.father_name || ""}
+                    onChange={handleChange}
+                  />
+                </div>
                 <div className="col-md-6">
                   <label className="form-label">Father’s Occupation</label>
                   <input
                     name="father_occupation"
                     className="form-control"
                     value={formValues.father_occupation || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Mother’s Name</label>
+                  <input
+                    name="mother_name"
+                    className="form-control"
+                    value={formValues.mother_name || ""}
                     onChange={handleChange}
                   />
                 </div>
@@ -399,11 +509,37 @@ export default function MatrimonialForm() {
                     onChange={handleChange}
                   />
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">Number of Siblings</label>
+                  <input
+                    name="siblings"
+                    type="number"
+                    className="form-control"
+                    value={formValues.siblings || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Family Type</label>
+                  <select
+                    name="family_type"
+                    className="form-select"
+                    value={formValues.family_type || ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select</option>
+                    <option>Joint Family</option>
+                    <option>Nuclear Family</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* === STEP 5 === */}
-            <div data-step="5" style={{ display: step === 5 ? "block" : "none" }}>
+            <div
+              data-step="5"
+              style={{ display: step === 5 ? "block" : "none" }}
+            >
               <h5 className="section-title">💞 Partner Preferences & Photo</h5>
               <div className="row g-3">
                 <div className="col-md-6">
@@ -424,6 +560,42 @@ export default function MatrimonialForm() {
                     value={formValues.partner_country || ""}
                     onChange={handleChange}
                   />
+                </div>
+                <div className="col-md-12">
+                  <label className="form-label">Preferred Marital Status</label>
+                  <select
+                    name="partner_marital_status"
+                    className="form-select"
+                    value={formValues.partner_marital_status || ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Any</option>
+                    <option>Never Married</option>
+                    <option>Divorced</option>
+                    <option>Widowed</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Religion Preference</label>
+                  <input
+                    name="religion"
+                    className="form-control"
+                    value={formValues.religion || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Privacy Accepted</label>
+                  <select
+                    name="privacy_accepted"
+                    className="form-select"
+                    value={formValues.privacy_accepted || ""}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                  </select>
                 </div>
 
                 <div className="col-12">
