@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { API_BASE } from "../utils/api";
 
 export default function FamousPersonalities() {
@@ -11,6 +11,7 @@ export default function FamousPersonalities() {
   });
   const [selectedIndex, setSelectedIndex] = useState(null);
 
+  // ✅ Fetch data
   const fetchList = async () => {
     const params = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
@@ -26,15 +27,30 @@ export default function FamousPersonalities() {
 
   const selected = selectedIndex !== null ? list[selectedIndex] : null;
 
-  const handleNext = () => {
+  // ✅ Next / Prev handlers
+  const handleNext = useCallback(() => {
     if (list.length > 0)
       setSelectedIndex((prev) => (prev + 1) % list.length);
-  };
+  }, [list]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (list.length > 0)
       setSelectedIndex((prev) => (prev - 1 + list.length) % list.length);
-  };
+  }, [list]);
+
+  const handleClose = useCallback(() => setSelectedIndex(null), []);
+
+  // ✅ Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (selectedIndex === null) return;
+      if (e.key === "ArrowRight") handleNext();
+      if (e.key === "ArrowLeft") handlePrev();
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedIndex, handleNext, handlePrev, handleClose]);
 
   return (
     <main className="container py-5">
@@ -151,7 +167,7 @@ export default function FamousPersonalities() {
         ))}
       </div>
 
-      {/* Fullscreen Modal with navigation */}
+      {/* Fullscreen Modal */}
       {selected && (
         <div
           className="modal fade show"
@@ -169,7 +185,7 @@ export default function FamousPersonalities() {
               width: "100%",
             }}
           >
-            <div className="modal-content border-0 bg-white text-dark h-100 overflow-hidden">
+            <div className="modal-content border-0 bg-dark text-light h-100 overflow-hidden">
               {/* Header */}
               <div className="modal-header border-0 bg-primary text-white">
                 <h5 className="modal-title text-center w-100">
@@ -178,7 +194,7 @@ export default function FamousPersonalities() {
                 <button
                   type="button"
                   className="btn-close btn-close-white position-absolute end-0 me-3"
-                  onClick={() => setSelectedIndex(null)}
+                  onClick={handleClose}
                 ></button>
               </div>
 
