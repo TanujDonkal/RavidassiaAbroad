@@ -1685,6 +1685,107 @@ app.get("/api/categories", async (req, res) => {
 
 
 
+// ===========================
+// 🌐 SITE MENUS MANAGEMENT
+// ===========================
+
+// 🟢 Public: Fetch all menus
+app.get("/api/menus", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM site_menus ORDER BY parent_id NULLS FIRST, position ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching menus:", err);
+    res.status(500).json({ message: "Server error fetching menus" });
+  }
+});
+
+// 🔒 Admin: Fetch all menus
+app.get("/api/admin/menus", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM site_menus ORDER BY id ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching admin menus:", err);
+    res.status(500).json({ message: "Server error fetching menus" });
+  }
+});
+
+// 🔒 Admin: Create new menu
+app.post("/api/admin/menus", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { label, path, parent_id, position } = req.body;
+
+    if (!label || !path) {
+      return res.status(400).json({ message: "Label and path are required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO site_menus (label, path, parent_id, position)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [label, path, parent_id || null, position || 0]
+    );
+
+    res.json({ message: "✅ Menu created successfully", menu: result.rows[0] });
+  } catch (err) {
+    console.error("Error creating menu:", err);
+    res.status(500).json({ message: "Server error creating menu" });
+  }
+});
+
+// 🔒 Admin: Update menu
+app.put("/api/admin/menus/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { label, path, parent_id, position } = req.body;
+
+    const result = await pool.query(
+      `UPDATE site_menus 
+       SET label=$1, path=$2, parent_id=$3, position=$4
+       WHERE id=$5 RETURNING *`,
+      [label, path, parent_id || null, position || 0, id]
+    );
+
+    if (result.rowCount === 0)
+      return res.status(404).json({ message: "Menu not found" });
+
+    res.json({ message: "✅ Menu updated", menu: result.rows[0] });
+  } catch (err) {
+    console.error("Error updating menu:", err);
+    res.status(500).json({ message: "Server error updating menu" });
+  }
+});
+
+// 🔒 Admin: Delete menu
+app.delete("/api/admin/menus/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM site_menus WHERE id=$1", [id]);
+    res.json({ message: "🗑️ Menu deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting menu:", err);
+    res.status(500).json({ message: "Server error deleting menu" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ---- START SERVER ----
 app.listen(PORT, () => {

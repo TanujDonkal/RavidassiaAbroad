@@ -27,7 +27,9 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  const [menus, setMenus] = useState([]);
+  const [selectedMenu, setSelectedMenu] = useState(null);
 
   // --------------------------
   // FETCH DATA
@@ -105,6 +107,17 @@ const token = localStorage.getItem("token");
           const data = await res.json();
           setCategories(Array.isArray(data) ? data : []);
         }
+
+        if (activeTab === "menus") {
+          const res = await fetch(
+            `${API_BASE.replace("/api", "")}/api/admin/menus`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setMenus(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to fetch:", err);
       } finally {
@@ -151,83 +164,83 @@ const token = localStorage.getItem("token");
   // --------------------------
   // DELETE HANDLERS
   // --------------------------
-const handleDelete = async (type, id) => {
-  if (!window.confirm("Are you sure you want to delete this item?")) return;
+  const handleDelete = async (type, id) => {
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
 
-  try {
-    const res = await fetch(`${API_BASE}/admin/${type}/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    popup.open({
-      title: "Deleted",
-      message: data.message || "Item deleted successfully.",
-      type: "success",
-    });
+    try {
+      const res = await fetch(`${API_BASE}/admin/${type}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      popup.open({
+        title: "Deleted",
+        message: data.message || "Item deleted successfully.",
+        type: "success",
+      });
 
-    // ✅ Instantly update UI
-    if (type === "users") {
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-    } else if (type === "matrimonial") {
-      setMatrimonialSubs((prev) => prev.filter((m) => m.id !== id));
-    } else if (type === "scst-submissions" || type === "scst") {
-      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      // ✅ Instantly update UI
+      if (type === "users") {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+      } else if (type === "matrimonial") {
+        setMatrimonialSubs((prev) => prev.filter((m) => m.id !== id));
+      } else if (type === "scst-submissions" || type === "scst") {
+        setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch (err) {
+      console.error("❌ Delete error:", err);
+      popup.open({
+        title: "Error",
+        message: "Delete failed. Please try again.",
+        type: "error",
+      });
     }
-  } catch (err) {
-    console.error("❌ Delete error:", err);
-    popup.open({
-      title: "Error",
-      message: "Delete failed. Please try again.",
-      type: "error",
-    });
-  }
-};
-
+  };
 
   // DELETE MULTIPLE RECORDS
- const handleBulkDelete = async (type) => {
-  if (!window.confirm("Delete selected items?")) return;
+  const handleBulkDelete = async (type) => {
+    if (!window.confirm("Delete selected items?")) return;
 
-  try {
-    const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ ids: selectedIds }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      const data = await res.json();
 
-    popup.open({
-      title: "Deleted",
-      message: data.message || "Bulk delete successful.",
-      type: "success",
-    });
+      popup.open({
+        title: "Deleted",
+        message: data.message || "Bulk delete successful.",
+        type: "success",
+      });
 
-    // ✅ Update lists instantly
-    if (type === "users") {
-      setUsers((prev) => prev.filter((u) => !selectedIds.includes(u.id)));
-    } else if (type === "matrimonial") {
-      setMatrimonialSubs((prev) =>
-        prev.filter((m) => !selectedIds.includes(m.id))
-      );
-    } else if (type === "scst-submissions" || type === "scst") {
-      setSubmissions((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
+      // ✅ Update lists instantly
+      if (type === "users") {
+        setUsers((prev) => prev.filter((u) => !selectedIds.includes(u.id)));
+      } else if (type === "matrimonial") {
+        setMatrimonialSubs((prev) =>
+          prev.filter((m) => !selectedIds.includes(m.id))
+        );
+      } else if (type === "scst-submissions" || type === "scst") {
+        setSubmissions((prev) =>
+          prev.filter((s) => !selectedIds.includes(s.id))
+        );
+      }
+
+      setSelectedIds([]);
+    } catch (err) {
+      console.error("❌ Bulk delete error:", err);
+      popup.open({
+        title: "Error",
+        message: "Bulk delete failed. Please try again.",
+        type: "error",
+      });
     }
-
-    setSelectedIds([]);
-  } catch (err) {
-    console.error("❌ Bulk delete error:", err);
-    popup.open({
-      title: "Error",
-      message: "Bulk delete failed. Please try again.",
-      type: "error",
-    });
-  }
-};
-
+  };
 
   // --------------------------
   // STATS
@@ -420,6 +433,7 @@ const handleDelete = async (type, id) => {
                 },
                 { tab: "blogs", icon: "bi-newspaper", label: "Blogs" },
                 { tab: "categories", icon: "bi-tags", label: "Categories" },
+                { tab: "menus", icon: "bi-list", label: "Menus" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -1284,6 +1298,208 @@ const handleDelete = async (type, id) => {
                     </div>
                   </div>
                 )}
+
+                {/* MENUS TAB */}
+{activeTab === "menus" && (
+  <div className="card shadow border-0 mb-7">
+    <div className="card-header d-flex justify-content-between align-items-center">
+      <h5 className="mb-0">Dynamic Site Menus</h5>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={() => {
+          setSelectedMenu({ label: "", path: "", parent_id: null, position: 0 });
+        }}
+      >
+        + New Menu
+      </button>
+    </div>
+
+    <div className="table-responsive">
+      <table className="table table-hover table-nowrap">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Label</th>
+            <th>Path</th>
+            <th>Parent</th>
+            <th>Position</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {menus.length === 0 ? (
+            <tr>
+              <td colSpan="7" className="text-center text-muted py-4">
+                No menus yet.
+              </td>
+            </tr>
+          ) : (
+            menus.map((m) => (
+              <tr key={m.id}>
+                <td>{m.id}</td>
+                <td>{m.label}</td>
+                <td>{m.path}</td>
+                <td>{m.parent_id || "—"}</td>
+                <td>{m.position}</td>
+                <td>{new Date(m.created_at).toLocaleDateString()}</td>
+                <td className="text-end">
+                  <button
+                    className="btn btn-warning btn-sm me-2"
+                    onClick={() => setSelectedMenu(m)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={async () => {
+                      if (window.confirm("Delete this menu?")) {
+                        await apiFetch(`/admin/menus/${m.id}`, { method: "DELETE" });
+                        setMenus((prev) => prev.filter((x) => x.id !== m.id));
+                        popup.open({
+                          title: "🗑️ Deleted",
+                          message: "Menu deleted successfully",
+                          type: "success",
+                        });
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Add/Edit Modal */}
+    {selectedMenu && (
+      <div
+        className="modal fade show"
+        style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+      >
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const method = selectedMenu.id ? "PUT" : "POST";
+                  const url = selectedMenu.id
+                    ? `/admin/menus/${selectedMenu.id}`
+                    : "/admin/menus";
+                  await apiFetch(url, {
+                    method,
+                    body: JSON.stringify(selectedMenu),
+                  });
+                  const refreshed = await fetch(
+                    `${API_BASE.replace("/api", "")}/api/admin/menus`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+                  const data = await refreshed.json();
+                  setMenus(Array.isArray(data) ? data : []);
+                  popup.open({
+                    title: "✅ Saved",
+                    message: "Menu saved successfully",
+                    type: "success",
+                  });
+                  setSelectedMenu(null);
+                } catch (err) {
+                  popup.open({
+                    title: "❌ Error",
+                    message: err.message,
+                    type: "error",
+                  });
+                }
+              }}
+            >
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {selectedMenu.id ? "Edit Menu" : "New Menu"}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setSelectedMenu(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label">Label</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={selectedMenu.label}
+                    onChange={(e) =>
+                      setSelectedMenu((p) => ({ ...p, label: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Path</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="/connect-canada"
+                    value={selectedMenu.path}
+                    onChange={(e) =>
+                      setSelectedMenu((p) => ({ ...p, path: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Parent ID (optional)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={selectedMenu.parent_id || ""}
+                    onChange={(e) =>
+                      setSelectedMenu((p) => ({
+                        ...p,
+                        parent_id: e.target.value || null,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Position (order)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={selectedMenu.position}
+                    onChange={(e) =>
+                      setSelectedMenu((p) => ({
+                        ...p,
+                        position: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-light"
+                  onClick={() => setSelectedMenu(null)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
               </>
             )}
           </div>
