@@ -912,6 +912,8 @@ export default function AdminDashboard() {
                             <th>Created</th>
                             <th>Data</th>
                             <th>Reply</th>
+                            <th>Status</th>
+                            <th>Delete</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -966,6 +968,39 @@ export default function AdminDashboard() {
                                   >
                                     Reply
                                   </button>
+                                </td>
+                                <td>
+                                  {s.replied ? (
+                                    <span
+                                      className="badge bg-success"
+                                      title={`Replied on ${new Date(
+                                        s.replied_at
+                                      ).toLocaleString()}`}
+                                    >
+                                      ✅ Replied –{" "}
+                                      {new Date(
+                                        s.replied_at
+                                      ).toLocaleDateString(undefined, {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                      })}{" "}
+                                      at{" "}
+                                      {new Date(
+                                        s.replied_at
+                                      ).toLocaleTimeString(undefined, {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                  ) : (
+                                    <span className="badge bg-warning text-dark">
+                                      ⏳ Pending
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td>
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={(e) => {
@@ -1886,6 +1921,20 @@ export default function AdminDashboard() {
                       });
 
                       setReplyTarget(null);
+
+                      // ✅ Refresh SC/ST list to update "Replied" status
+                      const token = localStorage.getItem("token");
+                      const res2 = await fetch(
+                        `${API_BASE.replace(
+                          "/api",
+                          ""
+                        )}/api/admin/scst-submissions`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      const updatedSubs = await res2.json();
+                      setSubmissions(
+                        Array.isArray(updatedSubs) ? updatedSubs : []
+                      );
                     } catch (err) {
                       popup.open({
                         title: "❌ Error",

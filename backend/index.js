@@ -1946,14 +1946,18 @@ app.delete(
 );
 
 // 🔒 ADMIN: Send reply email + WhatsApp message
-app.post("/api/admin/scst-reply", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { name, email, country, phone, groupLink } = req.body;
-    if (!email || !country)
-      return res.status(400).json({ message: "Email and country required" });
+app.post(
+  "/api/admin/scst-reply",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { name, email, country, phone, groupLink } = req.body;
+      if (!email || !country)
+        return res.status(400).json({ message: "Email and country required" });
 
-    // 🟡 1️⃣ Dynamic Welcome Section
-    const welcomeText = `🙏 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
+      // 🟡 1️⃣ Dynamic Welcome Section
+      const welcomeText = `🙏 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
 
 This group is a dedicated space for all Chamars living in ${country} to connect, share resources, and support one another. Our goal is to create a strong, united community where members can freely exchange advice on settling into life in ${country}, navigating job opportunities, and dealing with challenges that come our way.
 
@@ -1961,18 +1965,18 @@ We encourage discussions on cultural events, education, career development, and 
 
 Together, we can ensure that our community thrives and that every member feels supported. 🌍`;
 
-    // 🟡 2️⃣ Group Rules (cleaned list)
-    const rules = [
-      "Always keep discussions relevant to the community — avoid off-topic or spam posts.",
-      "Respect all members; absolutely no hate speech, casteism, or political arguments.",
-      "Don’t share fake news, unverified forwards, or large media files.",
-      "Keep long personal conversations private (use direct messages).",
-      "Ask before adding anyone new to the group.",
-      "Express gratitude privately — avoid flooding chat with 'thank you' messages.",
-    ];
+      // 🟡 2️⃣ Group Rules (cleaned list)
+      const rules = [
+        "Always keep discussions relevant to the community — avoid off-topic or spam posts.",
+        "Respect all members; absolutely no hate speech, casteism, or political arguments.",
+        "Don’t share fake news, unverified forwards, or large media files.",
+        "Keep long personal conversations private (use direct messages).",
+        "Ask before adding anyone new to the group.",
+        "Express gratitude privately — avoid flooding chat with 'thank you' messages.",
+      ];
 
-    // 🟡 3️⃣ Build Email HTML Template
-    const html = `
+      // 🟡 3️⃣ Build Email HTML Template
+      const html = `
       <div style="font-family:Arial,sans-serif;padding:20px;border:1px solid #ddd;border-radius:10px;">
         <h2 style="color:#ffcc00;">Jai Gurudev Ji, ${name}</h2>
         <p style="white-space:pre-line;">${welcomeText}</p>
@@ -1988,16 +1992,16 @@ Together, we can ensure that our community thrives and that every member feels s
       </div>
     `;
 
-    // 🟡 4️⃣ Send Email
-    await transporter.sendMail({
-      from: `"Ravidassia Abroad" <${SMTP_USER}>`,
-      to: email,
-      subject: `Ravidassia Abroad – ${country} Group Invitation`,
-      html,
-    });
+      // 🟡 4️⃣ Send Email
+      await transporter.sendMail({
+        from: `"Ravidassia Abroad" <${SMTP_USER}>`,
+        to: email,
+        subject: `Ravidassia Abroad – ${country} Group Invitation`,
+        html,
+      });
 
-    // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
-    const whatsappMessage = `
+      // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
+      const whatsappMessage = `
 Jai Gurudev Ji ${name}! 🙏
 
 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
@@ -2021,20 +2025,27 @@ Warm regards,
 The Ravidassia Abroad Team
 `;
 
-    const whatsapp_link = phone
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappMessage)}`
-      : null;
+      const whatsapp_link = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappMessage)}`
+        : null;
 
-    // 🟡 6️⃣ Respond to Frontend
-    res.json({
-      message: "✅ Reply email sent successfully!",
-      whatsapp_link,
-    });
-  } catch (err) {
-    console.error("❌ SCST reply error:", err);
-    res.status(500).json({ message: "Failed to send reply" });
+      // ✅ Mark user as replied in DB
+      await pool.query(
+        "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE email = $1",
+        [email]
+      );
+
+      // 🟡 6️⃣ Respond to Frontend
+      res.json({
+        message: "✅ Reply email sent successfully!",
+        whatsapp_link,
+      });
+    } catch (err) {
+      console.error("❌ SCST reply error:", err);
+      res.status(500).json({ message: "Failed to send reply" });
+    }
   }
-});
+);
 
 // ---- START SERVER ----
 app.listen(PORT, () => {
