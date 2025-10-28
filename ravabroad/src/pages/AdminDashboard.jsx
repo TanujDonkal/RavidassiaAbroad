@@ -1895,6 +1895,7 @@ export default function AdminDashboard() {
                   className="btn btn-primary"
                   onClick={async () => {
                     try {
+                      // 1️⃣ Send the reply email + WhatsApp
                       const res = await apiFetch("/admin/scst-reply", {
                         method: "POST",
                         body: JSON.stringify({
@@ -1909,33 +1910,35 @@ export default function AdminDashboard() {
                         }),
                       });
 
-                      // ✅ Auto-open WhatsApp chat with prefilled message
+                      // 2️⃣ Open WhatsApp
                       if (res.whatsapp_link) {
                         window.open(res.whatsapp_link, "_blank");
                       }
 
+                      // 3️⃣ Success popup
                       popup.open({
                         title: "✅ Sent",
-                        message: `Reply email sent to ${replyTarget.email} and WhatsApp message ready to send.`,
+                        message: `Reply email sent to ${replyTarget.email} and WhatsApp message ready.`,
                         type: "success",
                       });
 
+                      // 4️⃣ Close modal
                       setReplyTarget(null);
 
-                      // ✅ Refresh SC/ST list to update "Replied" status
+                      // 5️⃣ Refresh submissions list (corrected URL)
                       const token = localStorage.getItem("token");
                       const res2 = await fetch(
-                        `${API_BASE.replace(
-                          "/api",
-                          ""
-                        )}/api/admin/scst-submissions`,
-                        { headers: { Authorization: `Bearer ${token}` } }
+                        `${API_BASE}/admin/scst-submissions`,
+                        {
+                          headers: { Authorization: `Bearer ${token}` },
+                        }
                       );
                       const updatedSubs = await res2.json();
                       setSubmissions(
                         Array.isArray(updatedSubs) ? updatedSubs : []
                       );
                     } catch (err) {
+                      console.error("Reply error:", err);
                       popup.open({
                         title: "❌ Error",
                         message: err.message,

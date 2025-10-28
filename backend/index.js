@@ -2041,6 +2041,7 @@ The Ravidassia Abroad Team
         whatsapp_link,
       });
     } catch (err) {
+      console.error("❌ SCST reply error:", err.message, err.stack);
       console.error("❌ SCST reply error:", err);
       res.status(500).json({ message: "Failed to send reply" });
     }
