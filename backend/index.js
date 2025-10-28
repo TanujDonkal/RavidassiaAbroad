@@ -1995,10 +1995,10 @@ Together, we can ensure that our community thrives and that every member feels s
 
       // ✅ Send Email with Resend API
       await resend.emails.send({
-        from: "Ravidassia Abroad <noreply@ravidassiaabroad.com>",
+        from: "Ravidassia Abroad <ravidassiaabroad@gmail.com>",
         to: email,
-        subject: `Ravidassia Abroad – ${country} Group Invitation`,
-        html, // same HTML you already built above
+        subject: "...",
+        html,
       });
 
       // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
