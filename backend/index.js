@@ -9,7 +9,7 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { OAuth2Client } from "google-auth-library";
-import crypto from "crypto";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -17,6 +17,7 @@ const { Pool } = pkg;
 const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
+const resend = new Resend(process.env.RESEND_API_KEY);
 // Safely decode token if exists in Authorization header
 function decodeUserIfAny(req) {
   try {
@@ -1992,12 +1993,12 @@ Together, we can ensure that our community thrives and that every member feels s
       </div>
     `;
 
-      // 🟡 4️⃣ Send Email
-      await transporter.sendMail({
-        from: `"Ravidassia Abroad" <${SMTP_USER}>`,
+      // ✅ Send Email with Resend API
+      await resend.emails.send({
+        from: "Ravidassia Abroad <noreply@ravidassiaabroad.com>",
         to: email,
         subject: `Ravidassia Abroad – ${country} Group Invitation`,
-        html,
+        html, // same HTML you already built above
       });
 
       // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
@@ -2041,7 +2042,6 @@ The Ravidassia Abroad Team
         whatsapp_link,
       });
     } catch (err) {
-      console.error("❌ SCST reply error:", err.message, err.stack);
       console.error("❌ SCST reply error:", err);
       res.status(500).json({ message: "Failed to send reply" });
     }

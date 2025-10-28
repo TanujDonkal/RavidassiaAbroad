@@ -20,7 +20,8 @@
     "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "3.15.0",
     "nodemailer": "^7.0.6",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "resend": "^6.3.0"
   },
   "devDependencies": {
     "nodemon": "3.1.10"
