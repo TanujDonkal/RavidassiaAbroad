@@ -8,6 +8,7 @@ import BlogFormModal from "../components/BlogFormModal";
 import PersonalityFormModal from "../components/PersonalityFormModal";
 import CategoryFormModal from "../components/CategoryFormModal";
 import { API_BASE } from "../utils/api";
+import ArticleManager from "../components/ArticleManager";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -32,9 +33,17 @@ export default function AdminDashboard() {
   const [menus, setMenus] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
 
-const [personalities, setPersonalities] = useState([]);
-const [showPersonalityModal, setShowPersonalityModal] = useState(false);
-const [selectedPersonality, setSelectedPersonality] = useState(null);
+  const [personalities, setPersonalities] = useState([]);
+  const [showPersonalityModal, setShowPersonalityModal] = useState(false);
+  const [selectedPersonality, setSelectedPersonality] = useState(null);
+
+  // 💬 Reply modal state (for SC/ST connect)
+  const [replyTarget, setReplyTarget] = useState(null);
+  const [replyForm, setReplyForm] = useState({
+    groupLink: "",
+    rules:
+      "1. Respect all members.\n2. Avoid spam or hate speech.\n3. Keep discussions about community growth and unity.",
+  });
 
   // --------------------------
   // FETCH DATA
@@ -166,18 +175,18 @@ const [selectedPersonality, setSelectedPersonality] = useState(null);
     setSelectedSubmission(null);
   };
 
-const fetchPersonalities = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_BASE}/admin/personalities`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setPersonalities(Array.isArray(data) ? data : []);
-  } catch (err) {
-    console.error("❌ Failed to fetch personalities:", err);
-  }
-};
+  const fetchPersonalities = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE}/admin/personalities`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setPersonalities(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ Failed to fetch personalities:", err);
+    }
+  };
 
   // Call it once when component mounts
   useEffect(() => {
@@ -462,6 +471,7 @@ const fetchPersonalities = async () => {
                   icon: "bi-stars",
                   label: "Famous Personalities",
                 },
+                { tab: "articles", icon: "bi-journal-text", label: "Articles" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
                   <a
@@ -901,7 +911,7 @@ const fetchPersonalities = async () => {
                             <th>Phone</th>
                             <th>Created</th>
                             <th>Data</th>
-                            <th>Delete</th>
+                            <th>Reply</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -950,6 +960,12 @@ const fetchPersonalities = async () => {
                                   </button>
                                 </td>
                                 <td>
+                                  <button
+                                    className="btn btn-sm btn-success me-2"
+                                    onClick={() => setReplyTarget(s)}
+                                  >
+                                    Reply
+                                  </button>
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={(e) => {
@@ -1442,6 +1458,7 @@ const fetchPersonalities = async () => {
                   </div>
                 )}
 
+                {activeTab === "articles" && <ArticleManager />}
                 {/* MENUS TAB */}
                 {activeTab === "menus" && (
                   <div className="card shadow border-0 mb-7">
@@ -1780,6 +1797,105 @@ const fetchPersonalities = async () => {
                   onClick={handleCloseModal}
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {replyTarget && (
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Reply to {replyTarget.name}</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setReplyTarget(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p>
+                  <strong>Email:</strong> {replyTarget.email}
+                </p>
+                <p>
+                  <strong>Country:</strong> {replyTarget.country}
+                </p>
+                <label className="form-label">WhatsApp Group Link</label>
+                <input
+                  type="text"
+                  className="form-control mb-3"
+                  value={replyForm.groupLink}
+                  onChange={(e) =>
+                    setReplyForm((prev) => ({
+                      ...prev,
+                      groupLink: e.target.value,
+                    }))
+                  }
+                  placeholder="https://chat.whatsapp.com/..."
+                />
+
+                <label className="form-label">Group Rules</label>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  value={replyForm.rules}
+                  onChange={(e) =>
+                    setReplyForm((prev) => ({ ...prev, rules: e.target.value }))
+                  }
+                ></textarea>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setReplyTarget(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch("/admin/scst-reply", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          name: replyTarget.name,
+                          email: replyTarget.email,
+                          country: replyTarget.country,
+                          phone: replyTarget.phone,
+                          groupLink: replyForm.groupLink,
+                          rules: replyForm.rules
+                            .split("\n")
+                            .filter((r) => r.trim() !== ""),
+                        }),
+                      });
+
+                      // ✅ Auto-open WhatsApp chat with prefilled message
+                      if (res.whatsapp_link) {
+                        window.open(res.whatsapp_link, "_blank");
+                      }
+
+                      popup.open({
+                        title: "✅ Sent",
+                        message: `Reply email sent to ${replyTarget.email} and WhatsApp message ready to send.`,
+                        type: "success",
+                      });
+
+                      setReplyTarget(null);
+                    } catch (err) {
+                      popup.open({
+                        title: "❌ Error",
+                        message: err.message,
+                        type: "error",
+                      });
+                    }
+                  }}
+                >
+                  Send Reply
                 </button>
               </div>
             </div>

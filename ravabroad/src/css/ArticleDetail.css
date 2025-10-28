@@ -1,0 +1,92 @@
+/* Floating TOC Button */
+.toc-fab {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  z-index: 2000;
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile TOC Drawer */
+.mobile-toc-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 2500;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.mobile-toc {
+  width: 100%;
+  max-height: 70vh;
+  overflow-y: auto;
+  border-radius: 1rem 1rem 0 0;
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+
+/* Highlighted active heading */
+.toc-box li.fw-bold button,
+.mobile-toc li.fw-bold button {
+  color: #0d6efd !important;
+}
+
+/* Smooth fade for highlight change */
+.toc-box li,
+.mobile-toc li {
+  transition: color 0.2s ease;
+}
+
+.article-hero {
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: 1rem;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+/* Desktop-specific larger height */
+@media (min-width: 992px) {
+  .article-hero {
+    max-height: 650px;
+  }
+}
+
+/* Tablet size */
+@media (min-width: 768px) and (max-width: 991px) {
+  .article-hero {
+    max-height: 500px;
+  }
+}
+
+/* Hover animation for elegance */
+.article-hero:hover {
+  transform: scale(1.02);
+}
+
+.article-hero {
+  opacity: 0;
+  animation: fadeIn 1s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}

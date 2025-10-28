@@ -299,14 +299,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-
 // 🟢 Step 1: Request password reset (send OTP)
 app.post("/api/auth/request-reset", async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email required" });
 
-    const user = await pool.query("SELECT id, email, name FROM users WHERE email=$1", [email]);
+    const user = await pool.query(
+      "SELECT id, email, name FROM users WHERE email=$1",
+      [email]
+    );
     if (user.rows.length === 0)
       return res.status(404).json({ message: "No account with that email" });
 
@@ -325,10 +327,10 @@ app.post("/api/auth/request-reset", async (req, res) => {
     });
 
     await transporter.sendMail({
-  from: `"Ravidassia Abroad Support" <${process.env.SMTP_USER}>`,
-  to: email,
-  subject: "🔐 Ravidassia Abroad Password Reset",
-  html: `
+      from: `"Ravidassia Abroad Support" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "🔐 Ravidassia Abroad Password Reset",
+      html: `
     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
       <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
       <p>Jai Gurudev Ji,</p>
@@ -340,8 +342,7 @@ app.post("/api/auth/request-reset", async (req, res) => {
       <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
     </div>
   `,
-});
-
+    });
 
     res.json({ message: "OTP sent to your email" });
   } catch (err) {
@@ -358,14 +359,19 @@ app.post("/api/auth/reset-password", async (req, res) => {
       return res.status(400).json({ message: "Missing fields" });
 
     const record = otpStore.get(email);
-    if (!record) return res.status(400).json({ message: "OTP expired or invalid" });
+    if (!record)
+      return res.status(400).json({ message: "OTP expired or invalid" });
 
-    if (record.otp !== otp) return res.status(400).json({ message: "Incorrect OTP" });
+    if (record.otp !== otp)
+      return res.status(400).json({ message: "Incorrect OTP" });
     if (Date.now() > record.expiresAt)
       return res.status(400).json({ message: "OTP expired" });
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.query("UPDATE users SET password_hash=$1 WHERE email=$2", [passwordHash, email]);
+    await pool.query("UPDATE users SET password_hash=$1 WHERE email=$2", [
+      passwordHash,
+      email,
+    ]);
 
     otpStore.delete(email);
     res.json({ message: "Password reset successful" });
@@ -374,7 +380,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 // ---- EMAIL NOTIFICATION HELPER ----
 async function sendNotificationEmail(subject, html) {
@@ -764,7 +769,11 @@ app.post(
           <p><strong>Country:</strong> ${d.country_living}</p>
           <p><strong>City:</strong> ${d.city_living || "-"}</p>
           ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
-          ${d.religion_beliefs ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>` : ""}
+          ${
+            d.religion_beliefs
+              ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>`
+              : ""
+          }
           ${photoUrl ? `<p><img src="${photoUrl}" width="150"/></p>` : ""}
           <hr><p>Log in to your admin dashboard to view this biodata.</p>
         `
@@ -779,7 +788,6 @@ app.post(
     }
   }
 );
-
 
 // ✅ Fetch the logged-in user's submitted matrimonial biodata
 app.get("/api/matrimonial-submissions/mine", async (req, res) => {
@@ -989,16 +997,22 @@ app.delete(
       // Fetch the user making the request
       const requester = req.user; // added by requireAuth middleware
       if (requester.role !== "main_admin") {
-        return res.status(403).json({ message: "Only main_admin can delete users" });
+        return res
+          .status(403)
+          .json({ message: "Only main_admin can delete users" });
       }
 
       // Get target user
-      const target = await pool.query("SELECT role FROM users WHERE id=$1", [id]);
+      const target = await pool.query("SELECT role FROM users WHERE id=$1", [
+        id,
+      ]);
       if (target.rows.length === 0)
         return res.status(404).json({ message: "User not found" });
 
       if (target.rows[0].role === "main_admin")
-        return res.status(403).json({ message: "Cannot delete another main_admin" });
+        return res
+          .status(403)
+          .json({ message: "Cannot delete another main_admin" });
 
       await pool.query("DELETE FROM users WHERE id=$1", [id]);
       res.json({ message: "🗑️ User deleted successfully" });
@@ -1024,7 +1038,9 @@ app.post(
       // Fetch requester
       const requester = req.user;
       if (requester.role !== "main_admin") {
-        return res.status(403).json({ message: "Only main_admin can bulk delete users" });
+        return res
+          .status(403)
+          .json({ message: "Only main_admin can bulk delete users" });
       }
 
       // Exclude main_admin users from deletion
@@ -1040,14 +1056,15 @@ app.post(
       const eligibleIds = rows.map((r) => r.id);
       await pool.query("DELETE FROM users WHERE id = ANY($1)", [eligibleIds]);
 
-      res.json({ message: `🗑️ Deleted ${eligibleIds.length} users successfully` });
+      res.json({
+        message: `🗑️ Deleted ${eligibleIds.length} users successfully`,
+      });
     } catch (err) {
       console.error("❌ Bulk delete users error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }
 );
-
 
 app.post(
   "/api/user/update-profile",
@@ -1430,17 +1447,22 @@ app.post(
   }
 );
 
-// -------------------- BLOG COMMENTS SYSTEM --------------------
+// ==========================================================
+// 🗨️ COMMENTS SYSTEM (Blogs + Articles, unified)
+// ==========================================================
 
-// 🟢 Get comments + replies (hide user-deleted ones)
-app.get("/api/blogs/:id/comments", async (req, res) => {
+// 🟢 Get comments (blogs or articles)
+app.get("/api/:type/:id/comments", async (req, res) => {
   try {
-    const { id } = req.params;
+    const { type, id } = req.params;
+
+    const table = type === "articles" ? "article_comments" : "blog_comments";
+    const field = type === "articles" ? "article_id" : "post_id";
 
     const result = await pool.query(
-      `SELECT * FROM blog_comments 
-       WHERE post_id=$1 
-       AND is_approved=true
+      `SELECT * FROM ${table}
+       WHERE ${field}=$1 
+       AND is_approved=true 
        AND deleted_by_user=false
        ORDER BY created_at ASC`,
       [id]
@@ -1460,131 +1482,66 @@ app.get("/api/blogs/:id/comments", async (req, res) => {
   }
 });
 
-// 🟢 Public: add a comment or reply
-// 🟢 Public: add a comment or reply
-app.post("/api/blogs/:id/comments", async (req, res) => {
+// 🟢 Add a comment or reply (blogs or articles)
+app.post("/api/:type/:id/comments", async (req, res) => {
   try {
-    const { id } = req.params;
+    const { type, id } = req.params;
     const { user_id, name, email, comment_text, parent_id } = req.body;
 
-    // 1️⃣ Validate blog existence
-    const blogCheck = await pool.query(
-      "SELECT id FROM blog_posts WHERE id=$1",
-      [id]
-    );
-    if (blogCheck.rowCount === 0)
-      return res.status(404).json({ message: "Blog not found" });
+    const table = type === "articles" ? "article_comments" : "blog_comments";
+    const field = type === "articles" ? "article_id" : "post_id";
 
-    // 2️⃣ Validate parent (and inherit correct post_id)
+    // ✅ Parent check
     if (parent_id) {
-      const parent = await pool.query(
-        "SELECT id, post_id FROM blog_comments WHERE id=$1",
+      const parentCheck = await pool.query(
+        `SELECT id FROM ${table} WHERE id=$1`,
         [parent_id]
       );
-      if (parent.rowCount === 0)
+      if (parentCheck.rowCount === 0)
         return res.status(400).json({ message: "Parent comment not found" });
-
-      // ✅ Ensure same blog (in case of reply-to-reply)
-      if (parent.rows[0].post_id !== parseInt(id)) {
-        return res
-          .status(400)
-          .json({ message: "Invalid parent comment relationship" });
-      }
     }
 
-    // 3️⃣ Insert comment (safe even for reply-of-reply)
+    // ✅ Insert comment
     const result = await pool.query(
-      `INSERT INTO blog_comments 
-       (post_id, user_id, name, email, comment_text, parent_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO ${table} (${field}, user_id, name, email, comment_text, parent_id)
+       VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING *`,
-      [
-        id,
-        user_id || null,
-        name || null,
-        email || null,
-        comment_text,
-        parent_id || null,
-      ]
+      [id, user_id || null, name, email, comment_text, parent_id || null]
     );
 
-    // 4️⃣ Return the newly created comment for instant UI update
     res.json({
       message: "✅ Comment added successfully!",
       comment: result.rows[0],
     });
   } catch (err) {
-    console.error("❌ Comment insert error:", err.message);
-    res.status(500).json({ message: err.message || "Server error" });
-  }
-});
-
-// 🔒 Admin: fetch all comments (with post title)
-// 🔒 Admin: fetch all comments (including deleted)
-app.get("/api/admin/comments", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT c.*, b.title AS post_title 
-      FROM blog_comments c
-      LEFT JOIN blog_posts b ON c.post_id=b.id
-      ORDER BY c.created_at DESC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("❌ Admin comments fetch error:", err);
+    console.error("❌ Comment insert error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// 🔒 Admin: toggle approval
-app.patch(
-  "/api/admin/comments/:id/approve",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      await pool.query(
-        "UPDATE blog_comments SET is_approved = NOT is_approved WHERE id=$1",
-        [req.params.id]
-      );
-      res.json({ message: "✅ Comment approval toggled" });
-    } catch (err) {
-      console.error("❌ Comment approve toggle error:", err);
-      res.status(500).json({ message: "Server error" });
-    }
-  }
-);
-
-// 🔒 Admin: delete comment (and replies auto-deleted via cascade)
-app.delete(
-  "/api/admin/comments/:id",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      await pool.query("DELETE FROM blog_comments WHERE id=$1", [
-        req.params.id,
-      ]);
-      res.json({ message: "🗑️ Comment deleted" });
-    } catch (err) {
-      console.error("❌ Comment delete error:", err);
-      res.status(500).json({ message: "Server error" });
-    }
-  }
-);
-
-// 🟢 USER SOFT DELETE
-app.patch("/api/blogs/comments/:id/delete", async (req, res) => {
+// 🟢 USER SOFT DELETE (own comment only)
+app.patch("/api/:type/comments/:id/delete", async (req, res) => {
   try {
-    const { id } = req.params;
-    const result = await pool.query(
-      "UPDATE blog_comments SET deleted_by_user = true WHERE id=$1 RETURNING *",
-      [id]
-    );
+    const { type, id } = req.params;
+    const userId = req.body.user_id;
 
-    if (result.rowCount === 0)
+    const table = type === "articles" ? "article_comments" : "blog_comments";
+
+    const check = await pool.query(`SELECT user_id FROM ${table} WHERE id=$1`, [
+      id,
+    ]);
+    if (check.rowCount === 0)
       return res.status(404).json({ message: "Comment not found" });
 
+    const ownerId = check.rows[0].user_id;
+    if (ownerId !== userId)
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this comment" });
+
+    await pool.query(`UPDATE ${table} SET deleted_by_user=true WHERE id=$1`, [
+      id,
+    ]);
     res.json({ message: "🗑️ Comment soft-deleted by user" });
   } catch (err) {
     console.error("❌ Soft delete error:", err);
@@ -1592,17 +1549,18 @@ app.patch("/api/blogs/comments/:id/delete", async (req, res) => {
   }
 });
 
-// 🔒 ADMIN HARD DELETE
+// 🔒 ADMIN HARD DELETE (cascade replies)
 app.delete(
-  "/api/blogs/comments/:id",
+  "/api/:type/comments/:id",
   requireAuth,
   requireAdmin,
   async (req, res) => {
     try {
-      await pool.query("DELETE FROM blog_comments WHERE id=$1", [
-        req.params.id,
-      ]);
-      res.json({ message: "🗑️ Comment permanently deleted by admin" });
+      const { type, id } = req.params;
+      const table = type === "articles" ? "article_comments" : "blog_comments";
+
+      await pool.query(`DELETE FROM ${table} WHERE id=$1`, [id]);
+      res.json({ message: "🗑️ Comment deleted by admin (cascade applied)" });
     } catch (err) {
       console.error("❌ Admin delete error:", err);
       res.status(500).json({ message: "Server error" });
@@ -1683,8 +1641,6 @@ app.get("/api/categories", async (req, res) => {
   }
 });
 
-
-
 // ===========================
 // 🌐 SITE MENUS MANAGEMENT
 // ===========================
@@ -1705,9 +1661,7 @@ app.get("/api/menus", async (req, res) => {
 // 🔒 Admin: Fetch all menus
 app.get("/api/admin/menus", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM site_menus ORDER BY id ASC"
-    );
+    const result = await pool.query("SELECT * FROM site_menus ORDER BY id ASC");
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching admin menus:", err);
@@ -1762,17 +1716,21 @@ app.put("/api/admin/menus/:id", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // 🔒 Admin: Delete menu
-app.delete("/api/admin/menus/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await pool.query("DELETE FROM site_menus WHERE id=$1", [id]);
-    res.json({ message: "🗑️ Menu deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting menu:", err);
-    res.status(500).json({ message: "Server error deleting menu" });
+app.delete(
+  "/api/admin/menus/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.query("DELETE FROM site_menus WHERE id=$1", [id]);
+      res.json({ message: "🗑️ Menu deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting menu:", err);
+      res.status(500).json({ message: "Server error deleting menu" });
+    }
   }
-});
-
+);
 
 // 🌍 Public - get personalities with filters
 app.get("/api/personalities", async (req, res) => {
@@ -1781,10 +1739,22 @@ app.get("/api/personalities", async (req, res) => {
     let query = "SELECT * FROM famous_personalities WHERE 1=1";
     const params = [];
 
-    if (caste) { params.push(caste); query += ` AND caste=$${params.length}`; }
-    if (region) { params.push(region); query += ` AND region=$${params.length}`; }
-    if (category) { params.push(category); query += ` AND category=$${params.length}`; }
-    if (sc_st_type) { params.push(sc_st_type); query += ` AND sc_st_type=$${params.length}`; }
+    if (caste) {
+      params.push(caste);
+      query += ` AND caste=$${params.length}`;
+    }
+    if (region) {
+      params.push(region);
+      query += ` AND region=$${params.length}`;
+    }
+    if (category) {
+      params.push(category);
+      query += ` AND category=$${params.length}`;
+    }
+    if (sc_st_type) {
+      params.push(sc_st_type);
+      query += ` AND sc_st_type=$${params.length}`;
+    }
 
     query += " ORDER BY created_at DESC";
     const result = await pool.query(query, params);
@@ -1796,49 +1766,275 @@ app.get("/api/personalities", async (req, res) => {
 });
 
 // 🔒 Admin CRUD
-app.get("/api/admin/personalities", requireAuth, requireAdmin, async (req, res) => {
-  const result = await pool.query("SELECT * FROM famous_personalities ORDER BY id DESC");
-  res.json(result.rows);
-});
+app.get(
+  "/api/admin/personalities",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const result = await pool.query(
+      "SELECT * FROM famous_personalities ORDER BY id DESC"
+    );
+    res.json(result.rows);
+  }
+);
 
-app.post("/api/admin/personalities", requireAuth, requireAdmin, async (req, res) => {
-  const { name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url } = req.body;
-  await pool.query(
-    `INSERT INTO famous_personalities 
+app.post(
+  "/api/admin/personalities",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const {
+      name,
+      caste,
+      category,
+      region,
+      sc_st_type,
+      short_bio,
+      full_bio,
+      photo_url,
+    } = req.body;
+    await pool.query(
+      `INSERT INTO famous_personalities 
      (name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url]
-  );
-  res.json({ message: "✅ Personality added successfully" });
-});
+      [
+        name,
+        caste,
+        category,
+        region,
+        sc_st_type,
+        short_bio,
+        full_bio,
+        photo_url,
+      ]
+    );
+    res.json({ message: "✅ Personality added successfully" });
+  }
+);
 
-app.put("/api/admin/personalities/:id", requireAuth, requireAdmin, async (req, res) => {
-  const { name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url } = req.body;
-  await pool.query(
-    `UPDATE famous_personalities SET
+app.put(
+  "/api/admin/personalities/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const {
+      name,
+      caste,
+      category,
+      region,
+      sc_st_type,
+      short_bio,
+      full_bio,
+      photo_url,
+    } = req.body;
+    await pool.query(
+      `UPDATE famous_personalities SET
      name=$1, caste=$2, category=$3, region=$4, sc_st_type=$5,
      short_bio=$6, full_bio=$7, photo_url=$8 WHERE id=$9`,
-    [name, caste, category, region, sc_st_type, short_bio, full_bio, photo_url, req.params.id]
-  );
-  res.json({ message: "✅ Updated successfully" });
+      [
+        name,
+        caste,
+        category,
+        region,
+        sc_st_type,
+        short_bio,
+        full_bio,
+        photo_url,
+        req.params.id,
+      ]
+    );
+    res.json({ message: "✅ Updated successfully" });
+  }
+);
+
+app.delete(
+  "/api/admin/personalities/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    await pool.query("DELETE FROM famous_personalities WHERE id=$1", [
+      req.params.id,
+    ]);
+    res.json({ message: "🗑️ Deleted successfully" });
+  }
+);
+
+/// =========================================
+// 📝 Static Articles Management
+// =========================================
+
+// 🌍 Public – Get article by slug
+app.get("/api/articles/:slug", async (req, res) => {
+  try {
+    const r = await pool.query("SELECT * FROM static_articles WHERE slug=$1", [
+      req.params.slug,
+    ]);
+    if (r.rowCount === 0)
+      return res.status(404).json({ message: "Article not found" });
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-app.delete("/api/admin/personalities/:id", requireAuth, requireAdmin, async (req, res) => {
-  await pool.query("DELETE FROM famous_personalities WHERE id=$1", [req.params.id]);
-  res.json({ message: "🗑️ Deleted successfully" });
+// 🔒 Admin – Get all articles
+app.get("/api/admin/articles", requireAuth, requireAdmin, async (_, res) => {
+  try {
+    const r = await pool.query(
+      "SELECT * FROM static_articles ORDER BY id DESC"
+    );
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
+// 🔒 Admin – Create new article
+app.post("/api/admin/articles", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { title, slug, content, image_url } = req.body;
+    await pool.query(
+      `INSERT INTO static_articles (title, slug, content, image_url)
+       VALUES ($1,$2,$3,$4)`,
+      [title, slug, content, image_url]
+    );
+    res.json({ message: "✅ Article created successfully!" });
+  } catch (err) {
+    console.error("Error creating article:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
+// 🔒 Admin – Update article
+app.put(
+  "/api/admin/articles/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { title, slug, content, image_url } = req.body;
+      await pool.query(
+        `UPDATE static_articles 
+       SET title=$1, slug=$2, content=$3, image_url=$4, updated_at=NOW()
+       WHERE id=$5`,
+        [title, slug, content, image_url, req.params.id]
+      );
+      res.json({ message: "✅ Article updated!" });
+    } catch (err) {
+      console.error("Error updating article:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
+// 🔒 Admin – Delete article
+app.delete(
+  "/api/admin/articles/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM static_articles WHERE id=$1", [
+        req.params.id,
+      ]);
+      res.json({ message: "🗑️ Article deleted successfully" });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
+// 🔒 ADMIN: Send reply email + WhatsApp message
+app.post("/api/admin/scst-reply", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, country, phone, groupLink } = req.body;
+    if (!email || !country)
+      return res.status(400).json({ message: "Email and country required" });
 
+    // 🟡 1️⃣ Dynamic Welcome Section
+    const welcomeText = `🙏 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
 
+This group is a dedicated space for all Chamars living in ${country} to connect, share resources, and support one another. Our goal is to create a strong, united community where members can freely exchange advice on settling into life in ${country}, navigating job opportunities, and dealing with challenges that come our way.
 
+We encourage discussions on cultural events, education, career development, and community issues. Whether you’re new to the country or have been here for years, this group is here to help you build connections, find guidance, and create lasting friendships.
 
+Together, we can ensure that our community thrives and that every member feels supported. 🌍`;
 
+    // 🟡 2️⃣ Group Rules (cleaned list)
+    const rules = [
+      "Always keep discussions relevant to the community — avoid off-topic or spam posts.",
+      "Respect all members; absolutely no hate speech, casteism, or political arguments.",
+      "Don’t share fake news, unverified forwards, or large media files.",
+      "Keep long personal conversations private (use direct messages).",
+      "Ask before adding anyone new to the group.",
+      "Express gratitude privately — avoid flooding chat with 'thank you' messages.",
+    ];
 
+    // 🟡 3️⃣ Build Email HTML Template
+    const html = `
+      <div style="font-family:Arial,sans-serif;padding:20px;border:1px solid #ddd;border-radius:10px;">
+        <h2 style="color:#ffcc00;">Jai Gurudev Ji, ${name}</h2>
+        <p style="white-space:pre-line;">${welcomeText}</p>
+        <p><strong>WhatsApp Group Link:</strong> 
+          <a href="${groupLink}" target="_blank" style="color:#007bff;">Join Here</a>
+        </p>
+        <h3>📜 Group Rules:</h3>
+        <ul>
+          ${rules.map((r) => `<li>${r}</li>`).join("")}
+        </ul>
+        <p>🕊️ If you see fewer members right now, please be patient — we’re adding more daily.</p>
+        <p style="margin-top:20px;">Warm regards,<br/><strong>The Ravidassia Abroad Team</strong></p>
+      </div>
+    `;
 
+    // 🟡 4️⃣ Send Email
+    await transporter.sendMail({
+      from: `"Ravidassia Abroad" <${SMTP_USER}>`,
+      to: email,
+      subject: `Ravidassia Abroad – ${country} Group Invitation`,
+      html,
+    });
 
+    // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
+    const whatsappMessage = `
+Jai Gurudev Ji ${name}! 🙏
+
+Welcome to the Ravidassia Abroad ${country} WhatsApp group!
+
+This group is a dedicated space for all Chamars living in ${country} to connect, share resources, and support one another.
+Our goal is to create a strong, united community where members can freely exchange advice on settling into life in ${country}, navigating job opportunities, and dealing with challenges that come our way.
+
+We encourage discussions on cultural events, education, career development, and community issues.
+Whether you’re new to the country or have been here for years, this group is here to help you build connections, find guidance, and create lasting friendships.
+
+Together, we can ensure that our community thrives and that every member feels supported. 🌍
+
+📎 Join Group: ${groupLink}
+
+📜 Group Rules:
+${rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+🕊️ If you see fewer members right now, please be patient — we’re adding more daily.
+
+Warm regards,
+The Ravidassia Abroad Team
+`;
+
+    const whatsapp_link = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappMessage)}`
+      : null;
+
+    // 🟡 6️⃣ Respond to Frontend
+    res.json({
+      message: "✅ Reply email sent successfully!",
+      whatsapp_link,
+    });
+  } catch (err) {
+    console.error("❌ SCST reply error:", err);
+    res.status(500).json({ message: "Failed to send reply" });
+  }
+});
 
 // ---- START SERVER ----
 app.listen(PORT, () => {

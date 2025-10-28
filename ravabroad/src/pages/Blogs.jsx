@@ -4,7 +4,7 @@ import { Autoplay, Pagination, Navigation } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import "../bootstrap-overrides.css";
+import '../index.css';
 import "../css/Blogs.css";
 import { Link } from "react-router-dom";
 import { API_BASE } from "../utils/api";

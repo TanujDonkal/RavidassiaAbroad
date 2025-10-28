@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { usePopup } from "../components/PopupProvider";
 import "../css/Comments.css";
 import { API_BASE } from "../utils/api";
 
 export default function Comments() {
+  const location = useLocation();
+  const type = location.pathname.includes("/articles") ? "articles" : "blogs"; // auto-detect type
   const { slug } = useParams();
   const popup = usePopup();
 
@@ -15,7 +17,7 @@ export default function Comments() {
   const [form, setForm] = useState({ name: "", email: "", comment_text: "" });
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // 🧭 scroll helper
+  // 🧭 Scroll helper
   const scrollToElement = (id) => {
     const el = document.getElementById(`reply-form-${id}`);
     if (el) {
@@ -23,16 +25,18 @@ export default function Comments() {
     }
   };
 
-  // 🧠 Fetch blog + comments
+  // 🧠 Fetch post + comments
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const postRes = await fetch(`${API_BASE}/blogs/${slug}`);
+        // fetch post (blog or article) to get its internal ID
+        const postRes = await fetch(`${API_BASE}/${type}/${slug}`);
         const post = await postRes.json();
         if (!post.id) return;
         setPostId(post.id);
 
-        const res = await fetch(`${API_BASE}/blogs/${post.id}/comments`);
+        // fetch comments
+        const res = await fetch(`${API_BASE}/${type}/${post.id}/comments`);
         const data = await res.json();
 
         // Add local "showReplies" property
@@ -45,7 +49,7 @@ export default function Comments() {
       }
     };
     fetchAll();
-  }, [slug]);
+  }, [slug, type]);
 
   // 🧩 Delete comment — soft for user, hard for admin
   const handleUserDelete = (commentId) => {
@@ -55,20 +59,22 @@ export default function Comments() {
         user?.role === "admin" ||
         user?.role === "main_admin" ||
         user?.role === "moderate_admin"
-          ? "You are deleting this comment permanently. This action cannot be undone."
-          : "Are you sure you want to delete this comment? It will be hidden from everyone but still visible to admins.",
+          ? "You are deleting this comment permanently."
+          : "Are you sure you want to delete this comment? This will also remove its replies.",
       type: "confirm",
       onConfirm: async () => {
         try {
+          const location = window.location.pathname;
+          const type = location.includes("/articles") ? "articles" : "blogs";
+
           const endpoint =
             user?.role === "admin" ||
             user?.role === "main_admin" ||
             user?.role === "moderate_admin"
-              ? `${API_BASE}/blogs/comments/${commentId}` // DELETE for admins
-              : `${API_BASE}/blogs/comments/${commentId}/delete`; // PATCH for users    
+              ? `${API_BASE}/${type}/comments/${commentId}` // DELETE (admin)
+              : `${API_BASE}/${type}/comments/${commentId}/delete`; // PATCH (user)
 
-          // Get token from localStorage (set during login)
-const token = localStorage.getItem("token") || (user?.token ? user.token : null);
+          const token = localStorage.getItem("token") || user?.token || "";
 
           const res = await fetch(endpoint, {
             method:
@@ -81,19 +87,24 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
               "Content-Type": "application/json",
               Authorization: token ? `Bearer ${token}` : "",
             },
+            body:
+              user?.role === "admin" ||
+              user?.role === "main_admin" ||
+              user?.role === "moderate_admin"
+                ? null
+                : JSON.stringify({ user_id: user?.id }),
           });
 
           if (!res.ok) throw new Error("Failed to delete comment");
-          // Remove comment (top-level or nested) instantly without refresh
+
+          // ✅ Update UI instantly (remove from state)
           setComments((prev) =>
             prev
               .map((c) => {
-                // if this is the deleted comment → remove it
-                if (c.id === commentId) return null;
-                // otherwise, check and filter its replies
-                const updatedReplies =
+                if (c.id === commentId) return null; // remove top-level
+                const filteredReplies =
                   c.replies?.filter((r) => r.id !== commentId) || [];
-                return { ...c, replies: updatedReplies };
+                return { ...c, replies: filteredReplies };
               })
               .filter(Boolean)
           );
@@ -104,8 +115,8 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
               user?.role === "admin" ||
               user?.role === "main_admin" ||
               user?.role === "moderate_admin"
-                ? "Comment permanently deleted from database."
-                : "Your comment was deleted successfully (soft delete).",
+                ? "Comment permanently deleted (cascade applied)."
+                : "Your comment and its replies were deleted successfully.",
             type: "success",
           });
         } catch (err) {
@@ -131,11 +142,12 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
       name: user?.name || form.name,
       email: user?.email || form.email,
       comment_text: form.comment_text,
-      parent_id, post_id: postId,
+      parent_id,
+      post_id: postId,
     };
 
     try {
-      const res = await fetch(`${API_BASE}/blogs/${postId}/comments`, {
+      const res = await fetch(`${API_BASE}/${type}/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(commentData),
@@ -144,7 +156,6 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
       if (!res.ok) throw new Error("Failed to post comment");
 
       const newComment = {
-        id: Date.now(),
         ...commentData,
         created_at: new Date().toISOString(),
         replies: [],
@@ -152,7 +163,7 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
       };
 
       if (parent_id) {
-        // ✅ Replying to a comment
+        // ✅ Reply to a comment
         setComments((prev) =>
           prev.map((c) =>
             c.id === parent_id
@@ -166,7 +177,7 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
         );
       } else {
         // ✅ New top-level comment
-        setComments((prev) => [{ ...newComment }, ...prev]);
+        setComments((prev) => [newComment, ...prev]);
       }
 
       setForm({ name: "", email: "", comment_text: "" });
@@ -185,7 +196,6 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
   const toggleReplyForm = (id) => {
     const newTarget = replyingTo === id ? null : id;
     setReplyingTo(newTarget);
-
     if (newTarget) {
       setTimeout(() => scrollToElement(newTarget), 150);
     }
@@ -198,7 +208,7 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
     );
   };
 
-  // 🧩 Render a comment (and nested replies)
+  // 🧩 Render single comment + replies
   const renderComment = (c, isReply = false) => (
     <div className={`comment mb-3 ${isReply ? "ms-5" : ""}`} key={c.id}>
       <div className="content">
@@ -222,22 +232,44 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
             </span>
           </div>
 
-          <p>{c.comment_text}</p>
+          <p className="mb-2">{c.comment_text}</p>
 
-          <div className="content-footer d-flex gap-2">
+          <div className="content-footer d-flex flex-wrap gap-2">
             <button
               className="btn btn-outline btn-sm"
               onClick={() => toggleReplyForm(c.id)}
             >
               💬 Reply
             </button>
-            {user?.id && user?.id === c.user_id && (
-              <button
-                className="btn btn-outline btn-sm text-danger"
-                onClick={() => handleUserDelete(c.id)}
-              >
-                🗑 Delete
-              </button>
+            {user?.id && (
+              <>
+                {/* 🔒 Admins can delete any comment */}
+                {(user?.role === "admin" ||
+                  user?.role === "main_admin" ||
+                  user?.role === "moderate_admin") && (
+                  <button
+                    className="btn btn-outline btn-sm text-danger"
+                    onClick={() => handleUserDelete(c.id)}
+                  >
+                    🗑 Delete
+                  </button>
+                )}
+
+                {/* 👤 Regular users can only delete their own comments */}
+                {user?.id === c.user_id &&
+                  !(
+                    user?.role === "admin" ||
+                    user?.role === "main_admin" ||
+                    user?.role === "moderate_admin"
+                  ) && (
+                    <button
+                      className="btn btn-outline btn-sm text-danger"
+                      onClick={() => handleUserDelete(c.id)}
+                    >
+                      🗑 Delete
+                    </button>
+                  )}
+              </>
             )}
 
             {c.replies?.length > 0 && (
@@ -261,7 +293,6 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
               <div className="small text-muted mb-2">
                 Replying to <strong>@{c.name || "Anonymous"}</strong>
               </div>
-
               <form onSubmit={(e) => handleSubmit(e, c.id)}>
                 {!user?.id && (
                   <>
@@ -315,9 +346,9 @@ const token = localStorage.getItem("token") || (user?.token ? user.token : null)
             </div>
           )}
 
-          {/* Replies (collapsible) */}
+          {/* Replies section */}
           {c.replies && c.replies.length > 0 && c.showReplies && (
-            <div className="reply-thread">
+            <div className="reply-thread mt-3">
               <div className="reply-line"></div>
               <div className="reply-content">
                 {c.replies.map((r) => renderComment(r, true))}
