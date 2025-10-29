@@ -21,14 +21,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---- CORS ----
 const allowedPatterns = [
-        /^http:\/\/localhost(:\d+)?$/, // local dev
-        /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
-        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
-      ];
+  /^http:\/\/localhost(:\d+)?$/, // local dev
+  /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
+  /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
+];
 app.use(
   cors({
     origin: (origin, callback) => {
-      
       if (!origin || allowedPatterns.some((re) => re.test(origin))) {
         callback(null, true);
       } else {
@@ -591,7 +590,7 @@ app.post("/api/scst-submissions", async (req, res) => {
         <hr>
         <p>Log in to your admin dashboard to review it.</p>
       `
-    ).catch(err => console.error("⚠️ Email send async error:", err.message));
+    ).catch((err) => console.error("⚠️ Email send async error:", err.message));
 
     res.json({ message: "Submission received" });
   } catch (err) {
@@ -1996,13 +1995,17 @@ Together, we can ensure that our community thrives and that every member feels s
       </div>
     `;
 
-      // ✅ Send Email with Resend API
-      await resend.emails.send({
-        from: "Ravidassia Abroad <ravidassiaabroad@gmail.com>",
-        to: email,
-        subject: "...",
-        html,
-      });
+      try {
+        const sent = await resend.emails.send({
+          from: "Ravidassia Abroad <team@ravidassiaabroad.com>",
+          to: email,
+          subject: `Welcome to Ravidassia Abroad ${country} WhatsApp Group 🎉`,
+          html,
+        });
+        console.log("✅ Reply email sent via Resend:", sent.id || sent);
+      } catch (err) {
+        console.error("❌ Resend email error:", err);
+      }
 
       // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
       const whatsappMessage = `
