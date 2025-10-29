@@ -18,6 +18,31 @@ const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ---- CORS ----
+const allowedPatterns = [
+        /^http:\/\/localhost(:\d+)?$/, // local dev
+        /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
+        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
+      ];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      
+      if (!origin || allowedPatterns.some((re) => re.test(origin))) {
+        callback(null, true);
+      } else {
+        console.log("❌ Blocked CORS origin:", origin);
+        callback(new Error("CORS not allowed"));
+      }
+    },
+    credentials: true,
+    // ✅ Added PATCH here
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 // Safely decode token if exists in Authorization header
 function decodeUserIfAny(req) {
   try {
@@ -40,28 +65,6 @@ function decodeUserIfAny(req) {
     return null;
   }
 }
-// ---- CORS ----
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      const allowedPatterns = [
-        /^http:\/\/localhost(:\d+)?$/, // local dev
-        /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
-        /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
-      ];
-      if (!origin || allowedPatterns.some((re) => re.test(origin))) {
-        callback(null, true);
-      } else {
-        console.log("❌ Blocked CORS origin:", origin);
-        callback(new Error("CORS not allowed"));
-      }
-    },
-    credentials: true,
-    // ✅ Added PATCH here
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
 
 // ✅ FIXED: Explicitly allow PATCH and preflight for all routes
 app.use((req, res, next) => {
