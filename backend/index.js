@@ -575,7 +575,7 @@ app.post("/api/scst-submissions", async (req, res) => {
       ]
     );
 
-    await sendNotificationEmail(
+    sendNotificationEmail(
       "📬 New SC/ST Connect Submission",
       `
         <h3>New SC/ST Connect Submission</h3>
@@ -591,7 +591,7 @@ app.post("/api/scst-submissions", async (req, res) => {
         <hr>
         <p>Log in to your admin dashboard to review it.</p>
       `
-    );
+    ).catch(err => console.error("⚠️ Email send async error:", err.message));
 
     res.json({ message: "Submission received" });
   } catch (err) {
