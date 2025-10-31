@@ -937,3 +937,19 @@
 .header-top a:hover {
   color: #ccc !important;
 }
+
+
+@media (max-width: 768px) {
+  .navbar-brand img[src="/template/img/brand-logo.png"] {
+    display: none !important;
+  }
+
+  .navbar-brand::after {
+    content: "";
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    background: url("/template/img/mobile-logo.png") no-repeat center center / contain;
+    border-radius: 50%;
+  }
+}

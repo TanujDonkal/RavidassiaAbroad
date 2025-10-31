@@ -229,49 +229,71 @@ export default function AdminDashboard() {
     }
   };
 
-  // DELETE MULTIPLE RECORDS
+  // DELETE MULTIPLE RECORDS — uses global popup instead of browser confirm
   const handleBulkDelete = async (type) => {
-    if (!window.confirm("Delete selected items?")) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ ids: selectedIds }),
-      });
-      const data = await res.json();
-
+    if (selectedIds.length === 0) {
       popup.open({
-        title: "Deleted",
-        message: data.message || "Bulk delete successful.",
-        type: "success",
+        title: "⚠️ No Selection",
+        message: "Please select at least one record to delete.",
+        type: "warning",
       });
-
-      // ✅ Update lists instantly
-      if (type === "users") {
-        setUsers((prev) => prev.filter((u) => !selectedIds.includes(u.id)));
-      } else if (type === "matrimonial") {
-        setMatrimonialSubs((prev) =>
-          prev.filter((m) => !selectedIds.includes(m.id))
-        );
-      } else if (type === "scst-submissions" || type === "scst") {
-        setSubmissions((prev) =>
-          prev.filter((s) => !selectedIds.includes(s.id))
-        );
-      }
-
-      setSelectedIds([]);
-    } catch (err) {
-      console.error("❌ Bulk delete error:", err);
-      popup.open({
-        title: "Error",
-        message: "Bulk delete failed. Please try again.",
-        type: "error",
-      });
+      return;
     }
+
+    // 🔹 Ask for confirmation using your popup
+    popup.open({
+      title: "Confirm Deletion",
+      message: `Are you sure you want to delete ${selectedIds.length} selected record(s)?`,
+      type: "confirm",
+      onConfirm: async () => {
+        try {
+          // optional: show loading popup while waiting
+          popup.open({
+            title: "Deleting...",
+            message: "Please wait while we delete selected records.",
+            type: "loading",
+          });
+
+          const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ ids: selectedIds }),
+          });
+          const data = await res.json();
+
+          popup.open({
+            title: "✅ Deleted",
+            message: data.message || "Bulk delete successful.",
+            type: "success",
+          });
+
+          // ✅ Update state immediately
+          if (type === "users") {
+            setUsers((prev) => prev.filter((u) => !selectedIds.includes(u.id)));
+          } else if (type === "matrimonial") {
+            setMatrimonialSubs((prev) =>
+              prev.filter((m) => !selectedIds.includes(m.id))
+            );
+          } else if (type === "scst-submissions" || type === "scst") {
+            setSubmissions((prev) =>
+              prev.filter((s) => !selectedIds.includes(s.id))
+            );
+          }
+
+          setSelectedIds([]);
+        } catch (err) {
+          console.error("❌ Bulk delete error:", err);
+          popup.open({
+            title: "❌ Error",
+            message: "Bulk delete failed. Please try again.",
+            type: "error",
+          });
+        }
+      },
+    });
   };
 
   // --------------------------

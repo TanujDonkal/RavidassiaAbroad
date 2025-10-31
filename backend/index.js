@@ -1069,6 +1069,32 @@ app.post(
   }
 );
 
+// 🗑️ BULK DELETE SC/ST Submissions
+app.post(
+  "/api/admin/scst-submissions/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+
+      // Delete all selected submissions
+      await pool.query("DELETE FROM scst_submissions WHERE id = ANY($1)", [ids]);
+
+      res.json({
+        message: `🗑️ Deleted ${ids.length} SC/ST submissions successfully`,
+      });
+    } catch (err) {
+      
+      res.status(500).json({ message: "Server error during bulk delete" });
+    }
+  }
+);
+
 app.post(
   "/api/user/update-profile",
   uploadProfile.single("photo"),
