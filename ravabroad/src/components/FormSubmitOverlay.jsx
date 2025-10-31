@@ -13,9 +13,9 @@ export default function FormSubmitOverlay() {
       const [url, options] = args;
 
       // ✅ Detect only real form submissions — NOT API login etc.
-      const isFormSubmission =
-        options?.body instanceof FormData &&
-        !(url.includes("/auth/login") || url.includes("/auth/register"));
+     const isFormSubmission =
+   (options?.method === "POST" || options?.method === "PUT") &&
+   !(url.includes("/auth/login") || url.includes("/auth/register"));
 
       if (isFormSubmission) {
         activeSubmits++;
