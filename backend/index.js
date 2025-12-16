@@ -17,6 +17,7 @@ const { Pool } = pkg;
 const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
+const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---- CORS ----
@@ -151,6 +152,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+await resend.emails.send({
+  from: process.env.EMAIL_FROM,   // e.g., onboarding@resend.dev
+  to: email,
+  subject: "🔐 Ravidassia Abroad Password Reset",
+  html: `
+    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
+      <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
+      <p>Jai Gurudev Ji,</p>
+      <p>Your one-time password (OTP) for resetting your account password is:</p>
+      <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
+      <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
+      <p>Best regards,<br/>The Ravidassia Abroad Team</p>
+      <hr/>
+      <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
+    </div>
+  `,
+});
 // ---- DB INIT ----
 async function initDB() {
   await pool.query(`
@@ -303,6 +321,7 @@ function requireAdmin(req, res, next) {
 }
 
 // 🟢 Step 1: Request password reset (send OTP)
+
 app.post("/api/auth/request-reset", async (req, res) => {
   try {
     const { email } = req.body;
@@ -320,39 +339,38 @@ app.post("/api/auth/request-reset", async (req, res) => {
     const expiresAt = Date.now() + 5 * 60 * 1000; // valid 5 minutes
     otpStore.set(email, { otp, expiresAt });
 
-    // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // App password
-      },
-    });
+    // ------------------------------
+    // 🔄 New Email Sending (Resend)
+    // ------------------------------
+    const { Resend } = require("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await transporter.sendMail({
-      from: `"Ravidassia Abroad Support" <${process.env.SMTP_USER}>`,
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM,   // onboarding@resend.dev
       to: email,
       subject: "🔐 Ravidassia Abroad Password Reset",
       html: `
-    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
-      <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
-      <p>Jai Gurudev Ji,</p>
-      <p>Your one-time password (OTP) for resetting your account password is:</p>
-      <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
-      <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
-      <p>Best regards,<br/>The Ravidassia Abroad Team</p>
-      <hr/>
-      <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
-    </div>
-  `,
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
+          <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
+          <p>Jai Gurudev Ji,</p>
+          <p>Your one-time password (OTP) for resetting your account password is:</p>
+          <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
+          <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
+          <p>Best regards,<br/>The Ravidassia Abroad Team</p>
+          <hr/>
+          <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
+        </div>
+      `,
     });
 
     res.json({ message: "OTP sent to your email" });
+
   } catch (err) {
     console.error("❌ Reset request error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // 🟢 Step 2: Verify OTP and reset password
 app.post("/api/auth/reset-password", async (req, res) => {
@@ -1888,6 +1906,34 @@ app.delete(
   }
 );
 
+// 🗑️ BULK DELETE personalities
+app.post(
+  "/api/admin/personalities/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+
+      await pool.query(
+        "DELETE FROM famous_personalities WHERE id = ANY($1)",
+        [ids]
+      );
+
+      res.json({
+        message: `🗑️ Deleted ${ids.length} personalities successfully`,
+      });
+    } catch (err) {
+      console.error("❌ Bulk delete personalities error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
 /// =========================================
 // 📝 Static Articles Management
 // =========================================
@@ -2004,7 +2050,7 @@ Together, we can ensure that our community thrives and that every member feels s
         "Express gratitude privately — avoid flooding chat with 'thank you' messages.",
       ];
 
-      // 🟡 3️⃣ Build Email HTML Template
+      //🟡 3️⃣ Build Email HTML Template
       const html = `
       <div style="font-family:Arial,sans-serif;padding:20px;border:1px solid #ddd;border-radius:10px;">
         <h2 style="color:#ffcc00;">Jai Gurudev Ji, ${name}</h2>
@@ -2076,6 +2122,34 @@ The Ravidassia Abroad Team
     } catch (err) {
       console.error("❌ SCST reply error:", err);
       res.status(500).json({ message: "Failed to send reply" });
+    }
+  }
+);
+
+// 🗑️ BULK DELETE personalities
+app.post(
+  "/api/admin/personalities/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+
+      await pool.query(
+        "DELETE FROM famous_personalities WHERE id = ANY($1)",
+        [ids]
+      );
+
+      res.json({
+        message: `🗑️ Deleted ${ids.length} personalities successfully`,
+      });
+    } catch (err) {
+      console.error("❌ Bulk delete personalities error:", err);
+      res.status(500).json({ message: "Server error" });
     }
   }
 );

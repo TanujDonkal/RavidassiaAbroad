@@ -13,7 +13,7 @@ export default function ArticleManager() {
   const [selected, setSelected] = useState(null);
 
   const [form, setForm] = useState({
-    title: "",
+    title: "", 
     slug: "",
     image_url: "",
     content: "",

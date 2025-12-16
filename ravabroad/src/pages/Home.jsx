@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Carousel } from "bootstrap";
 import { Navbar, Nav, Container, NavDropdown } from "react-bootstrap";
 import { apiFetch } from "../utils/api";
+import { Link } from "react-router-dom";
 
 export default function Home() {
   const carouselRef = useRef(null);
@@ -10,32 +11,32 @@ export default function Home() {
   const [slides, setSlides] = useState([]);
   const [menus, setMenus] = useState([]);
 
-useEffect(() => {
-  document.title = "Ravidassia Abroad";
+  useEffect(() => {
+    document.title = "Ravidassia Abroad";
 
-  // ✅ Fetch menus dynamically using apiFetch
-  const loadMenus = async () => {
-    try {
-      const data = await apiFetch("/menus");
-      setMenus(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("❌ Failed to load menus:", err);
+    // ✅ Fetch menus dynamically using apiFetch
+    const loadMenus = async () => {
+      try {
+        const data = await apiFetch("/menus");
+        setMenus(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ Failed to load menus:", err);
+      }
+    };
+    loadMenus();
+
+    // ✅ Setup the Bootstrap carousel
+    if (carouselRef.current) {
+      const instance =
+        Carousel.getInstance(carouselRef.current) ||
+        new Carousel(carouselRef.current, {
+          interval: 5000,
+          pause: "hover",
+          wrap: true,
+        });
+      setCarousel(instance);
     }
-  };
-  loadMenus();
-
-  // ✅ Setup the Bootstrap carousel
-  if (carouselRef.current) {
-    const instance =
-      Carousel.getInstance(carouselRef.current) ||
-      new Carousel(carouselRef.current, {
-        interval: 5000,
-        pause: "hover",
-        wrap: true,
-      });
-    setCarousel(instance);
-  }
-}, []);
+  }, []);
 
   return (
     <>
@@ -100,12 +101,12 @@ useEffect(() => {
                     Connecting Ravidassia abroad with culture, history,
                     teachings &amp; unity.
                   </p>
-                  <a
+                  <Link
                     className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
-                    href="#"
+                    to="/articles/guru-ravidass"
                   >
-                    Guru Ravidass Maharaj{" "}
-                  </a>
+                    Guru Ravidass Maharaj
+                  </Link>
                 </div>
               </div>
             </div>
@@ -129,12 +130,12 @@ useEffect(() => {
                     From Canada to the UK, USA and beyond—stay updated with our
                     global presence.
                   </p>
-                  <a
+                  <Link
                     className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
-                    href="#"
+                    to="/articles/dr-ambedkar"
                   >
-                    DR Ambedkar{" "}
-                  </a>
+                    DR Ambedkar
+                  </Link>
                 </div>
               </div>
             </div>
@@ -212,28 +213,31 @@ useEffect(() => {
       {/* ===== Menus Start ===== */}
 
       <Navbar bg="dark" variant="dark" className="border-bottom border-body">
-  <Container>
-    <Nav className="mx-auto d-flex flex-wrap justify-content-center">
-      {menus.length === 0 ? (
-        <>
-          {/* Fallback when no menus in DB */}
-          <Nav.Link href="/connect-scst">Connect SC/ST by Country</Nav.Link>
-          <Nav.Link href="/matrimonial">RavidassiaAbroad Matrimonial</Nav.Link>
-          <Nav.Link href="/history">History</Nav.Link>
-        </>
-      ) : (
-        menus
-          .sort((a, b) => a.position - b.position)
-          .map((menu) => (
-            <Nav.Link key={menu.id} href={menu.path}>
-              {menu.label}
-            </Nav.Link>
-          ))
-      )}
-    </Nav>
-  </Container>
-</Navbar>
-
+        <Container>
+          <Nav className="mx-auto d-flex flex-wrap justify-content-center">
+            {menus.length === 0 ? (
+              <>
+                {/* Fallback when no menus in DB */}
+                <Nav.Link href="/connect-scst">
+                  Connect SC/ST by Country
+                </Nav.Link>
+                <Nav.Link href="/matrimonial">
+                  RavidassiaAbroad Matrimonial
+                </Nav.Link>
+                <Nav.Link href="/history">History</Nav.Link>
+              </>
+            ) : (
+              menus
+                .sort((a, b) => a.position - b.position)
+                .map((menu) => (
+                  <Nav.Link key={menu.id} href={menu.path}>
+                    {menu.label}
+                  </Nav.Link>
+                ))
+            )}
+          </Nav>
+        </Container>
+      </Navbar>
 
       {/* ===== Menus End ===== */}
       {/* ===== About Start ===== */}

@@ -9,6 +9,7 @@ import PersonalityFormModal from "../components/PersonalityFormModal";
 import CategoryFormModal from "../components/CategoryFormModal";
 import { API_BASE } from "../utils/api";
 import ArticleManager from "../components/ArticleManager";
+import html2canvas from "html2canvas";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -44,6 +45,40 @@ export default function AdminDashboard() {
     rules:
       "1. Respect all members.\n2. Avoid spam or hate speech.\n3. Keep discussions about community growth and unity.",
   });
+
+  const MATRIMONIAL_LABELS = {
+  dob: "Date of Birth",
+  height: "Height",
+  caste: "Caste",
+  religion_beliefs: "Religious Beliefs",
+  instagram: "Instagram",
+  marital_status: "Marital Status",
+  complexion: "Complexion",
+
+  country_living: "Country Living",
+  city_living: "City Living",
+  home_state_india: "Home State (India)",
+  status_type: "Current Status",
+
+  education: "Education",
+  occupation: "Occupation",
+  annual_income: "Annual Income",
+  company_or_institution: "Company / Institution",
+  income_range: "Income Range",
+
+  father_name: "Father’s Name",
+  father_occupation: "Father’s Occupation",
+  mother_name: "Mother’s Name",
+  mother_occupation: "Mother’s Occupation",
+  siblings: "Siblings",
+  family_type: "Family Type",
+
+  partner_age_range: "Preferred Age Range",
+  partner_country: "Preferred Country",
+  partner_marital_status: "Partner Marital Status",
+  religion: "Religion Preference",
+  partner_expectations: "Partner Expectations",
+};
 
   // --------------------------
   // FETCH DATA
@@ -326,142 +361,104 @@ export default function AdminDashboard() {
     },
   ];
   // ✅ PRINT MATRIMONIAL POST / REEL IN BRAND STYLE WITH GOLD GLOW ANIMATION
-  const handlePrintPost = (data, format = "post") => {
-    const isReel = format === "reel";
-    const width = 1080;
-    const height = isReel ? 1920 : 1080;
+const handleDownloadInstagramCard = async (data, format = "post") => {
 
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
-    <html>
-      <head>
-        <title>${data.name} | Ravidassia Abroad Matrimonial</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+  const width = 1080;
+  const height = format === "reel" ? 1920 : 1350;
 
-          body {
-            margin: 0;
-            width: ${width}px;
-            height: ${height}px;
-            font-family: 'Poppins', sans-serif;
-            background: #000;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: ${isReel ? "flex-start" : "center"};
-            padding: ${isReel ? "120px 60px" : "80px 60px"};
-            box-sizing: border-box;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-          }
-
-          .photo {
-            border-radius: 50%;
-            width: ${isReel ? "300px" : "220px"};
-            height: ${isReel ? "300px" : "220px"};
-            object-fit: cover;
-            border: 5px solid #ffcc33;
-            box-shadow: 0 0 25px rgba(255, 204, 51, 0.4);
-            margin-bottom: ${isReel ? "50px" : "30px"};
-          }
-
-          h1 {
-            font-size: ${isReel ? "58px" : "36px"};
-            color: #ffcc33;
-            margin: 0 0 10px;
-          }
-
-          h3 {
-            font-size: ${isReel ? "32px" : "22px"};
-            font-weight: 400;
-            margin-bottom: 20px;
-            color: #eee;
-          }
-
-          p {
-            font-size: ${isReel ? "30px" : "18px"};
-            margin: 5px 0;
-          }
-
-          .section {
-            margin-top: ${isReel ? "30px" : "20px"};
-            max-width: 850px;
-          }
-
-          .divider {
-            width: 60%;
-            height: 2px;
-            background: #444;
-            margin: 20px 0;
-          }
-
-          /* ✨ Animated Gold Glow */
-          @keyframes shimmer {
-            0% { color: #ffcc33; text-shadow: 0 0 5px #ffcc33, 0 0 10px #ffea00, 0 0 20px #ffcc33; }
-            50% { color: #fff5cc; text-shadow: 0 0 15px #ffe066, 0 0 25px #ffcc33, 0 0 35px #ffcc33; }
-            100% { color: #ffcc33; text-shadow: 0 0 5px #ffcc33, 0 0 10px #ffea00, 0 0 20px #ffcc33; }
-          }
-
-          footer {
-            position: absolute;
-            bottom: ${isReel ? "60px" : "40px"};
-            width: 100%;
-            text-align: center;
-            font-size: ${isReel ? "28px" : "18px"};
-            animation: shimmer 3s infinite ease-in-out;
-            letter-spacing: 1px;
-          }
-
-          .logo {
-            width: ${isReel ? "240px" : "160px"};
-            opacity: ${isReel ? "0.15" : "0.2"};
-            position: absolute;
-            bottom: ${isReel ? "40px" : "30px"};
-            left: 50%;
-            transform: translateX(-50%);
-          }
-        </style>
-      </head>
-      <body>
-        ${
-          isReel
-            ? ""
-            : `<img class="logo" src="/template/img/6Qt0bpw3_400x400-removebg-preview.png" alt="Logo" />`
-        }
-
-        <img
-          class="photo"
-          src="${data.photo_url || "/template/img/no-photo.png"}"
-          alt="Profile"
-        />
-        <h1>${data.name}</h1>
-        <h3>${data.gender || ""} | ${data.status_type || ""}</h3>
-
-        <div class="section">
-          <div class="divider"></div>
-          <p>📍 ${data.city_living || ""}, ${data.country_living || ""}</p>
-          <p>🎓 ${data.education || "—"} | 💼 ${data.occupation || "—"}</p>
-          <div class="divider"></div>
-          <p><strong>Partner Preference:</strong></p>
-          <p>${data.partner_expectations || "Not specified"}</p>
+  // Build visible biodata rows (hide empty)
+  const biodataRows = Object.entries(MATRIMONIAL_LABELS)
+    .filter(([field]) => data[field] && data[field] !== "")
+    .map(
+      ([field, label]) => `
+        <div style="margin-bottom: 10px;">
+          <span style="font-weight:600">${label}:</span> ${data[field]}
         </div>
+      `
+    )
+    .join("");
 
-        <footer>💍 Ravidassia Abroad Matrimonial 💍</footer>
+  // AUTO FONT SCALING BASED ON FIELD COUNT
+  const fieldCount = biodataRows.split("<div").length;
+  let fontSize = format === "reel" ? 40 : 32;
 
-        ${
-          isReel
-            ? `<img class="logo" src="/template/img/6Qt0bpw3_400x400-removebg-preview.png" alt="Logo" />`
-            : ""
-        }
+  if (fieldCount > 20) fontSize -= 10;
+  if (fieldCount > 30) fontSize -= 15;
 
-        <script>window.print();</script>
-      </body>
-    </html>
-  `);
-    printWindow.document.close();
-  };
+  // Insert into hidden DIV
+  const container = document.getElementById("downloadCard");
+
+  container.innerHTML = `
+    <div style="
+      width:${width}px;
+      height:${height}px;
+      background:white;
+      padding:50px;
+      font-family: 'Poppins', sans-serif;
+      box-sizing:border-box;
+      text-align:center;
+      overflow:hidden;
+    ">
+
+      <!-- PROFILE IMAGE -->
+      <img src="${data.photo_url || "/template/img/no-photo.png"}"
+        style="
+          width:${format === "reel" ? 320 : 260}px;
+          height:${format === "reel" ? 320 : 260}px;
+          border-radius:50%;
+          object-fit:cover;
+          border:6px solid #ffb400;
+          margin-bottom:20px;
+        "
+      />
+
+      <!-- NAME -->
+      <div style="font-size:${format === "reel" ? 60 : 48}px; font-weight:700;">
+        ${data.name}
+      </div>
+
+      <!-- SUBTITLE -->
+      <div style="font-size:${format === "reel" ? 36 : 26}px; color:#777; margin-bottom:35px;">
+        ${data.gender || ""} • ${data.marital_status || ""}
+      </div>
+
+      <!-- BIODATA LIST -->
+      <div style="
+        font-size:${fontSize}px;
+        line-height:1.35;
+        text-align:left;
+        margin:0 auto;
+        width:85%;
+        max-height:${height - 650}px;
+      ">
+        ${biodataRows}
+      </div>
+
+      <!-- FOOTER -->
+      <div style="
+        position:absolute;
+        bottom:40px;
+        width:100%;
+        text-align:center;
+        font-size:${format === "reel" ? 36 : 28}px;
+        font-weight:600;
+        color:#ffb400;
+      ">
+        Ravidassia Abroad Matrimonial
+      </div>
+
+    </div>
+  `;
+
+  // Generate PNG
+  const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+  const image = canvas.toDataURL("image/png");
+
+  const link = document.createElement("a");
+  link.href = image;
+  link.download = `${data.name}-${format}.png`;
+  link.click();
+};
 
   return (
     <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
@@ -1144,9 +1141,8 @@ export default function AdminDashboard() {
                                       <li>
                                         <button
                                           className="dropdown-item"
-                                          onClick={() =>
-                                            handlePrintPost(s, "post")
-                                          }
+                                          onClick={() => handleDownloadInstagramCard(s, "post")}
+
                                         >
                                           🖼️ Instagram Post (1:1)
                                         </button>
@@ -1154,9 +1150,8 @@ export default function AdminDashboard() {
                                       <li>
                                         <button
                                           className="dropdown-item"
-                                          onClick={() =>
-                                            handlePrintPost(s, "reel")
-                                          }
+                                          onClick={() => handleDownloadInstagramCard(s, "reel")}
+
                                         >
                                           🎬 Instagram Reel (9:16)
                                         </button>
@@ -1424,15 +1419,77 @@ export default function AdminDashboard() {
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Famous Personalities</h5>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setSelectedPersonality(null);
-                          setShowPersonalityModal(true);
-                        }}
-                      >
-                        + Add Personality
-                      </button>
+                      {selectedIds.length > 0 ? (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            // 🔹 Confirm bulk delete using global popup
+                            popup.open({
+                              title: "Confirm Deletion",
+                              message: `Are you sure you want to delete ${selectedIds.length} selected record(s)?`,
+                              type: "confirm",
+                              onConfirm: async () => {
+                                try {
+                                  popup.open({
+                                    title: "Deleting...",
+                                    message:
+                                      "Please wait while we delete selected records.",
+                                    type: "loading",
+                                  });
+                                  const res = await fetch(
+                                    `${API_BASE}/admin/personalities/bulk-delete`,
+                                    {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${token}`,
+                                      },
+                                      body: JSON.stringify({
+                                        ids: selectedIds,
+                                      }),
+                                    }
+                                  );
+                                  const data = await res.json();
+                                  popup.open({
+                                    title: "✅ Deleted",
+                                    message:
+                                      data.message || "Bulk delete successful.",
+                                    type: "success",
+                                  });
+                                  // Refresh local list
+                                  setPersonalities((prev) =>
+                                    prev.filter(
+                                      (p) => !selectedIds.includes(p.id)
+                                    )
+                                  );
+                                  setSelectedIds([]);
+                                  setSelectAll(false);
+                                } catch (err) {
+                                  console.error("❌ Bulk delete error:", err);
+                                  popup.open({
+                                    title: "❌ Error",
+                                    message:
+                                      "Bulk delete failed. Please try again.",
+                                    type: "error",
+                                  });
+                                }
+                              },
+                            });
+                          }}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setSelectedPersonality(null);
+                            setShowPersonalityModal(true);
+                          }}
+                        >
+                          + Add Personality
+                        </button>
+                      )}
                     </div>
 
                     {/* Table list */}
@@ -1440,6 +1497,21 @@ export default function AdminDashboard() {
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(
+                                    checked
+                                      ? personalities.map((p) => p.id)
+                                      : []
+                                  );
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Photo</th>
                             <th>Name</th>
@@ -1454,7 +1526,7 @@ export default function AdminDashboard() {
                           {personalities.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="8"
+                                colSpan="9"
                                 className="text-center py-4 text-muted"
                               >
                                 No personalities yet.
@@ -1463,13 +1535,28 @@ export default function AdminDashboard() {
                           ) : (
                             personalities.map((p) => (
                               <tr key={p.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(p.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, p.id]
+                                          : prev.filter((id) => id !== p.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{p.id}</td>
                                 <td>
                                   <img
                                     src={p.photo_url}
                                     alt={p.name}
                                     width="50"
-                                    className="rounded-circle"
+                                    height="50"
+                                    className="rounded-circle object-fit-cover"
                                   />
                                 </td>
                                 <td>{p.name}</td>
@@ -1490,7 +1577,42 @@ export default function AdminDashboard() {
                                   <button
                                     className="btn btn-danger btn-sm"
                                     onClick={() =>
-                                      handleDelete("personalities", p.id)
+                                      popup.open({
+                                        title: "Confirm Delete",
+                                        message: `Are you sure you want to delete ${p.name}?`,
+                                        type: "confirm",
+                                        onConfirm: async () => {
+                                          try {
+                                            const res = await fetch(
+                                              `${API_BASE}/admin/personalities/${p.id}`,
+                                              {
+                                                method: "DELETE",
+                                                headers: {
+                                                  Authorization: `Bearer ${token}`,
+                                                },
+                                              }
+                                            );
+                                            const data = await res.json();
+                                            popup.open({
+                                              title: "✅ Deleted",
+                                              message:
+                                                data.message ||
+                                                "Personality deleted.",
+                                              type: "success",
+                                            });
+                                            setPersonalities((prev) =>
+                                              prev.filter((x) => x.id !== p.id)
+                                            );
+                                          } catch (err) {
+                                            popup.open({
+                                              title: "❌ Error",
+                                              message:
+                                                "Delete failed. Please try again.",
+                                              type: "error",
+                                            });
+                                          }
+                                        },
+                                      })
                                     }
                                   >
                                     Delete
@@ -1502,6 +1624,7 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
+
                     {showPersonalityModal && (
                       <PersonalityFormModal
                         personality={selectedPersonality}
@@ -1976,6 +2099,9 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      <div id="downloadCard" style={{ position: "fixed", top: "-20000px" }}></div>
+
     </div>
-  );
+  
+);
 }
