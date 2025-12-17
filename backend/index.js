@@ -17,7 +17,7 @@ const { Pool } = pkg;
 const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
-const { Resend } = require("resend");
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---- CORS ----
@@ -152,23 +152,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-await resend.emails.send({
-  from: process.env.EMAIL_FROM,   // e.g., onboarding@resend.dev
-  to: email,
-  subject: "🔐 Ravidassia Abroad Password Reset",
-  html: `
-    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
-      <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
-      <p>Jai Gurudev Ji,</p>
-      <p>Your one-time password (OTP) for resetting your account password is:</p>
-      <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
-      <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
-      <p>Best regards,<br/>The Ravidassia Abroad Team</p>
-      <hr/>
-      <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
-    </div>
-  `,
-});
+
 // ---- DB INIT ----
 async function initDB() {
   await pool.query(`
@@ -322,54 +306,47 @@ function requireAdmin(req, res, next) {
 
 // 🟢 Step 1: Request password reset (send OTP)
 
+// 🟢 Step 1: Request password reset (send OTP)
 app.post("/api/auth/request-reset", async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email } = req.body;  // <-- IMPORTANT
     if (!email) return res.status(400).json({ message: "Email required" });
 
     const user = await pool.query(
       "SELECT id, email, name FROM users WHERE email=$1",
       [email]
     );
+
     if (user.rows.length === 0)
       return res.status(404).json({ message: "No account with that email" });
 
-    // Generate 6-digit OTP
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // valid 5 minutes
+    const expiresAt = Date.now() + 5 * 60 * 1000;
     otpStore.set(email, { otp, expiresAt });
 
-    // ------------------------------
-    // 🔄 New Email Sending (Resend)
-    // ------------------------------
-    const { Resend } = require("resend");
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
+    // Send Email via Resend (CORRECT)
     await resend.emails.send({
-      from: process.env.EMAIL_FROM,   // onboarding@resend.dev
+      from: process.env.EMAIL_FROM,
       to: email,
       subject: "🔐 Ravidassia Abroad Password Reset",
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; max-width: 500px; margin:auto;">
+        <div style="font-family: Arial; padding: 20px;">
           <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
-          <p>Jai Gurudev Ji,</p>
-          <p>Your one-time password (OTP) for resetting your account password is:</p>
-          <h1 style="color:#ff416c; letter-spacing: 2px;">${otp}</h1>
-          <p>This OTP will expire in 5 minutes. Please do not share it with anyone.</p>
-          <p>Best regards,<br/>The Ravidassia Abroad Team</p>
-          <hr/>
-          <small style="color:#888;">If you didn’t request this, you can ignore this email.</small>
+          <p>Your OTP is:</p>
+          <h1>${otp}</h1>
+          <p>This OTP expires in 5 minutes.</p>
         </div>
       `,
     });
 
     res.json({ message: "OTP sent to your email" });
-
   } catch (err) {
     console.error("❌ Reset request error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // 🟢 Step 2: Verify OTP and reset password
