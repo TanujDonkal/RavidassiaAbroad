@@ -2046,7 +2046,7 @@ Together, we can ensure that our community thrives and that every member feels s
 
       try {
         const sent = await resend.emails.send({
-          from: "Ravidassia Abroad <team@ravidassiaabroad.com>",
+          from: "Ravidassia Abroad <onboarding@resend.dev>",
           to: email,
           subject: `Welcome to Ravidassia Abroad ${country} WhatsApp Group 🎉`,
           html,
