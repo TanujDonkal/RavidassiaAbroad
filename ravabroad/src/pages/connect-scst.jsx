@@ -93,7 +93,6 @@ export default function ConnectSCST() {
               className="btn btn-outline-primary"
               onClick={() => {
                 setSubmitted(false);
-                setIsEditing(true);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             >
