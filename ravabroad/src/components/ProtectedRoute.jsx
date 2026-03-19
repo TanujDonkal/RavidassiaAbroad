@@ -4,7 +4,14 @@ import { Navigate } from "react-router-dom";
 
 export default function ProtectedRoute({ children, adminOnly = false }) {
   const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  let user = {};
+  try {
+    user = JSON.parse(localStorage.getItem("user") || "{}");
+  } catch {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    return <Navigate to="/auth" replace />;
+  }
 
   // ❌ No token → redirect to login
   if (!token) {

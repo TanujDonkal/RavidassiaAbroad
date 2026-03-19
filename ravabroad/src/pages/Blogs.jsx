@@ -7,6 +7,7 @@ import "swiper/css/pagination";
 import '../index.css';
 import "../css/Blogs.css";
 import { Link } from "react-router-dom";
+import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 
 const BegampuraHeading = () => (
@@ -20,8 +21,7 @@ const BegampuraHeading = () => (
       }}
     ></div>
     <img
-      src="/template/img/6Qt0bpw3_400x400-removebg-preview.png
-"
+      src="/template/img/6Qt0bpw3_400x400-removebg-preview.png"
       alt="Begampura Logo"
       style={{
         width: "55px",
@@ -175,7 +175,7 @@ const fetchCategories = async () => {
                         <p
                           className="blog-description"
                           dangerouslySetInnerHTML={{
-                            __html: post.excerpt || "",
+                            __html: DOMPurify.sanitize(post.excerpt || ""),
                           }}
                         ></p>
                         <div className="card-profile">
@@ -241,7 +241,7 @@ const fetchCategories = async () => {
                           </span>
                           <p
                             dangerouslySetInnerHTML={{
-                              __html: post.excerpt || "",
+                              __html: DOMPurify.sanitize(post.excerpt || ""),
                             }}
                           ></p>
                         </div>

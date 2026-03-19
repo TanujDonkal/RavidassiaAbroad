@@ -127,11 +127,16 @@ const {
   PGDATABASE,
   PGUSER,
   PGPASSWORD,
-  JWT_SECRET = "dev_secret",
+  JWT_SECRET,
   SMTP_USER,
   SMTP_PASS,
   ADMIN_NOTIFY_TO,
 } = process.env;
+
+if (!JWT_SECRET) {
+  console.error("❌ FATAL: JWT_SECRET is not set in environment variables. Exiting.");
+  process.exit(1);
+}
 
 // ---- DB POOL ----
 const pool = new Pool({
@@ -275,6 +280,17 @@ async function initDB() {
   `);
 
   console.log("✅ Database initialized");
+}
+
+// ---- HTML ESCAPE HELPER (for safe email templates) ----
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // ---- HELPERS ----
@@ -573,15 +589,15 @@ app.post("/api/scst-submissions", async (req, res) => {
       "📬 New SC/ST Connect Submission",
       `
         <h3>New SC/ST Connect Submission</h3>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Country:</strong> ${country}</p>
-        <p><strong>City:</strong> ${city || "-"}</p>
-        <p><strong>Phone:</strong> ${phone || "-"}</p>
-        <p><strong>Platform:</strong> ${platform || "-"}</p>
-        <p><strong>Instagram:</strong> ${instagram || "-"}</p>
-        <p><strong>Proof:</strong> ${proof || "-"}</p>
-        <p><strong>Message:</strong><br>${message || "(none)"}</p>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Country:</strong> ${escapeHtml(country)}</p>
+        <p><strong>City:</strong> ${escapeHtml(city) || "-"}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(phone) || "-"}</p>
+        <p><strong>Platform:</strong> ${escapeHtml(platform) || "-"}</p>
+        <p><strong>Instagram:</strong> ${escapeHtml(instagram) || "-"}</p>
+        <p><strong>Proof:</strong> ${escapeHtml(proof) || "-"}</p>
+        <p><strong>Message:</strong><br>${escapeHtml(message) || "(none)"}</p>
         <hr>
         <p>Log in to your admin dashboard to review it.</p>
       `
@@ -762,17 +778,17 @@ app.post(
         "💍 New Matrimonial Submission",
         `
           <h3>New Matrimonial Form Submitted</h3>
-          <p><strong>Name:</strong> ${d.name}</p>
-          <p><strong>Email:</strong> ${d.email}</p>
-          <p><strong>Country:</strong> ${d.country_living}</p>
-          <p><strong>City:</strong> ${d.city_living || "-"}</p>
-          ${d.caste ? `<p><strong>Caste:</strong> ${d.caste}</p>` : ""}
+          <p><strong>Name:</strong> ${escapeHtml(d.name)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(d.email)}</p>
+          <p><strong>Country:</strong> ${escapeHtml(d.country_living)}</p>
+          <p><strong>City:</strong> ${escapeHtml(d.city_living) || "-"}</p>
+          ${d.caste ? `<p><strong>Caste:</strong> ${escapeHtml(d.caste)}</p>` : ""}
           ${
             d.religion_beliefs
-              ? `<p><strong>Beliefs:</strong> ${d.religion_beliefs}</p>`
+              ? `<p><strong>Beliefs:</strong> ${escapeHtml(d.religion_beliefs)}</p>`
               : ""
           }
-          ${photoUrl ? `<p><img src="${photoUrl}" width="150"/></p>` : ""}
+          ${photoUrl ? `<p><img src="${escapeHtml(photoUrl)}" width="150"/></p>` : ""}
           <hr><p>Log in to your admin dashboard to view this biodata.</p>
         `
       ).catch((err) =>
@@ -886,10 +902,15 @@ app.get(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    const result = await pool.query(
-      "SELECT * FROM recipients ORDER BY created_at DESC"
-    );
-    res.json(result.rows);
+    try {
+      const result = await pool.query(
+        "SELECT * FROM recipients ORDER BY created_at DESC"
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Recipients fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
 );
 
@@ -898,13 +919,18 @@ app.post(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email required" });
-    await pool.query(
-      "INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING",
-      [email]
-    );
-    res.json({ message: "Recipient added" });
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Email required" });
+      await pool.query(
+        "INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING",
+        [email]
+      );
+      res.json({ message: "Recipient added" });
+    } catch (err) {
+      console.error("Recipient add error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
 );
 
@@ -913,48 +939,13 @@ app.delete(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
-    res.json({ message: "Recipient removed" });
-  }
-);
-
-// Get all recipients
-app.get(
-  "/api/admin/recipients",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    const result = await pool.query(
-      "SELECT * FROM recipients ORDER BY created_at DESC"
-    );
-    res.json(result.rows);
-  }
-);
-
-// Add a recipient
-app.post(
-  "/api/admin/recipients",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email required" });
-    await pool.query(
-      "INSERT INTO recipients(email) VALUES($1) ON CONFLICT(email) DO NOTHING",
-      [email]
-    );
-    res.json({ message: "Recipient added" });
-  }
-);
-
-// Delete a recipient
-app.delete(
-  "/api/admin/recipients/:id",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
-    res.json({ message: "Recipient removed" });
+    try {
+      await pool.query("DELETE FROM recipients WHERE id=$1", [req.params.id]);
+      res.json({ message: "Recipient removed" });
+    } catch (err) {
+      console.error("Recipient delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
 );
 
@@ -2099,34 +2090,6 @@ The Ravidassia Abroad Team
     } catch (err) {
       console.error("❌ SCST reply error:", err);
       res.status(500).json({ message: "Failed to send reply" });
-    }
-  }
-);
-
-// 🗑️ BULK DELETE personalities
-app.post(
-  "/api/admin/personalities/bulk-delete",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    try {
-      const { ids } = req.body;
-
-      if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ message: "No IDs provided" });
-      }
-
-      await pool.query(
-        "DELETE FROM famous_personalities WHERE id = ANY($1)",
-        [ids]
-      );
-
-      res.json({
-        message: `🗑️ Deleted ${ids.length} personalities successfully`,
-      });
-    } catch (err) {
-      console.error("❌ Bulk delete personalities error:", err);
-      res.status(500).json({ message: "Server error" });
     }
   }
 );

@@ -1,6 +1,7 @@
 // C:\My Data\Ravidassia Abroad\ravabroad\src\pages\BlogDetail.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import DOMPurify from "dompurify";
 import Comments from "../components/Comments";
 import { API_BASE } from "../utils/api";
 
@@ -51,7 +52,6 @@ export default function BlogDetail() {
       try {
         const res = await fetch(`${API_BASE}/blogs/${slug}`);
         const data = await res.json();
-              console.log("Fetched post:", data);
 
         if (!res.ok) throw new Error(data.message || "Blog not found");
         setPost(data);
@@ -158,7 +158,7 @@ export default function BlogDetail() {
             <div
               className="blog-content fs-5 lh-lg text-secondary"
               style={{ whiteSpace: "pre-line" }}
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
             />
 
             {/* 🗨️ Comments Section */}
@@ -202,10 +202,11 @@ export default function BlogDetail() {
                             <p
                               className="text-muted small mb-0"
                               dangerouslySetInnerHTML={{
-                                __html:
+                                __html: DOMPurify.sanitize(
                                   p.excerpt?.length > 100
                                     ? p.excerpt.slice(0, 100) + "..."
-                                    : p.excerpt || "",
+                                    : p.excerpt || ""
+                                ),
                               }}
                             ></p>
                           </div>

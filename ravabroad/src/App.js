@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 import Layout from "./components/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Service from "./pages/Service";
@@ -50,63 +51,47 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [location]);
 
-  // ✅ Intercept all API calls globally
-  useEffect(() => {
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-      try {
-        setLoading(true);
-        const res = await originalFetch(...args);
-        return res;
-      } finally {
-        setLoading(false);
-      }
-    };
-    return () => {
-      window.fetch = originalFetch;
-    };
-  }, []);
-
   return (
-    <PopupProvider>
-      <FormSubmitOverlay />
-      <GlobalLoader visible={loading} />
-      <ScrollAndInit />
+    <ErrorBoundary>
+      <PopupProvider>
+        <FormSubmitOverlay />
+        <GlobalLoader visible={loading} />
+        <ScrollAndInit />
 
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="about" element={<About />} />
-          <Route path="service" element={<Service />} />
-          <Route path="feature" element={<Feature />} />
-          <Route path="countries" element={<Countries />} />
-          <Route path="training" element={<Training />} />
-          <Route path="testimonial" element={<Testimonial />} />
-          <Route path="contact" element={<Contact />} />
-          <Route path="connect-scst" element={<ConnectSCST />} />
-          <Route path="auth" element={<Auth />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          {/* 🔒 Admin Dashboard Protected */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute adminOnly>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="/matrimonial" element={<MatrimonialForm />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/*" element={<DynamicPage />} />
-          <Route path="*" element={<NotFound />} />
-          <Route path="/blogs" element={<Blogs />} />
-          <Route path="/blogs/:slug" element={<BlogDetail />} />
-          <Route path="/personalities" element={<FamousPersonalities />} />
-          <Route path="/blogs/:slug" element={<PostDetail />} />
-          <Route path="/articles/:slug" element={<PostDetail />} />
-        </Route>
-      </Routes>
-    </PopupProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="about" element={<About />} />
+            <Route path="service" element={<Service />} />
+            <Route path="feature" element={<Feature />} />
+            <Route path="countries" element={<Countries />} />
+            <Route path="training" element={<Training />} />
+            <Route path="testimonial" element={<Testimonial />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="connect-scst" element={<ConnectSCST />} />
+            <Route path="auth" element={<Auth />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            {/* 🔒 Admin Dashboard Protected */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/matrimonial" element={<MatrimonialForm />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/blogs" element={<Blogs />} />
+            <Route path="/blogs/:slug" element={<BlogDetail />} />
+            <Route path="/personalities" element={<FamousPersonalities />} />
+            <Route path="/articles/:slug" element={<PostDetail />} />
+            {/* Catch-all: dynamic menu pages, then 404 */}
+            <Route path="/*" element={<DynamicPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </PopupProvider>
+    </ErrorBoundary>
   );
 }

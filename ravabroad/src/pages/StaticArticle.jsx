@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
+import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 
 export default function StaticArticle({ slug }) {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect65(() => {
+  useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(`${API_BASE}/articles/${slug}`);
@@ -49,7 +50,7 @@ export default function StaticArticle({ slug }) {
       )}
       <div
         className="article-content fs-5 lh-lg text-secondary"
-        dangerouslySetInnerHTML={{ __html: article.content }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
       ></div>
     </main>
   );

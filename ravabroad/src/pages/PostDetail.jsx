@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
-
 import { useParams, Link, useLocation } from "react-router-dom";
+import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 import Comments from "../components/Comments";
 import "../css/ArticleDetail.css";
@@ -180,7 +180,7 @@ export default function PostDetail() {
           <article className="col-lg-9">
             <div
               className="article-body bg-white p-4 rounded shadow-sm border border-light-subtle"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
             />
 
             {/* Comments */}

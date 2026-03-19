@@ -15,8 +15,13 @@ function ScrollAndInit() {
 
 export default function Layout() {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem("user");
+      return null;
+    }
   });
   // 🧹 Safe modal cleanup for frontend only
   useEffect(() => {
@@ -91,8 +96,13 @@ export default function Layout() {
           }, 1800);
         }
       } else {
-        const stored = localStorage.getItem("user");
-        setUser(stored ? JSON.parse(stored) : null);
+        try {
+          const stored = localStorage.getItem("user");
+          setUser(stored ? JSON.parse(stored) : null);
+        } catch {
+          localStorage.removeItem("user");
+          setUser(null);
+        }
       }
     };
 

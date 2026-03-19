@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { API_BASE } from "../utils/api";
 
 export default function DynamicPage() {
   const { pathname } = useLocation();
@@ -8,7 +9,7 @@ export default function DynamicPage() {
 
   useEffect(() => {
     document.title = "Loading...";
-    fetch(`${process.env.REACT_APP_API_URL}/api/menus`)
+    fetch(`${API_BASE}/menus`)
       .then((res) => res.json())
       .then((data) => {
         const found = data.find((m) => m.path === pathname);

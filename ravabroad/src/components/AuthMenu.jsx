@@ -4,14 +4,24 @@ import { Link } from "react-router-dom";
 
 export default function AuthMenu({ compact = false }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem("user");
+      return null;
+    }
   });
 
   useEffect(() => {
     const syncAuth = () => {
-      const stored = localStorage.getItem("user");
-      setUser(stored ? JSON.parse(stored) : null);
+      try {
+        const stored = localStorage.getItem("user");
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        localStorage.removeItem("user");
+        setUser(null);
+      }
     };
     window.addEventListener("auth-updated", syncAuth);
     window.addEventListener("storage", syncAuth);

@@ -12,10 +12,17 @@ export default function FormSubmitOverlay() {
     window.fetch = async (...args) => {
       const [url, options] = args;
 
-      // ✅ Detect only real form submissions — NOT API login etc.
-     const isFormSubmission =
-   (options?.method === "POST" || options?.method === "PUT") &&
-   !(url.includes("/auth/login") || url.includes("/auth/register"));
+      // ✅ Detect only real form submissions — NOT auth endpoints
+      const isAuthEndpoint =
+        url.includes("/auth/login") ||
+        url.includes("/auth/register") ||
+        url.includes("/auth/google") ||
+        url.includes("/auth/me") ||
+        url.includes("/auth/request-reset") ||
+        url.includes("/auth/reset-password");
+      const isFormSubmission =
+        (options?.method === "POST" || options?.method === "PUT") &&
+        !isAuthEndpoint;
 
       if (isFormSubmission) {
         activeSubmits++;
