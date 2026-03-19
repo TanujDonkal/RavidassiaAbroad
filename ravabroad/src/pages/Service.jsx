@@ -30,7 +30,7 @@ export default function Service() {
               <Link to="/" className="text-white">Home</Link>
             </li>
             <li className="breadcrumb-item">
-              <a href="#" className="text-white">Pages</a>
+              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">Pages</span>
             </li>
             <li className="breadcrumb-item active text-secondary">Services</li>
           </ol>
@@ -62,22 +62,22 @@ export default function Service() {
                     <div className="service-title">
                       <div className="service-title-name">
                         <div className="bg-primary text-center rounded p-3 mx-5 mb-4">
-                          <a href="#" className="h4 text-white mb-0">{s.title}</a>
+                          <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{s.title}</span>
                         </div>
-                        <a className="btn bg-light text-secondary rounded-pill py-3 px-5 mb-4" href="#">
+                        <button className="btn bg-light text-secondary rounded-pill py-3 px-5 mb-4" type="button" disabled style={{ pointerEvents: "none" }}>
                           Explore More
-                        </a>
+                        </button>
                       </div>
 
                       <div className="service-content pb-4">
-                        <a href="#"><h4 className="text-white mb-4 py-3">{s.title}</h4></a>
+                        <span className="text-white mb-4 py-3" style={{ cursor: "default" }}>{s.title}</span>
                         <div className="px-4">
                           <p className="mb-4">
                             Lorem ipsum dolor sit amet consectetur, adipisicing elit. Mollitia fugit dolores nesciunt adipisci obcaecati veritatis cum, ratione aspernatur autem velit.
                           </p>
-                          <a className="btn btn-primary border-secondary rounded-pill py-3 px-5" href="#">
+                          <button className="btn btn-primary border-secondary rounded-pill py-3 px-5" type="button" disabled style={{ pointerEvents: "none" }}>
                             Explore More
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -91,9 +91,14 @@ export default function Service() {
       </div>
 
       {/* Back to Top (optional if global) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

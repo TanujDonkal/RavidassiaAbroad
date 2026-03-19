@@ -40,9 +40,9 @@ export default function About() {
               </Link>
             </li>
             <li className="breadcrumb-item">
-              <a href="#" className="text-white">
+              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">
                 Pages
-              </a>
+              </span>
             </li>
             <li className="breadcrumb-item active text-secondary">About</li>
           </ol>
@@ -354,9 +354,14 @@ export default function About() {
       </div>
 
       {/* Back to Top (optional if handled globally) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

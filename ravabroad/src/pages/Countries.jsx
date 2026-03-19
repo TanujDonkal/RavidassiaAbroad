@@ -76,9 +76,9 @@ export default function Countries() {
               </Link>
             </li>
             <li className="breadcrumb-item">
-              <a href="#" className="text-white">
+              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">
                 Pages
-              </a>
+              </span>
             </li>
             <li className="breadcrumb-item active text-secondary">Countries</li>
           </ol>
@@ -111,17 +111,17 @@ export default function Countries() {
                     <img src={`/template/img/${c.flag}`} className="img-fluid rounded-circle" alt="Flag" />
                   </div>
                   <div className="country-name">
-                    <a href="#" className="text-white fs-4">
+                    <span className="text-white fs-4" style={{ cursor: "default" }}>
                       {c.name}
-                    </a>
+                    </span>
                   </div>
                 </div>
               </div>
             ))}
             <div className="col-12">
-              <a className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" href="#">
+              <button className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" type="button" disabled style={{ pointerEvents: "none" }}>
                 More Countries
-              </a>
+              </button>
             </div>
           </div>
         </div>

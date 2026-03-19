@@ -28,7 +28,7 @@ export default function Feature() {
               <Link to="/" className="text-white">Home</Link>
             </li>
             <li className="breadcrumb-item">
-              <a href="#" className="text-white">Pages</a>
+              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">Pages</span>
             </li>
             <li className="breadcrumb-item active text-secondary">Features</li>
           </ol>

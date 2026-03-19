@@ -67,9 +67,9 @@ export default function Contact() {
               </Link>
             </li>
             <li className="breadcrumb-item">
-              <a href="#" className="text-white">
+              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">
                 Pages
-              </a>
+              </span>
             </li>
             <li className="breadcrumb-item active text-secondary">Contact</li>
           </ol>
@@ -319,13 +319,15 @@ export default function Contact() {
                       Want to <strong>add / remove / report</strong> content
                       from the site or our socials? Use the link in the top bar
                       or{" "}
-                      <a
-                        href="#"
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 align-baseline"
                         data-bs-toggle="modal"
                         data-bs-target="#contentRequestModal"
+                        style={{ textDecoration: "underline" }}
                       >
                         open the request form
-                      </a>
+                      </button>
                       .
                     </p>
                   </div>
@@ -370,9 +372,14 @@ export default function Contact() {
       </div>
 
       {/* Back to Top (optional if handled globally) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }
