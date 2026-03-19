@@ -253,6 +253,16 @@ export default function AdminDashboard() {
         setMatrimonialSubs((prev) => prev.filter((m) => m.id !== id));
       } else if (type === "scst-submissions" || type === "scst") {
         setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      } else if (type === "blogs") {
+        setBlogs((prev) => prev.filter((b) => b.id !== id));
+      } else if (type === "categories") {
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+      } else if (type === "recipients") {
+        setRecipients((prev) => prev.filter((r) => r.id !== id));
+      } else if (type === "content-requests") {
+        setSubmissions((prev) => prev.filter((s) => s.id !== id));
+      } else if (type === "menus") {
+        setMenus((prev) => prev.filter((m) => m.id !== id));
       }
     } catch (err) {
       console.error("❌ Delete error:", err);
@@ -313,6 +323,12 @@ export default function AdminDashboard() {
               prev.filter((m) => !selectedIds.includes(m.id))
             );
           } else if (type === "scst-submissions" || type === "scst") {
+            setSubmissions((prev) =>
+              prev.filter((s) => !selectedIds.includes(s.id))
+            );
+          } else if (type === "blogs") {
+            setBlogs((prev) => prev.filter((b) => !selectedIds.includes(b.id)));
+          } else if (type === "content-requests") {
             setSubmissions((prev) =>
               prev.filter((s) => !selectedIds.includes(s.id))
             );
