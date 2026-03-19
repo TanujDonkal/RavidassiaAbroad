@@ -319,18 +319,18 @@ export default function About() {
                       alt={t.title}
                     />
                     <div className="training-title-name">
-                      <a href="#" className="h4 text-white mb-0">
+                      <span className="h4 text-white mb-0">
                         {t.a}
-                      </a>
-                      <a href="#" className="h4 text-white mb-0">
+                      </span>
+                      <span className="h4 text-white mb-0">
                         {t.b}
-                      </a>
+                      </span>
                     </div>
                   </div>
                   <div className="training-content bg-secondary rounded-bottom p-4">
-                    <a href="#">
+                    <span>
                       <h4 className="text-white">{t.title}</h4>
-                    </a>
+                    </span>
                     <p className="text-white-50">{t.desc}</p>
                     <Link className="btn btn-secondary rounded-pill text-white p-0" to="/about">
                       Read More <i className="fa fa-arrow-right"></i>

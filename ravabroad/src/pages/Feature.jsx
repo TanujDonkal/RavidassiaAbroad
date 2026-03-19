@@ -58,27 +58,27 @@ export default function Feature() {
                   <div className="feature-content d-flex flex-column">
                     <h5 className="mb-3">{f.title}</h5>
                     <p className="mb-3">{f.text}</p>
-                    <a className="btn btn-secondary rounded-pill" href="#">
+                    <button className="btn btn-secondary rounded-pill" type="button">
                       Read More<i className="fas fa-arrow-right ms-2"></i>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
 
             <div className="col-12">
-              <a className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" href="#">
+              <button className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" type="button">
                 More Features
-              </a>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Back to Top (optional if global) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button type="button" className="btn btn-primary btn-lg-square back-to-top">
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

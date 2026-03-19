@@ -177,22 +177,22 @@ export default function Countries() {
                   <div className="training-inner">
                     <img src={`/template/img/${t.img}`} className="img-fluid w-100 rounded" alt="Training" />
                     <div className="training-title-name">
-                      <a href="#" className="h4 text-white mb-0">
+                      <span className="h4 text-white mb-0">
                         {t.a}
-                      </a>
-                      <a href="#" className="h4 text-white mb-0">
+                      </span>
+                      <span className="h4 text-white mb-0">
                         {t.b}
-                      </a>
+                      </span>
                     </div>
                   </div>
                   <div className="training-content bg-secondary rounded-bottom p-4">
-                    <a href="#">
+                    <span>
                       <h4 className="text-white">{t.title}</h4>
-                    </a>
+                    </span>
                     <p className="text-white-50">Lorem ipsum dolor sit amet consectetur adipisicing elit. Autem, veritatis.</p>
-                    <a className="btn btn-secondary rounded-pill text-white p-0" href="#">
+                    <button className="btn btn-secondary rounded-pill text-white p-0" type="button">
                       Read More <i className="fa fa-arrow-right"></i>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
