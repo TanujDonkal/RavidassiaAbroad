@@ -55,36 +55,41 @@ export default function Training() {
                   <div className="training-inner">
                     <img src={`/template/img/${t.img}`} className="img-fluid w-100 rounded" alt={t.title} />
                     <div className="training-title-name">
-                      <a href="#" className="h4 text-white mb-0">{t.a}</a>
-                      <a href="#" className="h4 text-white mb-0">{t.b}</a>
+                      <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{t.a}</span>
+                      <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{t.b}</span>
                     </div>
                   </div>
                   <div className="training-content bg-secondary rounded-bottom p-4">
-                    <a href="#"><h4 className="text-white">{t.title}</h4></a>
+                    <span className="text-white" style={{ cursor: "default" }}><h4>{t.title}</h4></span>
                     <p className="text-white-50">
                       Lorem ipsum dolor sit amet consectetur adipisicing elit. Autem, veritatis.
                     </p>
-                    <a className="btn btn-secondary rounded-pill text-white p-0" href="#">
+                    <button className="btn btn-secondary rounded-pill text-white p-0" type="button" disabled style={{ pointerEvents: "none" }}>
                       Read More <i className="fa fa-arrow-right"></i>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
 
             <div className="col-12 text-center">
-              <a className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" href="#">
+              <button className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" type="button" disabled style={{ pointerEvents: "none" }}>
                 View More
-              </a>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Back to Top (optional if global) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

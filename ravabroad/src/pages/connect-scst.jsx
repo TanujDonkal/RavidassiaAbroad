@@ -15,7 +15,6 @@ export default function ConnectSCST() {
   const [formValues, setFormValues] = useState({});
   const [submissionData, setSubmissionData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
