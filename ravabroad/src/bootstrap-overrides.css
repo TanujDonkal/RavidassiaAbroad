@@ -2,6 +2,12 @@
 :root {
   --bs-primary: #000000;
   --bs-primary-rgb: 0, 0, 0;
+  /* Brand colors — single source of truth */
+  --brand-gold: #fecf2f;
+  --brand-gold-hover: #e6bb00;
+  --brand-dark: #1a202c;
+  --brand-text: #333333;
+  --brand-muted: #6c757d;
 }
 
 /* Ensure utilities pick up new primary */
@@ -60,11 +66,10 @@ html, body {
   overflow-x: hidden !important;
 }
 
-/* Images: never stretch beyond viewport */
+/* Images: prevent overflow but don't force block display */
 img {
   max-width: 100%;
   height: auto;
-  display: block;
 }
 
 /* Carousels and big sections */

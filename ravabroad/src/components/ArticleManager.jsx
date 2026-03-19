@@ -97,14 +97,20 @@ export default function ArticleManager() {
 
   // 🗑 Handle delete
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this article?")) return;
-    try {
-      await apiFetch(`/admin/articles/${id}`, { method: "DELETE" });
-      popup.open({ title: "🗑️ Deleted", message: "Article removed successfully!", type: "success" });
-      fetchArticles();
-    } catch (err) {
-      popup.open({ title: "❌ Delete Failed", message: err.message, type: "error" });
-    }
+    popup.open({
+      title: "🗑️ Delete Article?",
+      message: "Are you sure you want to delete this article? This action cannot be undone.",
+      type: "confirm",
+      onConfirm: async () => {
+        try {
+          await apiFetch(`/admin/articles/${id}`, { method: "DELETE" });
+          popup.open({ title: "🗑️ Deleted", message: "Article removed successfully!", type: "success" });
+          fetchArticles();
+        } catch (err) {
+          popup.open({ title: "❌ Delete Failed", message: err.message, type: "error" });
+        }
+      },
+    });
   };
 
   const openEdit = (article) => {

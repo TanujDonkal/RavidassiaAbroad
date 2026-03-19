@@ -172,7 +172,7 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
     <>
       <GlobalLoader visible={uploading} />
       <div
-        className="modal fade show"
+        className="modal fade show blog-form-modal"
         style={{
           display: "block",
           backgroundColor: "rgba(0,0,0,0.7)",

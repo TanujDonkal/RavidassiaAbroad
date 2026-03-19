@@ -232,7 +232,23 @@ export default function AdminDashboard() {
   // DELETE HANDLERS
   // --------------------------
   const handleDelete = async (type, id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+
+    let confirmed = false;
+    await new Promise((resolve) => {
+      popup.open({
+        title: "Confirm Delete",
+        message: "Are you sure you want to delete this item?",
+        type: "confirm",
+        onConfirm: () => {
+          confirmed = true;
+          resolve();
+        },
+        onCancel: () => {
+          resolve();
+        },
+      });
+    });
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`${API_BASE}/admin/${type}/${id}`, {
@@ -259,8 +275,6 @@ export default function AdminDashboard() {
         setCategories((prev) => prev.filter((c) => c.id !== id));
       } else if (type === "recipients") {
         setRecipients((prev) => prev.filter((r) => r.id !== id));
-      } else if (type === "content-requests") {
-        setSubmissions((prev) => prev.filter((s) => s.id !== id));
       } else if (type === "menus") {
         setMenus((prev) => prev.filter((m) => m.id !== id));
       }
@@ -328,13 +342,16 @@ export default function AdminDashboard() {
             );
           } else if (type === "blogs") {
             setBlogs((prev) => prev.filter((b) => !selectedIds.includes(b.id)));
-          } else if (type === "content-requests") {
-            setSubmissions((prev) =>
-              prev.filter((s) => !selectedIds.includes(s.id))
-            );
+          } else if (type === "categories") {
+            setCategories((prev) => prev.filter((c) => !selectedIds.includes(c.id)));
+          } else if (type === "recipients") {
+            setRecipients((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+          } else if (type === "menus") {
+            setMenus((prev) => prev.filter((m) => !selectedIds.includes(m.id)));
           }
 
           setSelectedIds([]);
+          setSelectAll(false);
         } catch (err) {
           console.error("❌ Bulk delete error:", err);
           popup.open({
@@ -571,21 +588,41 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Blog Posts</h5>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setSelectedBlog(null);
-                          setShowBlogModal(true);
-                        }}
-                      >
-                        + New Post
-                      </button>
+                      <div className="d-flex gap-2 align-items-center">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={selectedIds.length === 0}
+                          onClick={() => handleBulkDelete("blogs")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setSelectedBlog(null);
+                            setShowBlogModal(true);
+                          }}
+                        >
+                          + New Post
+                        </button>
+                      </div>
                     </div>
 
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll && blogs.length > 0 && blogs.every((b) => selectedIds.includes(b.id))}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(checked ? blogs.map((b) => b.id) : []);
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Title</th>
                             <th>Category</th>
@@ -599,7 +636,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           {blogs.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="7"
+                                colSpan="8"
                                 className="text-center text-muted py-4"
                               >
                                 No blog posts yet.
@@ -608,6 +645,20 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           ) : (
                             blogs.map((b) => (
                               <tr key={b.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(b.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, b.id]
+                                          : prev.filter((id) => id !== b.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{b.id}</td>
                                 <td>{b.title}</td>
                                 <td>{b.category_name || "—"}</td>
@@ -701,21 +752,41 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Blog Categories</h5>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setSelectedCategory(null);
-                          setShowCategoryModal(true);
-                        }}
-                      >
-                        + New Category
-                      </button>
+                      <div className="d-flex gap-2 align-items-center">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={selectedIds.length === 0}
+                          onClick={() => handleBulkDelete("categories")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setSelectedCategory(null);
+                            setShowCategoryModal(true);
+                          }}
+                        >
+                          + New Category
+                        </button>
+                      </div>
                     </div>
 
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll && categories.length > 0 && categories.every((c) => selectedIds.includes(c.id))}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(checked ? categories.map((c) => c.id) : []);
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Slug</th>
@@ -728,7 +799,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           {categories.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="6"
+                                colSpan="7"
                                 className="text-center text-muted py-4"
                               >
                                 No categories yet.
@@ -737,6 +808,20 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           ) : (
                             categories.map((c) => (
                               <tr key={c.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(c.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, c.id]
+                                          : prev.filter((id) => id !== c.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{c.id}</td>
                                 <td>{c.name}</td>
                                 <td>{c.slug}</td>
@@ -1180,9 +1265,22 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                                     className="btn btn-sm btn-danger"
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (
-                                        window.confirm("Delete this entry?")
-                                      ) {
+                                      let confirmed = false;
+                                      await new Promise((resolve) => {
+                                        popup.open({
+                                          title: "Confirm Delete",
+                                          message: "Delete this entry?",
+                                          type: "confirm",
+                                          onConfirm: () => {
+                                            confirmed = true;
+                                            resolve();
+                                          },
+                                          onCancel: () => {
+                                            resolve();
+                                          },
+                                        });
+                                      });
+                                      if (confirmed) {
                                         await handleDelete("matrimonial", s.id);
                                       }
                                     }}
@@ -1204,55 +1302,75 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Notification Recipients</h5>
-                      <form
-                        className="d-flex align-items-center gap-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const email = e.target.email.value.trim();
-                          if (!email) return;
-                          try {
-                            await apiFetch("/admin/recipients", {
-                              method: "POST",
-                              body: JSON.stringify({ email }),
-                            });
-                            popup.open({
-                              title: "✅ Added",
-                              message: `${email} will now receive notifications`,
-                              type: "success",
-                            });
-                            e.target.reset();
-                            const data = await getRecipients();
-                            setRecipients(Array.isArray(data) ? data : []);
-                          } catch (err) {
-                            popup.open({
-                              title: "❌ Error",
-                              message: err.message,
-                              type: "error",
-                            });
-                          }
-                        }}
-                      >
-                        <input
-                          type="email"
-                          name="email"
-                          placeholder="Enter email"
-                          className="form-control form-control-sm"
-                          style={{ width: 250 }}
-                          required
-                        />
+                      <div className="d-flex gap-2 align-items-center">
                         <button
-                          type="submit"
-                          className="btn btn-sm btn-primary"
+                          className="btn btn-danger btn-sm"
+                          disabled={selectedIds.length === 0}
+                          onClick={() => handleBulkDelete("recipients")}
                         >
-                          Add
+                          Delete Selected ({selectedIds.length})
                         </button>
-                      </form>
+                        <form
+                          className="d-flex align-items-center gap-2"
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            const email = e.target.email.value.trim();
+                            if (!email) return;
+                            try {
+                              await apiFetch("/admin/recipients", {
+                                method: "POST",
+                                body: JSON.stringify({ email }),
+                              });
+                              popup.open({
+                                title: "✅ Added",
+                                message: `${email} will now receive notifications`,
+                                type: "success",
+                              });
+                              e.target.reset();
+                              const data = await getRecipients();
+                              setRecipients(Array.isArray(data) ? data : []);
+                            } catch (err) {
+                              popup.open({
+                                title: "❌ Error",
+                                message: err.message,
+                                type: "error",
+                              });
+                            }
+                          }}
+                        >
+                          <input
+                            type="email"
+                            name="email"
+                            placeholder="Enter email"
+                            className="form-control form-control-sm"
+                            style={{ width: 250 }}
+                            required
+                          />
+                          <button
+                            type="submit"
+                            className="btn btn-sm btn-primary"
+                          >
+                            Add
+                          </button>
+                        </form>
+                      </div>
                     </div>
 
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll && recipients.length > 0 && recipients.every((r) => selectedIds.includes(r.id))}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(checked ? recipients.map((r) => r.id) : []);
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Email</th>
                             <th>Added</th>
@@ -1263,7 +1381,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           {recipients.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="4"
+                                colSpan="5"
                                 className="text-center text-muted py-4"
                               >
                                 No recipient emails added yet.
@@ -1272,6 +1390,20 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           ) : (
                             recipients.map((r) => (
                               <tr key={r.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(r.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, r.id]
+                                          : prev.filter((id) => id !== r.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{r.id}</td>
                                 <td>{r.email}</td>
                                 <td>
@@ -1281,9 +1413,22 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                                   <button
                                     className="btn btn-sm btn-danger"
                                     onClick={async () => {
-                                      if (
-                                        window.confirm(`Remove ${r.email}?`)
-                                      ) {
+                                      let confirmed = false;
+                                      await new Promise((resolve) => {
+                                        popup.open({
+                                          title: "Confirm Remove",
+                                          message: `Remove ${r.email}?`,
+                                          type: "confirm",
+                                          onConfirm: () => {
+                                            confirmed = true;
+                                            resolve();
+                                          },
+                                          onCancel: () => {
+                                            resolve();
+                                          },
+                                        });
+                                      });
+                                      if (confirmed) {
                                         await apiFetch(
                                           `/admin/recipients/${r.id}`,
                                           {
@@ -1660,25 +1805,45 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   <div className="card shadow border-0 mb-7">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Dynamic Site Menus</h5>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setSelectedMenu({
-                            label: "",
-                            path: "",
-                            parent_id: null,
-                            position: 0,
-                          });
-                        }}
-                      >
-                        + New Menu
-                      </button>
+                      <div className="d-flex gap-2 align-items-center">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={selectedIds.length === 0}
+                          onClick={() => handleBulkDelete("menus")}
+                        >
+                          Delete Selected ({selectedIds.length})
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setSelectedMenu({
+                              label: "",
+                              path: "",
+                              parent_id: null,
+                              position: 0,
+                            });
+                          }}
+                        >
+                          + New Menu
+                        </button>
+                      </div>
                     </div>
 
                     <div className="table-responsive">
                       <table className="table table-hover table-nowrap">
                         <thead>
                           <tr>
+                            <th>
+                              <input
+                                type="checkbox"
+                                checked={selectAll && menus.length > 0 && menus.every((m) => selectedIds.includes(m.id))}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setSelectAll(checked);
+                                  setSelectedIds(checked ? menus.map((m) => m.id) : []);
+                                }}
+                              />
+                            </th>
                             <th>ID</th>
                             <th>Label</th>
                             <th>Path</th>
@@ -1692,7 +1857,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           {menus.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="7"
+                                colSpan="8"
                                 className="text-center text-muted py-4"
                               >
                                 No menus yet.
@@ -1701,6 +1866,20 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                           ) : (
                             menus.map((m) => (
                               <tr key={m.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.includes(m.id)}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setSelectedIds((prev) =>
+                                        checked
+                                          ? [...prev, m.id]
+                                          : prev.filter((id) => id !== m.id)
+                                      );
+                                    }}
+                                  />
+                                </td>
                                 <td>{m.id}</td>
                                 <td>{m.label}</td>
                                 <td>{m.path}</td>
@@ -1719,7 +1898,22 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                                   <button
                                     className="btn btn-danger btn-sm"
                                     onClick={async () => {
-                                      if (window.confirm("Delete this menu?")) {
+                                      let confirmed = false;
+                                      await new Promise((resolve) => {
+                                        popup.open({
+                                          title: "Confirm Delete",
+                                          message: "Delete this menu?",
+                                          type: "confirm",
+                                          onConfirm: () => {
+                                            confirmed = true;
+                                            resolve();
+                                          },
+                                          onCancel: () => {
+                                            resolve();
+                                          },
+                                        });
+                                      });
+                                      if (confirmed) {
                                         await apiFetch(`/admin/menus/${m.id}`, {
                                           method: "DELETE",
                                         });

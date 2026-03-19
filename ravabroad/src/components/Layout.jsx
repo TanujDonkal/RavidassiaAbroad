@@ -24,6 +24,8 @@ export default function Layout() {
     }
   });
   // 🧹 Safe modal cleanup for frontend only
+  // Import usePopup
+  const { open: openPopup } = require("./PopupProvider").usePopup();
   useEffect(() => {
     const cleanupFrontendModals = (event) => {
       // Get modal ID (like "donateModal", "searchModal", etc.)
@@ -190,7 +192,11 @@ export default function Layout() {
         body: JSON.stringify(data),
       });
 
-      alert("✅ Your request has been submitted!");
+      openPopup({
+        title: "✅ Request Submitted",
+        message: "Your request has been submitted!",
+        type: "success",
+      });
       e.target.reset();
 
       const modalEl = document.getElementById("contentRequestModal");
@@ -212,7 +218,11 @@ export default function Layout() {
       }, 400); // allow Bootstrap animation to complete
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to submit request.");
+      openPopup({
+        title: "❌ Submission Failed",
+        message: "Failed to submit request.",
+        type: "error",
+      });
     }
   };
 

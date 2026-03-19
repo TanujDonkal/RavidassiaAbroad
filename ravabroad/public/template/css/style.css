@@ -5,7 +5,7 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity .5s ease-out, visibility 0s linear .5s;
-    z-index: 99999;
+    z-index: 1050;
 }
 
 #spinner.show {
@@ -74,7 +74,7 @@
     transition: 0.5s;
 }
 
-.btn.btn.btn-primary:hover {
+.btn.btn-primary:hover {
     background: var(--bs-primary) !important;
     color: var(--bs-secondary);
     border: 1px solid var(--bs-secondary);

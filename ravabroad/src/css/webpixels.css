@@ -8,8 +8,8 @@
 /* Bootstrap Icons (already part of your setup, but keep for safety) */
 @import url("https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.4.0/font/bootstrap-icons.min.css");
 
-/* Optional: custom overrides for your brand */
-body {
+/* Optional: custom overrides for admin dashboard */
+.admin-dashboard {
   background-color: #f8f9fa;
 }
 
@@ -34,9 +34,9 @@ body {
   box-shadow: none !important;
 }
 
-/* Keep your golden hover color if you want */
+/* Keep your golden hover color */
 .navbar-nav .nav-link:hover {
-  color: #ffcc00 !important; /* your brand yellow */
+  color: var(--brand-gold) !important;
 }
 
 /* ---------------------------------------------
@@ -66,9 +66,9 @@ body {
 .navbar-vertical .nav-link:hover,
 .navbar-vertical .nav-link.active {
   background-color: #fff9e6 !important;
-  color: #ffcc00 !important;
+  color: var(--brand-gold) !important;
   font-weight: 600;
-  box-shadow: inset 3px 0 0 0 #ffcc00;
+  box-shadow: inset 3px 0 0 0 var(--brand-gold);
 }
 
 /* Remove Webpixels default black lines */

@@ -57,6 +57,7 @@ export default function Profile() {
   };
 
   return (
+    <div className="profile-page">
     <div className="container">
       <div className="main-body">
         {/* Breadcrumb */}
@@ -281,6 +282,7 @@ export default function Profile() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

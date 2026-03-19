@@ -39,8 +39,8 @@
 /* ---------- BUTTONS ---------- */
 .auth-root button {
   border-radius: 20px;
-  border: 1px solid #fecf2f;
-  background-color: #fecf2f;
+  border: 1px solid var(--brand-gold);
+  background-color: var(--brand-gold);
   color: #ffffff;
   font-size: 12px;
   font-weight: bold;

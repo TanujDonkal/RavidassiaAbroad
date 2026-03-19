@@ -1188,6 +1188,25 @@ app.delete(
   }
 );
 // -------------------- BLOG ROUTES --------------------
+// 🗑️ BULK DELETE BLOGS
+app.post(
+  "/api/admin/blogs/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No blog IDs provided" });
+      }
+      await pool.query("DELETE FROM blog_posts WHERE id = ANY($1)", [ids]);
+      res.json({ message: `🗑️ Deleted ${ids.length} blogs successfully` });
+    } catch (err) {
+      console.error("❌ Bulk delete blogs error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 // 🟢 Public: get all published blogs with category + author info
 app.get("/api/blogs", async (req, res) => {
   try {
@@ -1584,6 +1603,44 @@ app.delete(
 );
 
 // ---- BLOG CATEGORIES ----
+// 🗑️ BULK DELETE CATEGORIES
+app.post(
+  "/api/admin/categories/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No category IDs provided" });
+      }
+      await pool.query("DELETE FROM blog_categories WHERE id = ANY($1)", [ids]);
+      res.json({ message: `🗑️ Deleted ${ids.length} categories successfully` });
+    } catch (err) {
+      console.error("❌ Bulk delete categories error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+// 🗑️ BULK DELETE RECIPIENTS
+app.post(
+  "/api/admin/recipients/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No recipient IDs provided" });
+      }
+      await pool.query("DELETE FROM recipients WHERE id = ANY($1)", [ids]);
+      res.json({ message: `🗑️ Deleted ${ids.length} recipients successfully` });
+    } catch (err) {
+      console.error("❌ Bulk delete recipients error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 app.get(
   "/api/admin/categories",
   requireAuth,
@@ -1657,6 +1714,25 @@ app.get("/api/categories", async (req, res) => {
 });
 
 // ===========================
+// 🗑️ BULK DELETE MENUS
+app.post(
+  "/api/admin/menus/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No menu IDs provided" });
+      }
+      await pool.query("DELETE FROM site_menus WHERE id = ANY($1)", [ids]);
+      res.json({ message: `🗑️ Deleted ${ids.length} menus successfully` });
+    } catch (err) {
+      console.error("❌ Bulk delete menus error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 // 🌐 SITE MENUS MANAGEMENT
 // ===========================
 
