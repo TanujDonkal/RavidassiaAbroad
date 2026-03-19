@@ -235,7 +235,7 @@ export default function Layout() {
         <div className="row gx-0 align-items-center">
           <div className="col-lg-5 text-center text-lg-start mb-lg-0">
             <div className="d-flex">
-              <a href="#" className="text-muted me-4">
+              <a href="mailto:RavidassiaAbroad@gmail.com" className="text-muted me-4">
                 <i className="fas fa-envelope text-secondary me-2"></i>
                 RavidassiaAbroad@gmail.com
               </a>
@@ -342,7 +342,7 @@ export default function Layout() {
 
               {/* Pages dropdown (kept as plain dropdown; links inside use NavLink) */}
               <div className="nav-item dropdown">
-                <a href="#" className="nav-link" data-bs-toggle="dropdown">
+                <a href="#history" className="nav-link" data-bs-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" tabIndex={0} onClick={e => e.preventDefault()}>
                   <span className="dropdown-toggle">History</span>
                 </a>
                 <div className="dropdown-menu m-0">
@@ -925,24 +925,24 @@ export default function Layout() {
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Site Links</h4>
-                <a href="#" className="">
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> Teachings
-                </a>
-                <a href="#" className="">
+                </span>
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> History
-                </a>
-                <a href="#" className="">
+                </span>
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> Temples & Centers
-                </a>
-                <a href="#" className="">
+                </span>
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> Festivals & Events
-                </a>
-                <a href="#" className="">
+                </span>
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> Youth Programs
-                </a>
-                <a href="#" className="">
+                </span>
+                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}>
                   <i className="fas fa-angle-right me-2"></i> Contact
-                </a>
+                </span>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
@@ -978,10 +978,10 @@ export default function Layout() {
           <div className="row g-4 align-items-center">
             <div className="col-md-6 text-center text-md-start mb-md-0">
               <span className="text-white">
-                <a href="#" className="border-bottom text-white">
+                <span className="border-bottom text-white" style={{ cursor: "default" }}>
                   <i className="fas fa-copyright text-light me-2"></i>
                   Ravidassia Abroad
-                </a>
+                </span>
                 , All rights reserved.
               </span>
             </div>
@@ -1000,9 +1000,14 @@ export default function Layout() {
       {/* Copyright End */}
 
       {/* Back to Top */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

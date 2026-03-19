@@ -198,18 +198,23 @@ export default function Countries() {
               </div>
             ))}
             <div className="col-12 text-center">
-              <a className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" href="#">
+              <button className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp" data-wow-delay="0.1s" type="button" disabled style={{ pointerEvents: "none" }}>
                 View More
-              </a>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Back to Top (optional if handled globally) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }

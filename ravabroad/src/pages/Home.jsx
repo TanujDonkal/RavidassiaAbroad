@@ -434,21 +434,19 @@ export default function Home() {
                     <div className="service-title">
                       <div className="service-title-name">
                         <div className="bg-primary text-center rounded p-3 mx-5 mb-4">
-                          <a href="#" className="h4 text-white mb-0">
-                            {s.title}
-                          </a>
+                          <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{s.title}</span>
                         </div>
-                        <a
+                        <button
                           className="btn bg-light text-secondary rounded-pill py-3 px-5 mb-4"
-                          href="#"
+                          type="button"
+                          disabled
+                          style={{ pointerEvents: "none" }}
                         >
                           Explore More
-                        </a>
+                        </button>
                       </div>
                       <div className="service-content pb-4">
-                        <a href="#">
-                          <h4 className="text-white mb-4 py-3">{s.title}</h4>
-                        </a>
+                        <span className="text-white mb-4 py-3" style={{ cursor: "default" }}>{s.title}</span>
                         <div className="px-4">
                           <p className="mb-4">
                             Explore curated articles, images, and verified
@@ -456,12 +454,14 @@ export default function Home() {
                             culture, teachings, events, and ways to stay
                             connected.
                           </p>
-                          <a
+                          <button
                             className="btn btn-primary border-secondary rounded-pill text-white py-3 px-5"
-                            href="#"
+                            type="button"
+                            disabled
+                            style={{ pointerEvents: "none" }}
                           >
                             Explore More
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -516,21 +516,23 @@ export default function Home() {
                       Carefully compiled materials with clear explanations and
                       easy ways to participate in Sangat life abroad.
                     </p>
-                    <a className="btn btn-secondary rounded-pill" href="#">
+                    <button className="btn btn-secondary rounded-pill" type="button" disabled style={{ pointerEvents: "none" }}>
                       Read More<i className="fas fa-arrow-right ms-2"></i>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
             <div className="col-12">
-              <a
+              <button
                 className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp"
                 data-wow-delay="0.1s"
-                href="#"
+                type="button"
+                disabled
+                style={{ pointerEvents: "none" }}
               >
                 More Features
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -609,21 +611,21 @@ export default function Home() {
                     />
                   </div>
                   <div className="country-name">
-                    <a href="#" className="text-white fs-4">
-                      {c.name}
-                    </a>
+                    <span className="text-white fs-4" style={{ cursor: "default" }}>{c.name}</span>
                   </div>
                 </div>
               </div>
             ))}
             <div className="col-12">
-              <a
+              <button
                 className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp"
                 data-wow-delay="0.1s"
-                href="#"
+                type="button"
+                disabled
+                style={{ pointerEvents: "none" }}
               >
                 More Countries
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -767,40 +769,38 @@ export default function Home() {
                       alt="Training"
                     />
                     <div className="training-title-name">
-                      <a href="#" className="h4 text-white mb-0">
-                        {t.a}
-                      </a>
-                      <a href="#" className="h4 text-white mb-0">
-                        {t.b}
-                      </a>
+                      <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{t.a}</span>
+                      <span className="h4 text-white mb-0" style={{ cursor: "default" }}>{t.b}</span>
                     </div>
                   </div>
                   <div className="training-content bg-secondary rounded-bottom p-4">
-                    <a href="#">
-                      <h4 className="text-white">{t.title}</h4>
-                    </a>
+                    <span className="text-white" style={{ cursor: "default" }}><h4>{t.title}</h4></span>
                     <p className="text-white-50">
                       Learn, participate, and grow with programs created by and
                       for the community.
                     </p>
-                    <a
+                    <button
                       className="btn btn-secondary rounded-pill text-white p-0"
-                      href="#"
+                      type="button"
+                      disabled
+                      style={{ pointerEvents: "none" }}
                     >
                       Read More <i className="fa fa-arrow-right"></i>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
             <div className="col-12 text-center">
-              <a
+              <button
                 className="btn btn-primary border-secondary rounded-pill py-3 px-5 wow fadeInUp"
                 data-wow-delay="0.1s"
-                href="#"
+                type="button"
+                disabled
+                style={{ pointerEvents: "none" }}
               >
                 View More
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -860,12 +860,12 @@ export default function Home() {
                     </div>
                     <div className="office-content d-flex flex-column">
                       <h4 className="mb-2">{o.name}</h4>
-                      <a href="#" className="text-secondary fs-5 mb-2">
+                      <span className="text-secondary fs-5 mb-2" style={{ cursor: "default" }}>
                         {o.phone}
-                      </a>
-                      <a href="#" className="text-muted fs-5 mb-2">
+                      </span>
+                      <span className="text-muted fs-5 mb-2" style={{ cursor: "default" }}>
                         ravidassiaabroad@gmail.com
-                      </a>
+                      </span>
                       <p className="mb-0">
                         Submit your local Sabha/temple, city, contact, and event
                         details to help others connect with Sangat.
@@ -881,9 +881,14 @@ export default function Home() {
       {/* ===== Contact (Offices) End ===== */}
 
       {/* Back to Top (optional; could be global) */}
-      <a href="#" className="btn btn-primary btn-lg-square back-to-top">
+      <button
+        type="button"
+        className="btn btn-primary btn-lg-square back-to-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+      >
         <i className="fa fa-arrow-up"></i>
-      </a>
+      </button>
     </>
   );
 }
