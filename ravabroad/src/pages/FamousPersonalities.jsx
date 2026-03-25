@@ -59,7 +59,7 @@ export default function FamousPersonalities() {
       </h2>
 
       {/* Filters */}
-      <div className="card p-3 mb-4 shadow-sm">
+      <div className="famous-filters card p-3 mb-4 shadow-sm">
         <div className="row g-3">
           <div className="col-6 col-md-3">
             <select
@@ -129,7 +129,7 @@ export default function FamousPersonalities() {
         {list.map((p, i) => (
           <div
             key={p.id}
-            className="col-6 col-md-4 col-lg-3 d-flex"
+            className="famous-card-col col-6 col-md-4 col-lg-3 d-flex"
             onClick={() => setSelectedIndex(i)}
             style={{ cursor: "pointer" }}
           >
@@ -170,7 +170,7 @@ export default function FamousPersonalities() {
       {/* Fullscreen Modal */}
       {selected && (
         <div
-          className="modal fade show"
+          className="famous-modal modal fade show"
           style={{
             display: "block",
             backgroundColor: "rgba(0,0,0,0.85)",
@@ -178,7 +178,7 @@ export default function FamousPersonalities() {
           }}
         >
           <div
-            className="modal-dialog modal-fullscreen"
+            className="famous-modal-dialog modal-dialog modal-fullscreen"
             style={{
               margin: 0,
               maxWidth: "100%",
@@ -187,7 +187,7 @@ export default function FamousPersonalities() {
           >
             <div className="modal-content border-0 bg-dark text-light h-100 overflow-hidden">
               {/* Header */}
-              <div className="modal-header border-0 bg-primary text-white">
+              <div className="famous-modal-header modal-header border-0 bg-primary text-white">
                 <h5 className="modal-title text-center w-100">
                   {selected.name}
                 </h5>
@@ -237,7 +237,7 @@ export default function FamousPersonalities() {
               </div>
 
               {/* Footer */}
-              <div className="modal-footer border-0 justify-content-between px-4 pb-4">
+              <div className="famous-modal-footer modal-footer border-0 justify-content-between px-4 pb-4">
                 <button
                   className="btn btn-outline-light btn-sm px-4"
                   onClick={handlePrev}

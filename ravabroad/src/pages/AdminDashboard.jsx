@@ -494,7 +494,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
 };
 
   return (
-    <div className="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
+    <div className="admin-dashboard d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
       {/* Sidebar */}
       <nav className="navbar show navbar-vertical h-lg-screen navbar-expand-lg px-0 py-3 navbar-light bg-white border-end-lg">
         <div className="container-fluid">

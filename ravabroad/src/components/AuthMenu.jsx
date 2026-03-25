@@ -78,7 +78,7 @@ const avatarContent = user.photo_url ? (
   </button>
 
   <ul
-    className="dropdown-menu dropdown-menu-end shadow-sm mt-2"
+    className="topbar-user-menu dropdown-menu dropdown-menu-end shadow-sm mt-2"
     aria-labelledby="userMenu"
   >
     <li className="dropdown-item-text fw-semibold">{user.name}</li>

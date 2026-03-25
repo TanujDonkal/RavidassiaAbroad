@@ -13,29 +13,29 @@
   background-color: #f8f9fa;
 }
 
-.navbar-vertical .nav-link.active {
+.admin-dashboard .navbar-vertical .nav-link.active {
   background-color: #e9ecef;
   font-weight: 600;
   border-radius: 6px;
 }
 
 /* Remove black lines (hover/active underline borders) from navbar links */
-.navbar-nav .nav-link::before,
-.navbar-nav .nav-link::after {
+.admin-dashboard .navbar-nav .nav-link::before,
+.admin-dashboard .navbar-nav .nav-link::after {
   display: none !important;
   content: none !important;
 }
 
 /* Optional: also remove border on hover or focus */
-.navbar-nav .nav-link:hover,
-.navbar-nav .nav-link:focus,
-.navbar-nav .nav-link.active {
+.admin-dashboard .navbar-nav .nav-link:hover,
+.admin-dashboard .navbar-nav .nav-link:focus,
+.admin-dashboard .navbar-nav .nav-link.active {
   border: none !important;
   box-shadow: none !important;
 }
 
 /* Keep your golden hover color */
-.navbar-nav .nav-link:hover {
+.admin-dashboard .navbar-nav .nav-link:hover {
   color: var(--brand-gold) !important;
 }
 
@@ -44,17 +44,17 @@
 ---------------------------------------------- */
 
 /* Sidebar styling */
-.navbar-vertical {
+.admin-dashboard .navbar-vertical {
   background-color: #ffffff !important;
   border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.navbar-vertical .navbar-brand img {
+.admin-dashboard .navbar-vertical .navbar-brand img {
   width: 130px;
   margin: 10px auto;
 }
 
-.navbar-vertical .nav-link {
+.admin-dashboard .navbar-vertical .nav-link {
   color: #1e1e1e !important;
   font-weight: 500;
   border-radius: 8px;
@@ -63,8 +63,8 @@
 }
 
 /* Hover & Active link effects */
-.navbar-vertical .nav-link:hover,
-.navbar-vertical .nav-link.active {
+.admin-dashboard .navbar-vertical .nav-link:hover,
+.admin-dashboard .navbar-vertical .nav-link.active {
   background-color: #fff9e6 !important;
   color: var(--brand-gold) !important;
   font-weight: 600;
@@ -72,67 +72,67 @@
 }
 
 /* Remove Webpixels default black lines */
-.navbar-nav .nav-link::before,
-.navbar-nav .nav-link::after {
+.admin-dashboard .navbar-nav .nav-link::before,
+.admin-dashboard .navbar-nav .nav-link::after {
   display: none !important;
   content: none !important;
 }
 
 /* Top header branding */
-header.bg-surface-primary {
+.admin-dashboard header.bg-surface-primary {
   background-color: #ffffff !important;
   border-bottom: 2px solid rgba(0, 0, 0, 0.05);
 }
 
-header .btn-primary {
+.admin-dashboard header .btn-primary {
   background-color: #ffcc00 !important;
   border-color: #ffcc00 !important;
   color: #1e1e1e !important;
   font-weight: 600;
 }
-header .btn-primary:hover {
+.admin-dashboard header .btn-primary:hover {
   background-color: #ffd633 !important;
 }
 
 /* Stat cards with subtle yellow border */
-.card {
+.admin-dashboard .card {
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
-.card .icon-shape.bg-primary,
-.card .icon-shape.bg-info,
-.card .icon-shape.bg-success,
-.card .icon-shape.bg-warning {
+.admin-dashboard .card .icon-shape.bg-primary,
+.admin-dashboard .card .icon-shape.bg-info,
+.admin-dashboard .card .icon-shape.bg-success,
+.admin-dashboard .card .icon-shape.bg-warning {
   background-color: #ffcc00 !important;
   color: #1e1e1e !important;
 }
 
 /* Headings */
-h1, h2, h3, h4, h5 {
+.admin-dashboard h1, .admin-dashboard h2, .admin-dashboard h3, .admin-dashboard h4, .admin-dashboard h5 {
   color: #1e1e1e;
   font-weight: 600;
 }
 
 /* Table header */
-.table thead {
+.admin-dashboard .table thead {
   background-color: #fff9e6;
   color: #1e1e1e;
   font-weight: 600;
 }
-.table-hover tbody tr:hover {
+.admin-dashboard .table-hover tbody tr:hover {
   background-color: #fffdf2;
 }
 
 
-.modal-content {
+.admin-dashboard .modal-content {
   border-radius: 1rem !important;
 }
 
-.modal-header {
+.admin-dashboard .modal-header {
   border-bottom: none;
 }
 
-.modal-footer {
+.admin-dashboard .modal-footer {
   border-top: none;
 }
 

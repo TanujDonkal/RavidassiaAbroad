@@ -57,7 +57,7 @@ export default function Home() {
       {/* ===== Navbar & Hero is handled by your Layout/Navbar components ===== */}
 
       {/* ===== Carousel Start ===== */}
-      <div className="carousel-header">
+      <div className="home-hero-carousel carousel-header">
         <div
           id="carouselId"
           className="carousel slide"
@@ -212,7 +212,7 @@ export default function Home() {
 
       {/* ===== Menus Start ===== */}
 
-      <Navbar bg="dark" variant="dark" className="border-bottom border-body">
+      <Navbar bg="dark" variant="dark" className="home-quick-links border-bottom border-body">
         <Container>
           <Nav className="mx-auto d-flex flex-wrap justify-content-center">
             {menus.length === 0 ? (
