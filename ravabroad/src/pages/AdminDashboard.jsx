@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { updateUserRole } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
-import { getRecipients, createUser, apiFetch } from "../utils/api";
+import { getRecipients, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import BlogFormModal from "../components/BlogFormModal";
 import PersonalityFormModal from "../components/PersonalityFormModal";

@@ -23,7 +23,7 @@ export default function FamousPersonalities() {
 
   useEffect(() => {
     fetchList();
-  }, [filters]);
+  }, [filters, fetchList]);
 
   const selected = selectedIndex !== null ? list[selectedIndex] : null;
 

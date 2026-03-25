@@ -1,14 +1,14 @@
 // src/pages/Home.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Carousel } from "bootstrap";
-import { Navbar, Nav, Container, NavDropdown } from "react-bootstrap";
+import { Navbar, Nav, Container } from "react-bootstrap";
 import { apiFetch } from "../utils/api";
 import { Link } from "react-router-dom";
 
 export default function Home() {
   const carouselRef = useRef(null);
   const [carousel, setCarousel] = useState(null);
-  const [slides, setSlides] = useState([]);
+  const [slides] = useState([]);
   const [menus, setMenus] = useState([]);
 
   useEffect(() => {

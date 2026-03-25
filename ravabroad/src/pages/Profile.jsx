@@ -67,7 +67,7 @@ export default function Profile() {
               <a href="/">Home</a>
             </li>
             <li className="breadcrumb-item">
-              <a href="javascript:void(0)">User</a>
+              <span role="button" tabIndex={0} style={{ cursor: "pointer", color: "#0d6efd", textDecoration: "underline" }} onClick={e => e.preventDefault()}>User</span>
             </li>
             <li className="breadcrumb-item active" aria-current="page">
               User Profile

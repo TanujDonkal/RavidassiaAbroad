@@ -145,7 +145,7 @@ export default function Auth() {
       }, 500);
       return () => clearInterval(interval);
     }
-  }, []);
+  }, [handleGoogleResponse]);
 
   return (
     <div className="auth-root">
