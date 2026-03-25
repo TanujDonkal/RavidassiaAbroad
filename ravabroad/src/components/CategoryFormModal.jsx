@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { apiFetch } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import GlobalLoader from "../components/GlobalLoader";
-import { API_BASE } from "../utils/api";
 
 export default function CategoryFormModal({ category = null, onClose, onSubmit }) {
   const popup = usePopup();
@@ -23,11 +22,7 @@ export default function CategoryFormModal({ category = null, onClose, onSubmit }
 
   const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/admin/categories`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await apiFetch("/admin/categories");
       setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch categories:", err);

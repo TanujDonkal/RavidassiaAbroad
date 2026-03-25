@@ -66,9 +66,9 @@ const avatarContent = user.photo_url ? (
 );
 
   return (
-    <div className="dropdown">
+    <div className="dropdown topbar-auth-dropdown">
   <button
-    className="btn dropdown-toggle p-0 border-0 bg-transparent d-flex align-items-center"
+    className="topbar-auth-toggle btn dropdown-toggle p-0 border-0 bg-transparent d-flex align-items-center justify-content-center"
     id="userMenu"
     data-bs-toggle="dropdown"
     aria-expanded="false"

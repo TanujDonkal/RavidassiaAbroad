@@ -1,10 +1,26 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Modal } from "bootstrap";
+import { useNavigate } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { apiFetch } from "../utils/api";
+import { usePopup } from "../components/PopupProvider";
+import {
+  clearBootstrapModalArtifacts,
+  createBootstrapModal,
+  destroyBootstrapModal,
+} from "../utils/bootstrapModal";
+import {
+  clearFormDraft,
+  loadFormDraft,
+  saveFormDraft,
+  setPostAuthRedirect,
+} from "../utils/formDrafts";
 import "../css/MatrimonialForm.css";
 
+const MATRIMONIAL_DRAFT_KEY = "matrimonial_form_draft";
+
 export default function MatrimonialForm() {
+  const navigate = useNavigate();
+  const popup = usePopup();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(null);
@@ -13,14 +29,47 @@ export default function MatrimonialForm() {
   const [submissionData, setSubmissionData] = useState(null);
   const [formValues, setFormValues] = useState({});
   const thanksRef = useRef(null);
+  const pendingSubmissionRefreshRef = useRef(false);
   const [thanksModal, setThanksModal] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const persistDraft = (nextFormValues = formValues, nextStep = step) => {
+    saveFormDraft(MATRIMONIAL_DRAFT_KEY, {
+      formValues: nextFormValues,
+      step: nextStep,
+    });
+  };
 
   // Init
   useEffect(() => {
-    if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
+    const thanksInstance = createBootstrapModal(thanksRef.current);
+    const thanksElement = thanksRef.current;
+    const savedDraft = loadFormDraft(MATRIMONIAL_DRAFT_KEY);
+
+    setThanksModal(thanksInstance);
     document.title = "Ravidassia Matrimonial Form 💍";
-    fetchMySubmission();
+    if (savedDraft?.formValues) {
+      setFormValues(savedDraft.formValues);
+      setStep(savedDraft.step || 1);
+    }
+
+    if (localStorage.getItem("token")) {
+      fetchMySubmission();
+    }
+
+    const handleThanksHidden = async () => {
+      clearBootstrapModalArtifacts();
+      if (pendingSubmissionRefreshRef.current) {
+        pendingSubmissionRefreshRef.current = false;
+        await fetchMySubmission();
+      }
+    };
+
+    thanksElement?.addEventListener("hidden.bs.modal", handleThanksHidden);
+
+    return () => {
+      thanksElement?.removeEventListener("hidden.bs.modal", handleThanksHidden);
+      destroyBootstrapModal(thanksInstance);
+    };
   }, []);
 
   // Fetch logged-in user's submission
@@ -32,21 +81,25 @@ export default function MatrimonialForm() {
         setSubmissionData(res.data);
         setFormValues(res.data); // ✅ prefill state
         if (res.data.photo_url) setPreview(res.data.photo_url);
+        clearFormDraft(MATRIMONIAL_DRAFT_KEY);
       } else {
         setSubmitted(false);
       }
     } catch (err) {
       console.warn("No previous submission:", err.message);
+      setSubmitted(false);
     }
   };
 
   // Handle change for all inputs
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormValues({
+    const nextFormValues = {
       ...formValues,
       [name]: type === "checkbox" ? checked : value,
-    });
+    };
+    setFormValues(nextFormValues);
+    persistDraft(nextFormValues);
   };
 
   // Validate step
@@ -73,18 +126,49 @@ export default function MatrimonialForm() {
     }
 
     setError("");
-    if (step < totalSteps) setStep(step + 1);
+    if (step < totalSteps) {
+      const nextStep = step + 1;
+      setStep(nextStep);
+      persistDraft(formValues, nextStep);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      const nextStep = step - 1;
+      setStep(nextStep);
+      persistDraft(formValues, nextStep);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!localStorage.getItem("token")) {
+      persistDraft(formValues, step);
+      setPostAuthRedirect("/matrimonial");
+      popup.open({
+        title: "Login Required",
+        message:
+          "Register or login to submit this form. Your entered details will be restored after auth. If you selected a new photo, you may need to choose it again.",
+        type: "confirm",
+        confirmText: "Register",
+        cancelText: "Login",
+        onConfirm: () =>
+          navigate("/auth?mode=signup", {
+            state: { redirectTo: "/matrimonial" },
+          }),
+        onCancel: () =>
+          navigate("/auth", {
+            state: { redirectTo: "/matrimonial" },
+          }),
+      });
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -105,10 +189,11 @@ export default function MatrimonialForm() {
         throw new Error(res.message || "Failed to submit form");
       }
 
+      clearFormDraft(MATRIMONIAL_DRAFT_KEY);
       setPreview(null);
       setStep(1);
-      thanksModal && thanksModal.show();
-      await fetchMySubmission();
+      pendingSubmissionRefreshRef.current = true;
+      thanksModal?.show();
     } catch (err) {
       setError(err.message || "Something went wrong.");
     } finally {

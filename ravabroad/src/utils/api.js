@@ -93,8 +93,44 @@ export function getMatrimonialSubmissions() {
   return apiFetch("/admin/matrimonial");
 }
 
+const ADMIN_COLLECTION_PATHS = {
+  users: "users",
+  "scst-submissions": "scst-submissions",
+  scst: "scst-submissions",
+  matrimonial: "matrimonial",
+  blogs: "blogs",
+  categories: "categories",
+  recipients: "recipients",
+  "content-requests": "content-requests",
+  menus: "menus",
+  personalities: "personalities",
+};
+
+function resolveAdminCollectionPath(type) {
+  return ADMIN_COLLECTION_PATHS[type] || type;
+}
+
 export function deleteSubmission(type, id) {
-  return apiFetch(`/admin/${type}/${id}`, { method: "DELETE" });
+  const path = resolveAdminCollectionPath(type);
+  return apiFetch(`/admin/${path}/${id}`, { method: "DELETE" });
+}
+
+export function bulkDeleteAdminItems(type, ids) {
+  const path = resolveAdminCollectionPath(type);
+  return apiFetch(`/admin/${path}/bulk-delete`, {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export function uploadAdminImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  return apiFetch("/admin/blogs/upload", {
+    method: "POST",
+    body: formData,
+  });
 }
 
 // ----------------------------

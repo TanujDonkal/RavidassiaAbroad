@@ -436,12 +436,19 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(409).json({ message: "Email already registered" });
 
     const hash = await bcrypt.hash(password, 10);
-    await pool.query(
-      "INSERT INTO users (name, email, password_hash) VALUES ($1,$2,$3)",
+    const inserted = await pool.query(
+      "INSERT INTO users (name, email, password_hash) VALUES ($1,$2,$3) RETURNING id, name, email, role, photo_url, phone, city",
       [name, email, hash]
     );
 
-    res.status(201).json({ message: "User created successfully" });
+    const user = inserted.rows[0];
+    const token = jwt.sign(
+      { id: user.id, role: user.role, name: user.name, email: user.email },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({ message: "User created successfully", token, user });
   } catch (err) {
     console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
@@ -544,10 +551,9 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
 });
 
 // ---- SC/ST SUBMISSION ----
-app.post("/api/scst-submissions", async (req, res) => {
+app.post("/api/scst-submissions", requireAuth, async (req, res) => {
   try {
-    const u = decodeUserIfAny(req);
-    const userId = u?.id ?? null;
+    const userId = req.user.id;
     const {
       name,
       email,
@@ -565,6 +571,42 @@ app.post("/api/scst-submissions", async (req, res) => {
       return res
         .status(400)
         .json({ message: "name, email, and country required" });
+
+    const existing = await pool.query(
+      "SELECT id FROM scst_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [userId]
+    );
+
+    if (existing.rows.length > 0) {
+      const existingId = existing.rows[0].id;
+      await pool.query(
+        `UPDATE scst_submissions SET
+          name=$1, email=$2, country=$3, state=$4, city=$5,
+          phone=$6, platform=$7, instagram=$8, proof=$9, message=$10,
+          status='pending', replied=false, replied_at=NULL
+         WHERE id=$11`,
+        [
+          name,
+          email,
+          country,
+          state,
+          city,
+          phone,
+          platform,
+          instagram,
+          proof,
+          message,
+          existingId,
+        ]
+      );
+
+      await pool.query(
+        "DELETE FROM scst_submissions WHERE user_id=$1 AND id <> $2",
+        [userId, existingId]
+      );
+
+      return res.json({ message: "Submission updated successfully" });
+    }
 
     await pool.query(
       `INSERT INTO scst_submissions
@@ -636,11 +678,12 @@ app.get("/api/scst-submissions/mine", async (req, res) => {
 // ✅ Create / Update Matrimonial Submission
 app.post(
   "/api/matrimonial-submissions",
+  requireAuth,
   uploadMatrimonial.single("photo"),
   async (req, res) => {
     try {
       const d = req.body || {};
-      const userId = decodeUserIfAny(req)?.id ?? null;
+      const userId = req.user.id;
 
       // Normalize fields from frontend
       d.origin_state = d.home_state_india || d.origin_state;
@@ -656,7 +699,7 @@ app.post(
 
       // Check if this user already has a submission
       const existing = await pool.query(
-        "SELECT id FROM matrimonial_submissions WHERE user_id=$1",
+        "SELECT id FROM matrimonial_submissions WHERE user_id=$1 ORDER BY created_at DESC",
         [userId]
       );
 
@@ -712,6 +755,11 @@ app.post(
             d.religion_beliefs || null,
             userId,
           ]
+        );
+
+        await pool.query(
+          "DELETE FROM matrimonial_submissions WHERE user_id=$1 AND id <> $2",
+          [userId, id]
         );
 
         return res.json({ message: "✅ Biodata updated successfully!" });
@@ -893,6 +941,32 @@ app.delete(
     } catch (err) {
       console.error("Matrimonial delete error:", err);
       res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/matrimonial/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+
+      await pool.query("DELETE FROM matrimonial_submissions WHERE id = ANY($1)", [
+        ids,
+      ]);
+
+      res.json({
+        message: `Deleted ${ids.length} matrimonial submissions successfully`,
+      });
+    } catch (err) {
+      console.error("Matrimonial bulk delete error:", err);
+      res.status(500).json({ message: "Server error during bulk delete" });
     }
   }
 );
@@ -1184,6 +1258,30 @@ app.delete(
     } catch (err) {
       console.error("Delete content request error:", err);
       res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/content-requests/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No IDs provided" });
+      }
+
+      await pool.query("DELETE FROM content_requests WHERE id = ANY($1)", [ids]);
+
+      res.json({
+        message: `Deleted ${ids.length} content requests successfully`,
+      });
+    } catch (err) {
+      console.error("Bulk delete content requests error:", err);
+      res.status(500).json({ message: "Server error during bulk delete" });
     }
   }
 );
@@ -2071,9 +2169,19 @@ app.post(
   requireAdmin,
   async (req, res) => {
     try {
-      const { name, email, country, phone, groupLink } = req.body;
-      if (!email || !country)
-        return res.status(400).json({ message: "Email and country required" });
+      const {
+        submissionId,
+        name,
+        email,
+        country,
+        phone,
+        groupLink,
+        rules: submittedRules,
+      } = req.body;
+      if (!email || !country || !groupLink)
+        return res
+          .status(400)
+          .json({ message: "Email, country, and group link are required" });
 
       // 🟡 1️⃣ Dynamic Welcome Section
       const welcomeText = `🙏 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
@@ -2085,14 +2193,18 @@ We encourage discussions on cultural events, education, career development, and 
 Together, we can ensure that our community thrives and that every member feels supported. 🌍`;
 
       // 🟡 2️⃣ Group Rules (cleaned list)
-      const rules = [
-        "Always keep discussions relevant to the community — avoid off-topic or spam posts.",
-        "Respect all members; absolutely no hate speech, casteism, or political arguments.",
-        "Don’t share fake news, unverified forwards, or large media files.",
-        "Keep long personal conversations private (use direct messages).",
+      const defaultRules = [
+        "Always keep discussions relevant to the community and avoid off-topic or spam posts.",
+        "Respect all members and avoid hate speech, casteism, or political arguments.",
+        "Do not share fake news, unverified forwards, or large media files.",
+        "Keep long personal conversations private and use direct messages.",
         "Ask before adding anyone new to the group.",
-        "Express gratitude privately — avoid flooding chat with 'thank you' messages.",
+        "Express gratitude privately and avoid flooding chat with thank you messages.",
       ];
+      const rules =
+        Array.isArray(submittedRules) && submittedRules.length > 0
+          ? submittedRules.map((rule) => String(rule).trim()).filter(Boolean)
+          : defaultRules;
 
       //🟡 3️⃣ Build Email HTML Template
       const html = `
@@ -2102,11 +2214,11 @@ Together, we can ensure that our community thrives and that every member feels s
         <p><strong>WhatsApp Group Link:</strong> 
           <a href="${groupLink}" target="_blank" style="color:#007bff;">Join Here</a>
         </p>
-        <h3>📜 Group Rules:</h3>
+        <h3>Group Rules:</h3>
         <ul>
           ${rules.map((r) => `<li>${r}</li>`).join("")}
         </ul>
-        <p>🕊️ If you see fewer members right now, please be patient — we’re adding more daily.</p>
+        <p>If you see fewer members right now, please be patient. We are adding more daily.</p>
         <p style="margin-top:20px;">Warm regards,<br/><strong>The Ravidassia Abroad Team</strong></p>
       </div>
     `;
@@ -2115,7 +2227,7 @@ Together, we can ensure that our community thrives and that every member feels s
         const sent = await resend.emails.send({
           from: "Ravidassia Abroad <onboarding@resend.dev>",
           to: email,
-          subject: `Welcome to Ravidassia Abroad ${country} WhatsApp Group 🎉`,
+          subject: `Welcome to Ravidassia Abroad ${country} WhatsApp Group`,
           html,
         });
         console.log("✅ Reply email sent via Resend:", sent.id || sent);
@@ -2125,7 +2237,7 @@ Together, we can ensure that our community thrives and that every member feels s
 
       // 🟡 5️⃣ Build WhatsApp Message (same content as plain text)
       const whatsappMessage = `
-Jai Gurudev Ji ${name}! 🙏
+Jai Gurudev Ji ${name}!
 
 Welcome to the Ravidassia Abroad ${country} WhatsApp group!
 
@@ -2135,32 +2247,39 @@ Our goal is to create a strong, united community where members can freely exchan
 We encourage discussions on cultural events, education, career development, and community issues.
 Whether you’re new to the country or have been here for years, this group is here to help you build connections, find guidance, and create lasting friendships.
 
-Together, we can ensure that our community thrives and that every member feels supported. 🌍
+Together, we can ensure that our community thrives and that every member feels supported.
 
-📎 Join Group: ${groupLink}
+Join Group: ${groupLink}
 
-📜 Group Rules:
+Group Rules:
 ${rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-🕊️ If you see fewer members right now, please be patient — we’re adding more daily.
+If you see fewer members right now, please be patient. We are adding more daily.
 
 Warm regards,
 The Ravidassia Abroad Team
 `;
 
-      const whatsapp_link = phone
-        ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappMessage)}`
+      const normalizedPhone = String(phone || "").replace(/\D/g, "");
+      const whatsapp_link = normalizedPhone
+        ? `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(whatsappMessage)}`
         : null;
 
-      // ✅ Mark user as replied in DB
-      await pool.query(
-        "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE email = $1",
-        [email]
-      );
+      if (submissionId) {
+        await pool.query(
+          "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE id = $1",
+          [submissionId]
+        );
+      } else {
+        await pool.query(
+          "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE email = $1",
+          [email]
+        );
+      }
 
       // 🟡 6️⃣ Respond to Frontend
       res.json({
-        message: "✅ Reply email sent successfully!",
+        message: "Reply email sent successfully!",
         whatsapp_link,
       });
     } catch (err) {

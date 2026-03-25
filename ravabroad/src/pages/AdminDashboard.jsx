@@ -1,17 +1,42 @@
 // src/pages/AdminDashboard.jsx
-import React, { useEffect, useState } from "react";
-import { updateUserRole } from "../utils/api";
+import React, { Suspense, lazy, useEffect, useState } from "react";
+import { bulkDeleteAdminItems, deleteSubmission, updateUserRole } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { getRecipients, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
-import BlogFormModal from "../components/BlogFormModal";
-import PersonalityFormModal from "../components/PersonalityFormModal";
-import CategoryFormModal from "../components/CategoryFormModal";
-import { API_BASE } from "../utils/api";
-import ArticleManager from "../components/ArticleManager";
 import html2canvas from "html2canvas";
 
+const PersonalityFormModal = lazy(() => import("../components/PersonalityFormModal"));
+const ArticleManager = lazy(() => import("../components/ArticleManager"));
+const AdminBlogsSection = lazy(() => import("../components/admin/AdminBlogsSection"));
+const AdminCategoriesSection = lazy(() => import("../components/admin/AdminCategoriesSection"));
+const AdminContentRequestsSection = lazy(() =>
+  import("../components/admin/AdminContentRequestsSection")
+);
+const AdminMatrimonialSection = lazy(() =>
+  import("../components/admin/AdminMatrimonialSection")
+);
+const AdminMenuModal = lazy(() => import("../components/admin/AdminMenuModal"));
+const AdminPersonalitiesSection = lazy(() =>
+  import("../components/admin/AdminPersonalitiesSection")
+);
+const AdminRecipientsSection = lazy(() =>
+  import("../components/admin/AdminRecipientsSection")
+);
+const AdminReplyModal = lazy(() => import("../components/admin/AdminReplyModal"));
+const AdminScstSubmissionsSection = lazy(() =>
+  import("../components/admin/AdminScstSubmissionsSection")
+);
+const AdminSubmissionDetailsModal = lazy(() => import("../components/admin/AdminSubmissionDetailsModal"));
+const AdminUsersSection = lazy(() => import("../components/admin/AdminUsersSection"));
+
 export default function AdminDashboard() {
+  const createDefaultReplyForm = () => ({
+    groupLink: "",
+    rules:
+      "1. Respect all members.\n2. Avoid spam or hate speech.\n3. Keep discussions about community growth and unity.",
+  });
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]); // SC/ST
@@ -23,7 +48,6 @@ export default function AdminDashboard() {
   const [blogs, setBlogs] = useState([]);
   const popup = usePopup();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const token = localStorage.getItem("token");
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showBlogModal, setShowBlogModal] = useState(false);
@@ -40,11 +64,7 @@ export default function AdminDashboard() {
 
   // 💬 Reply modal state (for SC/ST connect)
   const [replyTarget, setReplyTarget] = useState(null);
-  const [replyForm, setReplyForm] = useState({
-    groupLink: "",
-    rules:
-      "1. Respect all members.\n2. Avoid spam or hate speech.\n3. Keep discussions about community growth and unity.",
-  });
+  const [replyForm, setReplyForm] = useState(createDefaultReplyForm);
 
   const MATRIMONIAL_LABELS = {
   dob: "Date of Birth",
@@ -91,43 +111,25 @@ export default function AdminDashboard() {
         const headers = { Authorization: `Bearer ${token}` };
 
         if (activeTab === "blogs") {
-          const res = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/blogs`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const data = await res.json();
+          const data = await apiFetch("/admin/blogs");
           setBlogs(Array.isArray(data) ? data : []);
         }
 
         // USERS
         if (activeTab === "users" || activeTab === "dashboard") {
-          const usersRes = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/users`,
-            { headers }
-          );
-          const usersData = await usersRes.json();
+          const usersData = await apiFetch("/admin/users", { headers });
           setUsers(Array.isArray(usersData) ? usersData : []);
         }
 
         // SC/ST SUBMISSIONS
         if (activeTab === "submissions" || activeTab === "dashboard") {
-          const subsRes = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/scst-submissions`,
-            { headers }
-          );
-          const subsData = await subsRes.json();
+          const subsData = await apiFetch("/admin/scst-submissions", { headers });
           setSubmissions(Array.isArray(subsData) ? subsData : []);
         }
 
         // MATRIMONIAL SUBMISSIONS
         if (activeTab === "matrimonial" || activeTab === "dashboard") {
-          const matrRes = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/matrimonial`,
-            { headers }
-          );
-          const matrData = await matrRes.json();
+          const matrData = await apiFetch("/admin/matrimonial", { headers });
           setMatrimonialSubs(Array.isArray(matrData) ? matrData : []);
         }
 
@@ -138,33 +140,17 @@ export default function AdminDashboard() {
         }
 
         if (activeTab === "contentRequests") {
-          const res = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/content-requests`,
-            { headers }
-          );
-          const data = await res.json();
+          const data = await apiFetch("/admin/content-requests", { headers });
           setSubmissions(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "categories") {
-          const res = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/categories`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const data = await res.json();
+          const data = await apiFetch("/admin/categories", { headers });
           setCategories(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "menus") {
-          const res = await fetch(
-            `${API_BASE.replace("/api", "")}/api/admin/menus`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const data = await res.json();
+          const data = await apiFetch("/admin/menus", { headers });
           setMenus(Array.isArray(data) ? data : []);
         }
       } catch (err) {
@@ -212,14 +198,259 @@ export default function AdminDashboard() {
 
   const fetchPersonalities = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/admin/personalities`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await apiFetch("/admin/personalities");
       setPersonalities(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("❌ Failed to fetch personalities:", err);
+    }
+  };
+
+  const fetchMenus = async () => {
+    try {
+      const data = await apiFetch("/admin/menus");
+      setMenus(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch menus:", err);
+    }
+  };
+
+  const fetchBlogs = async () => {
+    try {
+      const data = await apiFetch("/admin/blogs");
+      setBlogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn("Blog list refresh failed:", err.message);
+    }
+  };
+
+  const fetchCategoriesList = async () => {
+    try {
+      const data = await apiFetch("/admin/categories");
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn("Category list refresh failed:", err.message);
+    }
+  };
+
+  const fetchScstSubmissions = async () => {
+    try {
+      const data = await apiFetch("/admin/scst-submissions");
+      setSubmissions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to refresh SC/ST submissions:", err);
+    }
+  };
+
+  const handleSelectedMenuChange = (field, value) => {
+    setSelectedMenu((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveMenu = async (e) => {
+    e.preventDefault();
+    try {
+      const method = selectedMenu.id ? "PUT" : "POST";
+      const url = selectedMenu.id
+        ? `/admin/menus/${selectedMenu.id}`
+        : "/admin/menus";
+
+      await apiFetch(url, {
+        method,
+        body: JSON.stringify(selectedMenu),
+      });
+
+      await fetchMenus();
+      popup.open({
+        title: "âœ… Saved",
+        message: "Menu saved successfully",
+        type: "success",
+      });
+      setSelectedMenu(null);
+    } catch (err) {
+      popup.open({
+        title: "âŒ Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
+  const handleReplyFormChange = (field, value) => {
+    setReplyForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleOpenReplyModal = (submission) => {
+    setReplyTarget(submission);
+    setReplyForm(createDefaultReplyForm());
+  };
+
+  const handleCloseReplyModal = () => {
+    setReplyTarget(null);
+    setReplyForm(createDefaultReplyForm());
+  };
+
+  const handleToggleSelection = (id, checked) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((itemId) => itemId !== id)
+    );
+  };
+
+  const handleBlogModalSubmit = async (updatedBlog) => {
+    if (updatedBlog?.id) {
+      setBlogs((prev) =>
+        prev.map((blog) => (blog.id === updatedBlog.id ? updatedBlog : blog))
+      );
+    } else if (updatedBlog) {
+      setBlogs((prev) => [updatedBlog, ...prev]);
+    }
+
+    await fetchBlogs();
+    setShowBlogModal(false);
+    setSelectedBlog(null);
+  };
+
+  const handleCategoryModalSubmit = async () => {
+    await fetchCategoriesList();
+    setShowCategoryModal(false);
+    setSelectedCategory(null);
+  };
+
+  const handlePersonalitiesBulkDelete = async () => {
+    popup.open({
+      title: "Confirm Deletion",
+      message: `Are you sure you want to delete ${selectedIds.length} selected record(s)?`,
+      type: "confirm",
+      onConfirm: async () => {
+        try {
+          popup.open({
+            title: "Deleting...",
+            message: "Please wait while we delete selected records.",
+            type: "loading",
+          });
+          const data = await apiFetch("/admin/personalities/bulk-delete", {
+            method: "POST",
+            body: JSON.stringify({ ids: selectedIds }),
+          });
+          popup.open({
+            title: "âœ… Deleted",
+            message: data.message || "Bulk delete successful.",
+            type: "success",
+          });
+          setPersonalities((prev) =>
+            prev.filter((personality) => !selectedIds.includes(personality.id))
+          );
+          setSelectedIds([]);
+          setSelectAll(false);
+        } catch (err) {
+          console.error("âŒ Bulk delete error:", err);
+          popup.open({
+            title: "âŒ Error",
+            message: "Bulk delete failed. Please try again.",
+            type: "error",
+          });
+        }
+      },
+    });
+  };
+
+  const handleAddRecipient = async (e) => {
+    e.preventDefault();
+    const email = e.target.email.value.trim();
+    if (!email) return;
+
+    try {
+      await apiFetch("/admin/recipients", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      popup.open({
+        title: "âœ… Added",
+        message: `${email} will now receive notifications`,
+        type: "success",
+      });
+      e.target.reset();
+      const data = await getRecipients();
+      setRecipients(Array.isArray(data) ? data : []);
+    } catch (err) {
+      popup.open({
+        title: "âŒ Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
+  const handleRemoveRecipient = async (recipientId, email) => {
+    let confirmed = false;
+    await new Promise((resolve) => {
+      popup.open({
+        title: "Confirm Remove",
+        message: `Remove ${email}?`,
+        type: "confirm",
+        onConfirm: () => {
+          confirmed = true;
+          resolve();
+        },
+        onCancel: () => {
+          resolve();
+        },
+      });
+    });
+
+    if (!confirmed) return;
+
+    await apiFetch(`/admin/recipients/${recipientId}`, {
+      method: "DELETE",
+    });
+    setRecipients((prev) => prev.filter((recipient) => recipient.id !== recipientId));
+    popup.open({
+      title: "ðŸ—‘ï¸ Removed",
+      message: `${email} will no longer receive alerts`,
+      type: "success",
+    });
+  };
+
+  const handleSendReply = async () => {
+    try {
+      const res = await apiFetch("/admin/scst-reply", {
+        method: "POST",
+        body: JSON.stringify({
+          submissionId: replyTarget.id,
+          name: replyTarget.name,
+          email: replyTarget.email,
+          country: replyTarget.country,
+          phone: replyTarget.phone,
+          groupLink: replyForm.groupLink,
+          rules: replyForm.rules
+            .split("\n")
+            .filter((r) => r.trim() !== ""),
+        }),
+      });
+
+      if (res.whatsapp_link) {
+        window.open(res.whatsapp_link, "_blank");
+      }
+
+      popup.open({
+        title: "âœ… Sent",
+        message: `Reply email sent to ${replyTarget.email} and WhatsApp message ready.`,
+        type: "success",
+      });
+
+      handleCloseReplyModal();
+      await fetchScstSubmissions();
+    } catch (err) {
+      console.error("Reply error:", err);
+      popup.open({
+        title: "âŒ Error",
+        message: err.message,
+        type: "error",
+      });
     }
   };
 
@@ -251,11 +482,7 @@ export default function AdminDashboard() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`${API_BASE}/admin/${type}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await deleteSubmission(type, id);
       popup.open({
         title: "Deleted",
         message: data.message || "Item deleted successfully.",
@@ -313,15 +540,7 @@ export default function AdminDashboard() {
             type: "loading",
           });
 
-          const res = await fetch(`${API_BASE}/admin/${type}/bulk-delete`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ ids: selectedIds }),
-          });
-          const data = await res.json();
+          const data = await bulkDeleteAdminItems(type, selectedIds);
 
           popup.open({
             title: "✅ Deleted",
@@ -393,6 +612,7 @@ export default function AdminDashboard() {
       color: "bg-danger",
     },
   ];
+  const suspenseFallback = <div className="text-center py-4">Loading...</div>;
   // ✅ PRINT MATRIMONIAL POST / REEL IN BRAND STYLE WITH GOLD GLOW ANIMATION
 const handleDownloadInstagramCard = async (data, format = "post") => {
 
@@ -583,1222 +803,225 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   </div>
                 )}
 
-                {/* BLOGS TAB */}
                 {activeTab === "blogs" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Blog Posts</h5>
-                      <div className="d-flex gap-2 align-items-center">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={selectedIds.length === 0}
-                          onClick={() => handleBulkDelete("blogs")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            setSelectedBlog(null);
-                            setShowBlogModal(true);
-                          }}
-                        >
-                          + New Post
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll && blogs.length > 0 && blogs.every((b) => selectedIds.includes(b.id))}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(checked ? blogs.map((b) => b.id) : []);
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Category</th>
-                            <th>Views</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {blogs.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="8"
-                                className="text-center text-muted py-4"
-                              >
-                                No blog posts yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            blogs.map((b) => (
-                              <tr key={b.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(b.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, b.id]
-                                          : prev.filter((id) => id !== b.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{b.id}</td>
-                                <td>{b.title}</td>
-                                <td>{b.category_name || "—"}</td>
-                                <td>{b.views}</td>
-                                <td>{b.status}</td>
-                                <td>
-                                  {new Date(b.created_at).toLocaleDateString()}
-                                </td>
-                                <td className="text-end">
-                                  <button
-                                    className="btn btn-warning btn-sm me-2"
-                                    onClick={() => {
-                                      setSelectedBlog(b);
-                                      setShowBlogModal(true);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => handleDelete("blogs", b.id)}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* ✅ Blog Form Modal */}
-                    {showBlogModal && (
-                      <BlogFormModal
-                        blog={selectedBlog}
-                        onClose={() => {
-                          setShowBlogModal(false);
-                          setSelectedBlog(null);
-                        }}
-                        onSubmit={(updatedBlog) => {
-                          // Add a re-fetch so views/other data refresh
-                          // ✅ Instantly update local list (no manual refresh)
-                          if (updatedBlog?.id) {
-                            // existing blog edited
-                            setBlogs((prev) =>
-                              prev.map((b) =>
-                                b.id === updatedBlog.id ? updatedBlog : b
-                              )
-                            );
-                          } else if (updatedBlog) {
-                            // new blog added
-                            setBlogs((prev) => [updatedBlog, ...prev]);
-                          }
-
-                          // Optional: background re-fetch for accuracy
-                          (async () => {
-                            try {
-                              const token = localStorage.getItem("token");
-                              const res = await fetch(
-                                `${API_BASE.replace(
-                                  "/api",
-                                  ""
-                                )}/api/admin/blogs`,
-                                {
-                                  headers: { Authorization: `Bearer ${token}` },
-                                }
-                              );
-                              const refreshed = await res.json();
-                              setBlogs(
-                                Array.isArray(refreshed) ? refreshed : []
-                              );
-                            } catch (err) {
-                              console.warn(
-                                "⚠️ Blog list refresh failed:",
-                                err.message
-                              );
-                            }
-                          })();
-
-                          setShowBlogModal(false);
-                        }}
-                      />
-                    )}
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminBlogsSection
+                      blogs={blogs}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(checked ? blogs.map((b) => b.id) : []);
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("blogs")}
+                      onNew={() => {
+                        setSelectedBlog(null);
+                        setShowBlogModal(true);
+                      }}
+                      onEdit={(blog) => {
+                        setSelectedBlog(blog);
+                        setShowBlogModal(true);
+                      }}
+                      onDelete={(blogId) => handleDelete("blogs", blogId)}
+                      showBlogModal={showBlogModal}
+                      selectedBlog={selectedBlog}
+                      onCloseModal={() => {
+                        setShowBlogModal(false);
+                        setSelectedBlog(null);
+                      }}
+                      onSubmitModal={handleBlogModalSubmit}
+                    />
+                  </Suspense>
                 )}
 
-                {/* CATEGORIES TAB */}
                 {activeTab === "categories" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Blog Categories</h5>
-                      <div className="d-flex gap-2 align-items-center">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={selectedIds.length === 0}
-                          onClick={() => handleBulkDelete("categories")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            setSelectedCategory(null);
-                            setShowCategoryModal(true);
-                          }}
-                        >
-                          + New Category
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll && categories.length > 0 && categories.every((c) => selectedIds.includes(c.id))}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(checked ? categories.map((c) => c.id) : []);
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Slug</th>
-                            <th>Parent</th>
-                            <th>Description</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {categories.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="7"
-                                className="text-center text-muted py-4"
-                              >
-                                No categories yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            categories.map((c) => (
-                              <tr key={c.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(c.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, c.id]
-                                          : prev.filter((id) => id !== c.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{c.id}</td>
-                                <td>{c.name}</td>
-                                <td>{c.slug}</td>
-                                <td>{c.parent_id || "—"}</td>
-                                <td>{c.description || "—"}</td>
-                                <td className="text-end">
-                                  <button
-                                    className="btn btn-warning btn-sm me-2"
-                                    onClick={() => {
-                                      setSelectedCategory(c);
-                                      setShowCategoryModal(true);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() =>
-                                      handleDelete("categories", c.id)
-                                    }
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {showCategoryModal && (
-                      <CategoryFormModal
-                        category={selectedCategory}
-                        onClose={() => {
-                          setShowCategoryModal(false);
-                          setSelectedCategory(null);
-                        }}
-                        onSubmit={async () => {
-                          const token = localStorage.getItem("token");
-                          const res = await fetch(
-                            `${API_BASE.replace(
-                              "/api",
-                              ""
-                            )}/api/admin/categories`,
-                            { headers: { Authorization: `Bearer ${token}` } }
-                          );
-                          const refreshed = await res.json();
-                          setCategories(
-                            Array.isArray(refreshed) ? refreshed : []
-                          );
-                        }}
-                      />
-                    )}
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminCategoriesSection
+                      categories={categories}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(checked ? categories.map((c) => c.id) : []);
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("categories")}
+                      onNew={() => {
+                        setSelectedCategory(null);
+                        setShowCategoryModal(true);
+                      }}
+                      onEdit={(category) => {
+                        setSelectedCategory(category);
+                        setShowCategoryModal(true);
+                      }}
+                      onDelete={(categoryId) =>
+                        handleDelete("categories", categoryId)
+                      }
+                      showCategoryModal={showCategoryModal}
+                      selectedCategory={selectedCategory}
+                      onCloseModal={() => {
+                        setShowCategoryModal(false);
+                        setSelectedCategory(null);
+                      }}
+                      onSubmitModal={handleCategoryModalSubmit}
+                    />
+                  </Suspense>
                 )}
 
-                {/* USERS */}
                 {activeTab === "users" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Users</h5>
-                      {currentUser.role === "main_admin" &&
-                        selectedIds.length > 0 && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleBulkDelete("users")}
-                          >
-                            Delete Selected ({selectedIds.length})
-                          </button>
-                        )}
-                    </div>
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(
-                                    checked ? users.map((u) => u.id) : []
-                                  );
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Created</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="7"
-                                className="text-center text-muted py-4"
-                              >
-                                No users found.
-                              </td>
-                            </tr>
-                          ) : (
-                            users.map((u) => (
-                              <tr key={u.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(u.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, u.id]
-                                          : prev.filter((id) => id !== u.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{u.id}</td>
-                                <td>{u.name}</td>
-                                <td>{u.email}</td>
-                                <td>
-                                  <select
-                                    value={u.role}
-                                    className="form-select form-select-sm"
-                                    onChange={(e) =>
-                                      handleRoleChange(u.id, e.target.value)
-                                    }
-                                    disabled={currentUser.role !== "main_admin"}
-                                  >
-                                    <option value="user">User</option>
-                                    <option value="moderate_admin">
-                                      Moderate Admin
-                                    </option>
-                                    <option value="main_admin">
-                                      Main Admin
-                                    </option>
-                                  </select>
-                                </td>
-                                <td>
-                                  {new Date(u.created_at).toLocaleDateString()}
-                                </td>
-                                <td className="text-end">
-                                  {currentUser.role === "main_admin" && (
-                                    <button
-                                      className="btn btn-sm btn-danger"
-                                      onClick={() =>
-                                        handleDelete("users", u.id)
-                                      }
-                                    >
-                                      Delete
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminUsersSection
+                      users={users}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      currentUser={currentUser}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(checked ? users.map((u) => u.id) : []);
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("users")}
+                      onRoleChange={handleRoleChange}
+                      onDelete={(userId) => handleDelete("users", userId)}
+                    />
+                  </Suspense>
                 )}
 
-                {/* SC/ST SUBMISSIONS */}
                 {activeTab === "submissions" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">SC/ST Connect Submissions</h5>
-                      {selectedIds.length > 0 && (
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleBulkDelete("scst-submissions")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                      )}
-                    </div>
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(
-                                    checked ? submissions.map((s) => s.id) : []
-                                  );
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Country</th>
-                            <th>City</th>
-                            <th>Platform</th>
-                            <th>Phone</th>
-                            <th>Created</th>
-                            <th>Data</th>
-                            <th>Reply</th>
-                            <th>Status</th>
-                            <th>Delete</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {submissions.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="10"
-                                className="text-center text-muted py-4"
-                              >
-                                No submissions yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            submissions.map((s) => (
-                              <tr key={s.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(s.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, s.id]
-                                          : prev.filter((id) => id !== s.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{s.id}</td>
-                                <td>{s.name}</td>
-                                <td>{s.email}</td>
-                                <td>{s.country}</td>
-                                <td>{s.city || "-"}</td>
-                                <td>{s.platform || "-"}</td>
-                                <td>{s.phone || "-"}</td>
-                                <td>
-                                  {new Date(s.created_at).toLocaleDateString()}
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-info"
-                                    onClick={() => handleOpenModal(s)}
-                                  >
-                                    View All
-                                  </button>
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-success me-2"
-                                    onClick={() => setReplyTarget(s)}
-                                  >
-                                    Reply
-                                  </button>
-                                </td>
-                                <td>
-                                  {s.replied ? (
-                                    <span
-                                      className="badge bg-success"
-                                      title={`Replied on ${new Date(
-                                        s.replied_at
-                                      ).toLocaleString()}`}
-                                    >
-                                      ✅ Replied –{" "}
-                                      {new Date(
-                                        s.replied_at
-                                      ).toLocaleDateString(undefined, {
-                                        year: "numeric",
-                                        month: "short",
-                                        day: "numeric",
-                                      })}{" "}
-                                      at{" "}
-                                      {new Date(
-                                        s.replied_at
-                                      ).toLocaleTimeString(undefined, {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                    </span>
-                                  ) : (
-                                    <span className="badge bg-warning text-dark">
-                                      ⏳ Pending
-                                    </span>
-                                  )}
-                                </td>
-
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-danger"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete("scst-submissions", s.id);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminScstSubmissionsSection
+                      submissions={submissions}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? submissions.map((s) => s.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("scst-submissions")}
+                      onView={handleOpenModal}
+                      onReply={handleOpenReplyModal}
+                      onDelete={(submissionId) =>
+                        handleDelete("scst-submissions", submissionId)
+                      }
+                    />
+                  </Suspense>
                 )}
 
-                {/* MATRIMONIAL */}
                 {activeTab === "matrimonial" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Matrimonial Submissions</h5>
-                      {selectedIds.length > 0 && (
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleBulkDelete("matrimonial")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                      )}
-                    </div>
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(
-                                    checked
-                                      ? matrimonialSubs.map((s) => s.id)
-                                      : []
-                                  );
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Country</th>
-                            <th>City</th>
-                            <th>Created</th>
-                            <th>Data</th>
-                            <th>Download Data</th>
-                            <th>Delete</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {matrimonialSubs.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="8"
-                                className="text-center text-muted py-4"
-                              >
-                                No submissions yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            matrimonialSubs.map((s) => (
-                              <tr key={s.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(s.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, s.id]
-                                          : prev.filter((id) => id !== s.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{s.id}</td>
-                                <td>{s.name}</td>
-                                <td>{s.email}</td>
-                                <td>{s.country_living}</td>
-                                <td>{s.city_living}</td>
-                                <td>
-                                  {new Date(s.created_at).toLocaleDateString()}
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-info"
-                                    onClick={() => handleOpenModal(s)}
-                                  >
-                                    View All
-                                  </button>
-                                </td>
-                                <td className="d-flex gap-2">
-                                  {/* 🎨 Instagram Export Dropdown */}
-                                  <div className="btn-group">
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-secondary dropdown-toggle"
-                                      data-bs-toggle="dropdown"
-                                      aria-expanded="false"
-                                    >
-                                      📸 Download for Instagram
-                                    </button>
-                                    <ul className="dropdown-menu">
-                                      <li>
-                                        <button
-                                          className="dropdown-item"
-                                          onClick={() => handleDownloadInstagramCard(s, "post")}
-
-                                        >
-                                          🖼️ Instagram Post (1:1)
-                                        </button>
-                                      </li>
-                                      <li>
-                                        <button
-                                          className="dropdown-item"
-                                          onClick={() => handleDownloadInstagramCard(s, "reel")}
-
-                                        >
-                                          🎬 Instagram Reel (9:16)
-                                        </button>
-                                      </li>
-                                    </ul>
-                                  </div>
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-danger"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      let confirmed = false;
-                                      await new Promise((resolve) => {
-                                        popup.open({
-                                          title: "Confirm Delete",
-                                          message: "Delete this entry?",
-                                          type: "confirm",
-                                          onConfirm: () => {
-                                            confirmed = true;
-                                            resolve();
-                                          },
-                                          onCancel: () => {
-                                            resolve();
-                                          },
-                                        });
-                                      });
-                                      if (confirmed) {
-                                        await handleDelete("matrimonial", s.id);
-                                      }
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminMatrimonialSection
+                      matrimonialSubs={matrimonialSubs}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? matrimonialSubs.map((s) => s.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("matrimonial")}
+                      onView={handleOpenModal}
+                      onDownloadInstagramCard={handleDownloadInstagramCard}
+                      onDelete={(submissionId) =>
+                        handleDelete("matrimonial", submissionId)
+                      }
+                    />
+                  </Suspense>
                 )}
 
-                {/* RECIPIENTS */}
                 {activeTab === "recipients" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Notification Recipients</h5>
-                      <div className="d-flex gap-2 align-items-center">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={selectedIds.length === 0}
-                          onClick={() => handleBulkDelete("recipients")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                        <form
-                          className="d-flex align-items-center gap-2"
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            const email = e.target.email.value.trim();
-                            if (!email) return;
-                            try {
-                              await apiFetch("/admin/recipients", {
-                                method: "POST",
-                                body: JSON.stringify({ email }),
-                              });
-                              popup.open({
-                                title: "✅ Added",
-                                message: `${email} will now receive notifications`,
-                                type: "success",
-                              });
-                              e.target.reset();
-                              const data = await getRecipients();
-                              setRecipients(Array.isArray(data) ? data : []);
-                            } catch (err) {
-                              popup.open({
-                                title: "❌ Error",
-                                message: err.message,
-                                type: "error",
-                              });
-                            }
-                          }}
-                        >
-                          <input
-                            type="email"
-                            name="email"
-                            placeholder="Enter email"
-                            className="form-control form-control-sm"
-                            style={{ width: 250 }}
-                            required
-                          />
-                          <button
-                            type="submit"
-                            className="btn btn-sm btn-primary"
-                          >
-                            Add
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll && recipients.length > 0 && recipients.every((r) => selectedIds.includes(r.id))}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(checked ? recipients.map((r) => r.id) : []);
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Email</th>
-                            <th>Added</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recipients.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="5"
-                                className="text-center text-muted py-4"
-                              >
-                                No recipient emails added yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            recipients.map((r) => (
-                              <tr key={r.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(r.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, r.id]
-                                          : prev.filter((id) => id !== r.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{r.id}</td>
-                                <td>{r.email}</td>
-                                <td>
-                                  {new Date(r.created_at).toLocaleDateString()}
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-danger"
-                                    onClick={async () => {
-                                      let confirmed = false;
-                                      await new Promise((resolve) => {
-                                        popup.open({
-                                          title: "Confirm Remove",
-                                          message: `Remove ${r.email}?`,
-                                          type: "confirm",
-                                          onConfirm: () => {
-                                            confirmed = true;
-                                            resolve();
-                                          },
-                                          onCancel: () => {
-                                            resolve();
-                                          },
-                                        });
-                                      });
-                                      if (confirmed) {
-                                        await apiFetch(
-                                          `/admin/recipients/${r.id}`,
-                                          {
-                                            method: "DELETE",
-                                          }
-                                        );
-                                        setRecipients((prev) =>
-                                          prev.filter((x) => x.id !== r.id)
-                                        );
-                                        popup.open({
-                                          title: "🗑️ Removed",
-                                          message: `${r.email} will no longer receive alerts`,
-                                          type: "success",
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminRecipientsSection
+                      recipients={recipients}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? recipients.map((r) => r.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("recipients")}
+                      onAddRecipient={handleAddRecipient}
+                      onDeleteRecipient={handleRemoveRecipient}
+                    />
+                  </Suspense>
                 )}
 
                 {activeTab === "contentRequests" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">
-                        Add / Remove / Report Content Requests
-                      </h5>
-                      {selectedIds.length > 0 && (
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleBulkDelete("content-requests")}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(
-                                    checked ? submissions.map((r) => r.id) : []
-                                  );
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Type</th>
-                            <th>Content URL</th>
-                            <th>Details</th>
-                            <th>Created</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {loading ? (
-                            <tr>
-                              <td colSpan="9" className="text-center py-4">
-                                Loading...
-                              </td>
-                            </tr>
-                          ) : submissions.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="9"
-                                className="text-center text-muted py-4"
-                              >
-                                No content requests yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            submissions.map((r) => (
-                              <tr key={r.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(r.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, r.id]
-                                          : prev.filter((id) => id !== r.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{r.id}</td>
-                                <td>{r.name}</td>
-                                <td>{r.email}</td>
-                                <td>{r.request_type}</td>
-                                <td>
-                                  <a
-                                    href={r.content_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    {r.content_url}
-                                  </a>
-                                </td>
-                                <td
-                                  className="text-wrap"
-                                  style={{ maxWidth: 300 }}
-                                >
-                                  {r.details}
-                                </td>
-                                <td>
-                                  {new Date(r.created_at).toLocaleDateString()}
-                                </td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-danger"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDelete("content-requests", r.id);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminContentRequestsSection
+                      loading={loading}
+                      requests={submissions}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? submissions.map((r) => r.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("content-requests")}
+                      onDelete={(requestId) =>
+                        handleDelete("content-requests", requestId)
+                      }
+                    />
+                  </Suspense>
                 )}
 
                 {activeTab === "personalities" && (
-                  <div className="card shadow border-0 mb-7">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Famous Personalities</h5>
-                      {selectedIds.length > 0 ? (
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => {
-                            // 🔹 Confirm bulk delete using global popup
-                            popup.open({
-                              title: "Confirm Deletion",
-                              message: `Are you sure you want to delete ${selectedIds.length} selected record(s)?`,
-                              type: "confirm",
-                              onConfirm: async () => {
-                                try {
-                                  popup.open({
-                                    title: "Deleting...",
-                                    message:
-                                      "Please wait while we delete selected records.",
-                                    type: "loading",
-                                  });
-                                  const res = await fetch(
-                                    `${API_BASE}/admin/personalities/bulk-delete`,
-                                    {
-                                      method: "POST",
-                                      headers: {
-                                        "Content-Type": "application/json",
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                      body: JSON.stringify({
-                                        ids: selectedIds,
-                                      }),
-                                    }
-                                  );
-                                  const data = await res.json();
-                                  popup.open({
-                                    title: "✅ Deleted",
-                                    message:
-                                      data.message || "Bulk delete successful.",
-                                    type: "success",
-                                  });
-                                  // Refresh local list
-                                  setPersonalities((prev) =>
-                                    prev.filter(
-                                      (p) => !selectedIds.includes(p.id)
-                                    )
-                                  );
-                                  setSelectedIds([]);
-                                  setSelectAll(false);
-                                } catch (err) {
-                                  console.error("❌ Bulk delete error:", err);
-                                  popup.open({
-                                    title: "❌ Error",
-                                    message:
-                                      "Bulk delete failed. Please try again.",
-                                    type: "error",
-                                  });
-                                }
-                              },
-                            });
-                          }}
-                        >
-                          Delete Selected ({selectedIds.length})
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            setSelectedPersonality(null);
-                            setShowPersonalityModal(true);
-                          }}
-                        >
-                          + Add Personality
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Table list */}
-                    <div className="table-responsive">
-                      <table className="table table-hover table-nowrap">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input
-                                type="checkbox"
-                                checked={selectAll}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setSelectAll(checked);
-                                  setSelectedIds(
-                                    checked
-                                      ? personalities.map((p) => p.id)
-                                      : []
-                                  );
-                                }}
-                              />
-                            </th>
-                            <th>ID</th>
-                            <th>Photo</th>
-                            <th>Name</th>
-                            <th>Caste</th>
-                            <th>Region</th>
-                            <th>Category</th>
-                            <th>SC/ST</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {personalities.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan="9"
-                                className="text-center py-4 text-muted"
-                              >
-                                No personalities yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            personalities.map((p) => (
-                              <tr key={p.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(p.id)}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-                                      setSelectedIds((prev) =>
-                                        checked
-                                          ? [...prev, p.id]
-                                          : prev.filter((id) => id !== p.id)
-                                      );
-                                    }}
-                                  />
-                                </td>
-                                <td>{p.id}</td>
-                                <td>
-                                  <img
-                                    src={p.photo_url}
-                                    alt={p.name}
-                                    width="50"
-                                    height="50"
-                                    className="rounded-circle object-fit-cover"
-                                  />
-                                </td>
-                                <td>{p.name}</td>
-                                <td>{p.caste}</td>
-                                <td>{p.region}</td>
-                                <td>{p.category}</td>
-                                <td>{p.sc_st_type}</td>
-                                <td className="text-end">
-                                  <button
-                                    className="btn btn-warning btn-sm me-2"
-                                    onClick={() => {
-                                      setSelectedPersonality(p);
-                                      setShowPersonalityModal(true);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() =>
-                                      popup.open({
-                                        title: "Confirm Delete",
-                                        message: `Are you sure you want to delete ${p.name}?`,
-                                        type: "confirm",
-                                        onConfirm: async () => {
-                                          try {
-                                            const res = await fetch(
-                                              `${API_BASE}/admin/personalities/${p.id}`,
-                                              {
-                                                method: "DELETE",
-                                                headers: {
-                                                  Authorization: `Bearer ${token}`,
-                                                },
-                                              }
-                                            );
-                                            const data = await res.json();
-                                            popup.open({
-                                              title: "✅ Deleted",
-                                              message:
-                                                data.message ||
-                                                "Personality deleted.",
-                                              type: "success",
-                                            });
-                                            setPersonalities((prev) =>
-                                              prev.filter((x) => x.id !== p.id)
-                                            );
-                                          } catch (err) {
-                                            popup.open({
-                                              title: "❌ Error",
-                                              message:
-                                                "Delete failed. Please try again.",
-                                              type: "error",
-                                            });
-                                          }
-                                        },
-                                      })
-                                    }
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {showPersonalityModal && (
-                      <PersonalityFormModal
-                        personality={selectedPersonality}
-                        onClose={() => {
-                          setShowPersonalityModal(false);
-                          setSelectedPersonality(null);
-                        }}
-                        onSubmit={fetchPersonalities}
-                      />
-                    )}
-                  </div>
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminPersonalitiesSection
+                      personalities={personalities}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? personalities.map((p) => p.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={handlePersonalitiesBulkDelete}
+                      onNew={() => {
+                        setSelectedPersonality(null);
+                        setShowPersonalityModal(true);
+                      }}
+                      onEdit={(personality) => {
+                        setSelectedPersonality(personality);
+                        setShowPersonalityModal(true);
+                      }}
+                      onDelete={(personalityId) =>
+                        handleDelete("personalities", personalityId)
+                      }
+                    />
+                  </Suspense>
+                )}
+                {showPersonalityModal && (
+                  <Suspense fallback={suspenseFallback}>
+                    <PersonalityFormModal
+                      personality={selectedPersonality}
+                      onClose={() => {
+                        setShowPersonalityModal(false);
+                        setSelectedPersonality(null);
+                      }}
+                      onSubmit={fetchPersonalities}
+                    />
+                  </Suspense>
                 )}
 
-                {activeTab === "articles" && <ArticleManager />}
+                {activeTab === "articles" && (
+                  <Suspense fallback={suspenseFallback}>
+                    <ArticleManager />
+                  </Suspense>
+                )}
                 {/* MENUS TAB */}
                 {activeTab === "menus" && (
                   <div className="card shadow border-0 mb-7">
@@ -1937,154 +1160,14 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                       </table>
                     </div>
 
-                    {/* Add/Edit Modal */}
-                    {selectedMenu && (
-                      <div
-                        className="modal fade show"
-                        style={{
-                          display: "block",
-                          backgroundColor: "rgba(0,0,0,0.5)",
-                        }}
-                      >
-                        <div className="modal-dialog">
-                          <div className="modal-content">
-                            <form
-                              onSubmit={async (e) => {
-                                e.preventDefault();
-                                try {
-                                  const method = selectedMenu.id
-                                    ? "PUT"
-                                    : "POST";
-                                  const url = selectedMenu.id
-                                    ? `/admin/menus/${selectedMenu.id}`
-                                    : "/admin/menus";
-                                  await apiFetch(url, {
-                                    method,
-                                    body: JSON.stringify(selectedMenu),
-                                  });
-                                  const refreshed = await fetch(
-                                    `${API_BASE.replace(
-                                      "/api",
-                                      ""
-                                    )}/api/admin/menus`,
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${token}`,
-                                      },
-                                    }
-                                  );
-                                  const data = await refreshed.json();
-                                  setMenus(Array.isArray(data) ? data : []);
-                                  popup.open({
-                                    title: "✅ Saved",
-                                    message: "Menu saved successfully",
-                                    type: "success",
-                                  });
-                                  setSelectedMenu(null);
-                                } catch (err) {
-                                  popup.open({
-                                    title: "❌ Error",
-                                    message: err.message,
-                                    type: "error",
-                                  });
-                                }
-                              }}
-                            >
-                              <div className="modal-header">
-                                <h5 className="modal-title">
-                                  {selectedMenu.id ? "Edit Menu" : "New Menu"}
-                                </h5>
-                                <button
-                                  type="button"
-                                  className="btn-close"
-                                  onClick={() => setSelectedMenu(null)}
-                                ></button>
-                              </div>
-                              <div className="modal-body">
-                                <div className="mb-3">
-                                  <label className="form-label">Label</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    value={selectedMenu.label}
-                                    onChange={(e) =>
-                                      setSelectedMenu((p) => ({
-                                        ...p,
-                                        label: e.target.value,
-                                      }))
-                                    }
-                                    required
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">Path</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="/connect-canada"
-                                    value={selectedMenu.path}
-                                    onChange={(e) =>
-                                      setSelectedMenu((p) => ({
-                                        ...p,
-                                        path: e.target.value,
-                                      }))
-                                    }
-                                    required
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">
-                                    Parent ID (optional)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control"
-                                    value={selectedMenu.parent_id || ""}
-                                    onChange={(e) =>
-                                      setSelectedMenu((p) => ({
-                                        ...p,
-                                        parent_id: e.target.value || null,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">
-                                    Position (order)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    className="form-control"
-                                    value={selectedMenu.position}
-                                    onChange={(e) =>
-                                      setSelectedMenu((p) => ({
-                                        ...p,
-                                        position: parseInt(e.target.value) || 0,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                              </div>
-                              <div className="modal-footer">
-                                <button
-                                  type="button"
-                                  className="btn btn-light"
-                                  onClick={() => setSelectedMenu(null)}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="btn btn-primary"
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <Suspense fallback={suspenseFallback}>
+                      <AdminMenuModal
+                        menu={selectedMenu}
+                        onClose={() => setSelectedMenu(null)}
+                        onChange={handleSelectedMenuChange}
+                        onSubmit={handleSaveMenu}
+                      />
+                    </Suspense>
                   </div>
                 )}
               </>
@@ -2093,221 +1176,25 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
         </main>
       </div>
 
+      <Suspense fallback={null}>
+        <AdminSubmissionDetailsModal
+          show={showModal}
+          submission={selectedSubmission}
+          activeTab={activeTab}
+          onClose={handleCloseModal}
+        />
+      </Suspense>
       {/* DETAILS MODAL */}
-      {showModal && selectedSubmission && (
-        <div
-          className="modal fade show"
-          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-          tabIndex="-1"
-        >
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content">
-              <div className="modal-header bg-light">
-                <h5 className="modal-title">
-                  Submission Details – {selectedSubmission.name}
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={handleCloseModal}
-                ></button>
-              </div>
-              <div className="modal-body">
-                {activeTab === "submissions" && selectedSubmission && (
-                  <table className="table table-striped small">
-                    <tbody>
-                      {Object.entries(selectedSubmission).map(
-                        ([key, value]) => (
-                          <tr key={key}>
-                            <th
-                              className="text-capitalize"
-                              style={{ width: "40%" }}
-                            >
-                              {key.replaceAll("_", " ")}
-                            </th>
-                            <td>
-                              {key.includes("photo") && value ? (
-                                <img
-                                  src={value}
-                                  alt="profile"
-                                  className="rounded-circle"
-                                  width="60"
-                                  height="60"
-                                />
-                              ) : (
-                                value || "—"
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      )}
-                    </tbody>
-                  </table>
-                )}
 
-                {activeTab === "matrimonial" && selectedSubmission && (
-                  <div>
-                    <div className="text-center mb-3">
-                      <img
-                        src={
-                          selectedSubmission.photo_url ||
-                          "/template/img/no-photo.png"
-                        }
-                        alt="profile"
-                        className="rounded-circle shadow-sm"
-                        width="100"
-                        height="100"
-                      />
-                    </div>
-                    <table className="table table-striped small">
-                      <tbody>
-                        {Object.entries(selectedSubmission).map(
-                          ([key, value]) => (
-                            <tr key={key}>
-                              <th
-                                className="text-capitalize"
-                                style={{ width: "40%" }}
-                              >
-                                {key.replaceAll("_", " ")}
-                              </th>
-                              <td>{value || "—"}</td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleCloseModal}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {replyTarget && (
-        <div
-          className="modal fade show"
-          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Reply to {replyTarget.name}</h5>
-                <button
-                  className="btn-close"
-                  onClick={() => setReplyTarget(null)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p>
-                  <strong>Email:</strong> {replyTarget.email}
-                </p>
-                <p>
-                  <strong>Country:</strong> {replyTarget.country}
-                </p>
-                <label className="form-label">WhatsApp Group Link</label>
-                <input
-                  type="text"
-                  className="form-control mb-3"
-                  value={replyForm.groupLink}
-                  onChange={(e) =>
-                    setReplyForm((prev) => ({
-                      ...prev,
-                      groupLink: e.target.value,
-                    }))
-                  }
-                  placeholder="https://chat.whatsapp.com/..."
-                />
-
-                <label className="form-label">Group Rules</label>
-                <textarea
-                  className="form-control"
-                  rows={4}
-                  value={replyForm.rules}
-                  onChange={(e) =>
-                    setReplyForm((prev) => ({ ...prev, rules: e.target.value }))
-                  }
-                ></textarea>
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setReplyTarget(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    try {
-                      // 1️⃣ Send the reply email + WhatsApp
-                      const res = await apiFetch("/admin/scst-reply", {
-                        method: "POST",
-                        body: JSON.stringify({
-                          name: replyTarget.name,
-                          email: replyTarget.email,
-                          country: replyTarget.country,
-                          phone: replyTarget.phone,
-                          groupLink: replyForm.groupLink,
-                          rules: replyForm.rules
-                            .split("\n")
-                            .filter((r) => r.trim() !== ""),
-                        }),
-                      });
-
-                      // 2️⃣ Open WhatsApp
-                      if (res.whatsapp_link) {
-                        window.open(res.whatsapp_link, "_blank");
-                      }
-
-                      // 3️⃣ Success popup
-                      popup.open({
-                        title: "✅ Sent",
-                        message: `Reply email sent to ${replyTarget.email} and WhatsApp message ready.`,
-                        type: "success",
-                      });
-
-                      // 4️⃣ Close modal
-                      setReplyTarget(null);
-
-                      // 5️⃣ Refresh submissions list (corrected URL)
-                      const token = localStorage.getItem("token");
-                      const res2 = await fetch(
-                        `${API_BASE}/admin/scst-submissions`,
-                        {
-                          headers: { Authorization: `Bearer ${token}` },
-                        }
-                      );
-                      const updatedSubs = await res2.json();
-                      setSubmissions(
-                        Array.isArray(updatedSubs) ? updatedSubs : []
-                      );
-                    } catch (err) {
-                      console.error("Reply error:", err);
-                      popup.open({
-                        title: "❌ Error",
-                        message: err.message,
-                        type: "error",
-                      });
-                    }
-                  }}
-                >
-                  Send Reply
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <AdminReplyModal
+          replyTarget={replyTarget}
+          replyForm={replyForm}
+          onChange={handleReplyFormChange}
+          onClose={handleCloseReplyModal}
+          onSend={handleSendReply}
+        />
+      </Suspense>
       <div id="downloadCard" style={{ position: "fixed", top: "-20000px" }}></div>
 
     </div>

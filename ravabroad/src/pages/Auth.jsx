@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import "../css/auth.css";
-import { register, login } from "../utils/api";
+import { login, register, API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
-import { API_BASE } from "../utils/api";
+import { clearPostAuthRedirect, getPostAuthRedirect } from "../utils/formDrafts";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const popup = usePopup();
 
   const [panelRight, setPanelRight] = useState(false);
@@ -27,20 +28,33 @@ export default function Auth() {
     setFn((prev) => ({ ...prev, [name]: value }));
   };
 
+  const getAuthRedirectPath = () => {
+    return location.state?.redirectTo || getPostAuthRedirect() || "/";
+  };
+
+  const finishAuth = (data, successMessage) => {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    window.dispatchEvent(new Event("auth-updated"));
+    clearPostAuthRedirect();
+    popup.open({
+      title: "Welcome",
+      message: successMessage,
+      type: "success",
+    });
+    navigate(getAuthRedirectPath(), { replace: true });
+  };
+
   const handleSignUp = async (e) => {
     e.preventDefault();
     setMsg(null);
     try {
       const data = await register(signUp);
-      setMsg(data.message || "User created successfully. Please sign in.");
-      popup.open({
-        title: "Success 🎉",
-        message: data.message || "User created successfully. Please sign in.",
-        type: "success",
-      });
+      setMsg(data.message || "User created successfully.");
+      finishAuth(data, "Account created successfully!");
     } catch (err) {
       popup.open({
-        title: "Error ❌",
+        title: "Registration Error",
         message: err.message,
         type: "error",
       });
@@ -52,25 +66,16 @@ export default function Auth() {
     setMsg(null);
     try {
       const data = await login(signIn);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      window.dispatchEvent(new Event("auth-updated"));
-      popup.open({
-        title: "Welcome 👋",
-        message: "Logged in successfully!",
-        type: "success",
-      });
-      navigate("/");
+      finishAuth(data, "Logged in successfully!");
     } catch (err) {
       popup.open({
-        title: "Login Failed ❌",
+        title: "Login Failed",
         message: err.message,
         type: "error",
       });
     }
   };
 
-  // ✅ GOOGLE LOGIN HANDLER
   async function handleGoogleResponse(response) {
     try {
       const res = await fetch(`${API_BASE}/auth/google`, {
@@ -82,19 +87,10 @@ export default function Auth() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      window.dispatchEvent(new Event("auth-updated"));
-
-      popup.open({
-        title: "Welcome 👋",
-        message: "Signed in with Google successfully!",
-        type: "success",
-      });
-      navigate("/");
+      finishAuth(data, "Signed in with Google successfully!");
     } catch (err) {
       popup.open({
-        title: "Google Login Failed ❌",
+        title: "Google Login Failed",
         message: err.message,
         type: "error",
       });
@@ -128,15 +124,13 @@ export default function Auth() {
           });
         }
       } else {
-        console.warn("⏳ Google SDK not ready yet");
+        console.warn("Google SDK not ready yet");
       }
     }
 
-    // If script already loaded
     if (window.google) {
       initGoogle();
     } else {
-      // Wait until Google script loads
       const interval = setInterval(() => {
         if (window.google) {
           clearInterval(interval);
@@ -145,7 +139,7 @@ export default function Auth() {
       }, 500);
       return () => clearInterval(interval);
     }
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -186,12 +180,9 @@ export default function Auth() {
         className={`container ${panelRight ? "right-panel-active" : ""}`}
         id="container"
       >
-        {/* SIGN UP */}
         <div className="form-container sign-up-container">
           <form onSubmit={handleSignUp}>
             <h1>Create Account</h1>
-
-            {/* ✅ Google Sign Up Button */}
             <div id="googleSignUpBtn"></div>
 
             <span>or use your email for registration</span>
@@ -232,17 +223,12 @@ export default function Auth() {
                 Sign in
               </button>
             </p>
-            
           </form>
-          
         </div>
 
-        {/* SIGN IN */}
         <div className="form-container sign-in-container">
           <form onSubmit={handleSignIn}>
             <h1>Sign in</h1>
-
-            {/* ✅ Google Sign In Button */}
             <div id="googleSignInBtn"></div>
 
             <span>or use your account</span>
@@ -268,7 +254,6 @@ export default function Auth() {
             >
               Forgot your password?
             </Link>
-            {/* <a href="#">Forgot your password?</a> */}
             <button type="submit">Sign In</button>
 
             <p className="auth-mobile-only">
@@ -284,7 +269,6 @@ export default function Auth() {
           </form>
         </div>
 
-        {/* Overlay */}
         <div className="overlay-container">
           <div className="overlay">
             <div className="overlay-panel overlay-left">
@@ -306,8 +290,6 @@ export default function Auth() {
           </div>
         </div>
       </div>
-
-      
     </div>
   );
 }

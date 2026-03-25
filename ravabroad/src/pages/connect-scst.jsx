@@ -1,29 +1,65 @@
-// src/pages/connect-scst.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { Modal } from "bootstrap";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
+import { usePopup } from "../components/PopupProvider";
+import {
+  clearBootstrapModalArtifacts,
+  createBootstrapModal,
+  destroyBootstrapModal,
+} from "../utils/bootstrapModal";
+import {
+  clearFormDraft,
+  loadFormDraft,
+  saveFormDraft,
+  setPostAuthRedirect,
+} from "../utils/formDrafts";
+
+const SCST_DRAFT_KEY = "connect_scst_form_draft";
 
 export default function ConnectSCST() {
+  const navigate = useNavigate();
+  const popup = usePopup();
   const thanksRef = useRef(null);
   const rulesRef = useRef(null);
   const [thanksModal, setThanksModal] = useState(null);
   const [rulesModal, setRulesModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  // ✅ New states for saved form logic
-  const [formValues, setFormValues] = useState({});
+  const [successMessage, setSuccessMessage] = useState("");
+  const [formValues, setFormValues] = useState({ platform: "WhatsApp" });
   const [submissionData, setSubmissionData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const persistDraft = (nextFormValues) => {
+    saveFormDraft(SCST_DRAFT_KEY, { formValues: nextFormValues });
+  };
+
   useEffect(() => {
-    if (thanksRef.current) setThanksModal(new Modal(thanksRef.current));
-    if (rulesRef.current) setRulesModal(new Modal(rulesRef.current));
-    document.title = "Connect by Country — Ravidassia Abroad";
-    fetchMySubmission();
+    const thanksInstance = createBootstrapModal(thanksRef.current);
+    const rulesInstance = createBootstrapModal(rulesRef.current);
+    const savedDraft = loadFormDraft(SCST_DRAFT_KEY);
+
+    setThanksModal(thanksInstance);
+    setRulesModal(rulesInstance);
+    document.title = "Connect by Country - Ravidassia Abroad";
+
+    if (savedDraft?.formValues) {
+      setFormValues((prev) => ({
+        ...prev,
+        ...savedDraft.formValues,
+      }));
+    }
+
+    if (localStorage.getItem("token")) {
+      fetchMySubmission();
+    }
+
+    return () => {
+      destroyBootstrapModal(thanksInstance);
+      destroyBootstrapModal(rulesInstance);
+    };
   }, []);
 
-  // ✅ Fetch logged-in user's submission
   const fetchMySubmission = async () => {
     try {
       const res = await apiFetch("/scst-submissions/mine");
@@ -31,30 +67,65 @@ export default function ConnectSCST() {
         setSubmitted(true);
         setSubmissionData(res.data);
         setFormValues(res.data);
+        clearFormDraft(SCST_DRAFT_KEY);
+      } else {
+        setSubmitted(false);
       }
     } catch {
       setSubmitted(false);
     }
   };
 
-  // ✅ Controlled inputs
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormValues({ ...formValues, [name]: value });
+  const promptForAuth = () => {
+    persistDraft(formValues);
+    setPostAuthRedirect("/connect-scst");
+    popup.open({
+      title: "Login Required",
+      message:
+        "Register or login to submit this form. Your filled details will be kept and restored after auth.",
+      type: "confirm",
+      confirmText: "Register",
+      cancelText: "Login",
+      onConfirm: () =>
+        navigate("/auth?mode=signup", {
+          state: { redirectTo: "/connect-scst" },
+        }),
+      onCancel: () =>
+        navigate("/auth", {
+          state: { redirectTo: "/connect-scst" },
+        }),
+    });
   };
 
-  // ✅ Submit or Resubmit form
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const nextFormValues = { ...formValues, [name]: value };
+    setFormValues(nextFormValues);
+    persistDraft(nextFormValues);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!localStorage.getItem("token")) {
+      promptForAuth();
+      return;
+    }
+
     setSubmitting(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       await apiFetch("/scst-submissions", {
         method: "POST",
         body: JSON.stringify(formValues),
       });
-      thanksModal && thanksModal.show();
+      thanksModal?.hide();
+      rulesModal?.hide();
+      clearBootstrapModalArtifacts();
+      clearFormDraft(SCST_DRAFT_KEY);
+      setSuccessMessage("Your request was submitted successfully.");
       await fetchMySubmission();
     } catch (err) {
       setError(err.message || "Submission failed.");
@@ -63,16 +134,23 @@ export default function ConnectSCST() {
     }
   };
 
-  // ✅ If already submitted
   if (submitted && submissionData) {
     return (
       <div className="container py-5">
         <h2 className="text-center mb-4 fw-bold text-primary">
           Connect SC/ST Form
         </h2>
-        <div className="card shadow-sm p-4 mx-auto mb-5" style={{ maxWidth: 850 }}>
+        <div
+          className="card shadow-sm p-4 mx-auto mb-5"
+          style={{ maxWidth: 850 }}
+        >
+          {successMessage && (
+            <div className="alert alert-success" role="alert">
+              {successMessage}
+            </div>
+          )}
           <h4 className="text-success mb-3 text-center">
-            ✅ Your Submitted Details
+            Your Submitted Details
           </h4>
 
           <table className="table table-striped table-bordered small">
@@ -82,7 +160,7 @@ export default function ConnectSCST() {
                   <th className="text-capitalize" style={{ width: "40%" }}>
                     {key.replaceAll("_", " ")}
                   </th>
-                  <td>{value || "—"}</td>
+                  <td>{value || "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -92,11 +170,12 @@ export default function ConnectSCST() {
             <button
               className="btn btn-outline-primary"
               onClick={() => {
+                setSuccessMessage("");
                 setSubmitted(false);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             >
-              ✏️ Edit / Resubmit Form
+              Edit / Update Form
             </button>
           </div>
         </div>
@@ -104,7 +183,6 @@ export default function ConnectSCST() {
     );
   }
 
-  // ✅ Show the original form
   return (
     <div className="container py-5">
       <div className="text-center mb-4">
@@ -124,7 +202,6 @@ export default function ConnectSCST() {
           )}
 
           <form onSubmit={handleSubmit} className="row g-3 bg-light p-4 rounded">
-            {/* Full Name (required) */}
             <div className="col-md-6">
               <label htmlFor="name" className="form-label">
                 Full Name *
@@ -140,7 +217,6 @@ export default function ConnectSCST() {
               />
             </div>
 
-            {/* Email (required) */}
             <div className="col-md-6">
               <label htmlFor="email" className="form-label">
                 Email *
@@ -156,7 +232,6 @@ export default function ConnectSCST() {
               />
             </div>
 
-            {/* Country (required) */}
             <div className="col-md-6">
               <label htmlFor="country" className="form-label">
                 Country *
@@ -183,7 +258,6 @@ export default function ConnectSCST() {
               </select>
             </div>
 
-            {/* City */}
             <div className="col-md-6">
               <label htmlFor="city" className="form-label">
                 City
@@ -198,7 +272,6 @@ export default function ConnectSCST() {
               />
             </div>
 
-            {/* WhatsApp phone (required) */}
             <div className="col-md-6">
               <label htmlFor="phone" className="form-label">
                 Phone (WhatsApp) *
@@ -208,14 +281,13 @@ export default function ConnectSCST() {
                 name="phone"
                 type="text"
                 className="form-control"
-                placeholder="+1 902…"
+                placeholder="+1 902..."
                 required
                 value={formValues.phone || ""}
                 onChange={handleChange}
               />
             </div>
 
-            {/* Preferred platform (optional) */}
             <div className="col-md-6">
               <label htmlFor="platform" className="form-label">
                 Preferred Platform
@@ -233,7 +305,6 @@ export default function ConnectSCST() {
               </select>
             </div>
 
-            {/* Instagram username (optional) */}
             <div className="col-md-6">
               <label htmlFor="instagram" className="form-label">
                 Instagram Username
@@ -249,7 +320,6 @@ export default function ConnectSCST() {
               />
             </div>
 
-            {/* Simple proof */}
             <div className="col-12">
               <label htmlFor="proof" className="form-label">
                 Proof you live there (postal code / school or work name)
@@ -259,13 +329,12 @@ export default function ConnectSCST() {
                 name="proof"
                 type="text"
                 className="form-control"
-                placeholder="e.g., B3J…, NSCC Halifax, Tim Hortons Lady Hammond"
+                placeholder="e.g., B3J..., NSCC Halifax, Tim Hortons Lady Hammond"
                 value={formValues.proof || ""}
                 onChange={handleChange}
               />
             </div>
 
-            {/* Consent + RULES LINK */}
             <div className="col-12 form-check">
               <input
                 className="form-check-input"
@@ -291,14 +360,13 @@ export default function ConnectSCST() {
                 className="btn btn-primary border-secondary rounded-pill px-4"
                 disabled={submitting}
               >
-                {submitting ? "Submitting…" : "Request to Join"}
+                {submitting ? "Submitting..." : "Request to Join"}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* === Rules Modal === */}
       <div
         className="modal fade"
         id="rulesModal"
@@ -333,7 +401,6 @@ export default function ConnectSCST() {
         </div>
       </div>
 
-      {/* === Success Modal === */}
       <div
         className="modal fade"
         id="thanksModal"
@@ -346,7 +413,7 @@ export default function ConnectSCST() {
           <div className="modal-content">
             <div className="modal-header">
               <h5 id="thanksTitle" className="modal-title">
-                Request Submitted ✅
+                Request Submitted
               </h5>
               <button
                 type="button"

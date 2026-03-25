@@ -1,33 +1,33 @@
 // src/App.js
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Service from "./pages/Service";
-import Feature from "./pages/Feature";
-import Countries from "./pages/Countries";
-import Training from "./pages/Training";
-import Testimonial from "./pages/Testimonial";
-import Contact from "./pages/Contact";
-import NotFound from "./pages/NotFound";
-import ConnectSCST from "./pages/connect-scst";
-import Auth from "./pages/Auth";
-import AdminDashboard from "./pages/AdminDashboard";
 import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
-import MatrimonialForm from "./pages/MatrimonialForm";
-import Profile from "./pages/Profile";
 import FormSubmitOverlay from "./components/FormSubmitOverlay";
-import Blogs from "./pages/Blogs";
-import BlogDetail from "./pages/BlogDetail";
-import ForgotPassword from "./pages/ForgotPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
-import DynamicPage from "./pages/DynamicPage";
-import FamousPersonalities from "./pages/FamousPersonalities";
-import PostDetail from "./pages/PostDetail";
+const Home = lazy(() => import("./pages/Home"));
+const About = lazy(() => import("./pages/About"));
+const Service = lazy(() => import("./pages/Service"));
+const Feature = lazy(() => import("./pages/Feature"));
+const Countries = lazy(() => import("./pages/Countries"));
+const Training = lazy(() => import("./pages/Training"));
+const Testimonial = lazy(() => import("./pages/Testimonial"));
+const Contact = lazy(() => import("./pages/Contact"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ConnectSCST = lazy(() => import("./pages/connect-scst"));
+const Auth = lazy(() => import("./pages/Auth"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const MatrimonialForm = lazy(() => import("./pages/MatrimonialForm"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Blogs = lazy(() => import("./pages/Blogs"));
+const BlogDetail = lazy(() => import("./pages/BlogDetail"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const DynamicPage = lazy(() => import("./pages/DynamicPage"));
+const FamousPersonalities = lazy(() => import("./pages/FamousPersonalities"));
+const PostDetail = lazy(() => import("./pages/PostDetail"));
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -58,6 +58,7 @@ export default function App() {
         <GlobalLoader visible={loading} />
         <ScrollAndInit />
 
+        <Suspense fallback={<GlobalLoader visible={true} />}>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
+        </Suspense>
       </PopupProvider>
     </ErrorBoundary>
   );

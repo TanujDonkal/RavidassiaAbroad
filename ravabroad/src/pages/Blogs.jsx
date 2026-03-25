@@ -264,7 +264,7 @@ const fetchCategories = async () => {
               <iframe
                 width="100%"
                 height="420"
-                src="https://www.youtube.com/embed/zpOULjyy-n8?autoplay=1&mute=1"
+                src="https://www.youtube.com/embed/6GrG6IOJRLs?autoplay=1&mute=1"
                 title="Ravidassia Abroad Overview"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

@@ -14,6 +14,8 @@ const Popup = forwardRef((_, ref) => {
     type: "info", // info, success, error, warning, confirm
     onConfirm: null,
     onCancel: null,
+    confirmText: "Yes, Confirm",
+    cancelText: "Cancel",
   });
 
   useImperativeHandle(ref, () => ({
@@ -24,6 +26,8 @@ const Popup = forwardRef((_, ref) => {
         type: opts.type || "info",
         onConfirm: opts.onConfirm || null,
         onCancel: opts.onCancel || null,
+        confirmText: opts.confirmText || "Yes, Confirm",
+        cancelText: opts.cancelText || "Cancel",
       });
       setVisible(true);
     },
@@ -102,13 +106,13 @@ useEffect(() => {
                   className="btn btn-secondary rounded-pill"
                   onClick={handleCancel}
                 >
-                  Cancel
+                  {options.cancelText}
                 </button>
                 <button
                   className="btn btn-primary rounded-pill"
                   onClick={handleConfirm}
                 >
-                  Yes, Confirm
+                  {options.confirmText}
                 </button>
               </>
             ) : (

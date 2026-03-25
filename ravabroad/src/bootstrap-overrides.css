@@ -2,6 +2,8 @@
 :root {
   --bs-primary: #000000;
   --bs-primary-rgb: 0, 0, 0;
+  --bs-secondary: #000000;
+  --bs-secondary-rgb: 0, 0, 0;
   /* Brand colors — single source of truth */
   --brand-gold: #fecf2f;
   --brand-gold-hover: #e6bb00;
@@ -12,8 +14,11 @@
 
 /* Ensure utilities pick up new primary */
 .text-primary   { color: rgba(var(--bs-primary-rgb), var(--bs-text-opacity, 1)) !important; }
+.text-secondary { color: rgba(var(--bs-secondary-rgb), var(--bs-text-opacity, 1)) !important; }
 .bg-primary     { background-color: var(--bs-primary) !important; }
+.bg-secondary   { background-color: var(--bs-secondary) !important; }
 .border-primary { border-color: var(--bs-primary) !important; }
+.border-secondary { border-color: var(--bs-secondary) !important; }
 .link-primary   { color: var(--bs-primary) !important; }
 
 /* Buttons */
@@ -36,10 +41,12 @@
 .site-topbar {
   background: #000 !important;         /* bar background */
   color: #fff !important;              /* default text color */
+  position: relative;
+  z-index: 1040;
 }
 
-/* Make everything inside white (links, icons, spans, etc.) */
-.site-topbar *,
+/* Make topbar content white by default, but let the profile dropdown style itself. */
+.site-topbar > * ,
 .site-topbar a,
 .site-topbar i,
 .site-topbar .fa,
@@ -60,12 +67,47 @@
   color: #ccc !important;
 }
 
+.site-topbar.bg-primary,
+.site-topbar.container-fluid.bg-primary {
+  background: #000000 !important;
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+.site-topbar .btn,
+.site-topbar .btn-outline-light,
+.site-topbar .btn-link {
+  color: #ffffff !important;
+}
+
+.site-topbar .topbar-auth-dropdown {
+  position: relative;
+}
+
+.site-topbar .topbar-auth-toggle {
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.site-topbar .topbar-auth-toggle::after {
+  margin-left: 0.45rem;
+  color: #ffffff !important;
+}
+
+.site-topbar .topbar-auth-toggle:focus,
+.site-topbar .topbar-auth-toggle:active {
+  box-shadow: none !important;
+}
+
 .site-topbar .topbar-user-menu {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   border-radius: 0.9rem;
   min-width: 220px;
   padding: 0.5rem;
+  margin-top: 0.75rem !important;
+  z-index: 2000;
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.18) !important;
 }
 
 .site-topbar .topbar-user-menu *,
@@ -85,6 +127,7 @@
 .site-topbar .topbar-user-menu .dropdown-item {
   border-radius: 0.7rem;
   padding: 0.7rem 1rem;
+  background: transparent !important;
 }
 
 .site-topbar .topbar-user-menu .dropdown-item:hover,
@@ -97,6 +140,12 @@
 .site-topbar .topbar-user-menu .text-danger:hover,
 .site-topbar .topbar-user-menu .text-danger:focus {
   color: #dc3545 !important;
+}
+
+.site-topbar .topbar-user-menu button.dropdown-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
 }
 
 /* Never let the page exceed 100vw */
@@ -153,19 +202,32 @@ img {
 }
 
 
-/* Dark theme dropdown */
-.site-dropdown-menu {
-  background-color: #212529 !important;
+/* Keep the public navbar History dropdown readable regardless of later theme CSS. */
+.site-navbar .site-dropdown-menu.dropdown-menu {
+  background-color: #111111 !important;
+  color: #f8f9fa !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item,
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item:visited,
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item.active,
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item:active {
+  background-color: transparent !important;
   color: #f8f9fa !important;
 }
 
-.site-dropdown-menu .dropdown-item {
-  color: #f8f9fa !important;
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item:hover,
+.site-navbar .site-dropdown-menu.dropdown-menu .dropdown-item:focus {
+  background-color: #222222 !important;
+  color: #ffffff !important;
 }
 
-.site-dropdown-menu .dropdown-item:hover {
-  background-color: #343a40 !important;
-  color: #fff !important;
+.site-navbar .nav-item.dropdown:hover > .site-dropdown-menu.dropdown-menu,
+.site-navbar .nav-item.dropdown .site-dropdown-menu.dropdown-menu.show {
+  background: #111111 !important;
+  background-color: #111111 !important;
+  opacity: 1;
 }
 
 /* Mobile-first cleanup for the public site */
@@ -427,6 +489,21 @@ img {
   .site-navbar {
     flex-wrap: nowrap;
     row-gap: 0;
+  }
+
+  .site-navbar.navbar-light .navbar-nav .nav-link::before,
+  .site-navbar.navbar-light .navbar-nav .nav-link::after {
+    height: 2px;
+  }
+
+  .site-navbar.navbar-light .navbar-nav .nav-link:hover::before,
+  .site-navbar.navbar-light .navbar-nav .nav-link.active::before {
+    top: 16px !important;
+  }
+
+  .site-navbar.navbar-light .navbar-nav .nav-link:hover::after,
+  .site-navbar.navbar-light .navbar-nav .nav-link.active::after {
+    bottom: 16px !important;
   }
 
   .site-navbar-main {

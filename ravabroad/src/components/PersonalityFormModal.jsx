@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { apiFetch, API_BASE } from "../utils/api";
+import { apiFetch, uploadAdminImage } from "../utils/api";
 import GlobalLoader from "../components/GlobalLoader";
 import { usePopup } from "../components/PopupProvider";
 
@@ -63,16 +63,7 @@ export default function PersonalityFormModal({ personality = null, onClose, onSu
 
       // 🖼 Upload photo if new file selected
       if (form.photo_file) {
-        const token = localStorage.getItem("token");
-        const formData = new FormData();
-        formData.append("image", form.photo_file);
-        const res = await fetch(`${API_BASE}/admin/blogs/upload`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Upload failed");
+        const data = await uploadAdminImage(form.photo_file);
         photoUrl = data.image_url;
       }
 
