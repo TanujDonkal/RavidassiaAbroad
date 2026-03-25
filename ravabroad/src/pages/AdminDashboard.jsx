@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [blogs, setBlogs] = useState([]);
   const popup = usePopup();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("token");
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showBlogModal, setShowBlogModal] = useState(false);
@@ -30,7 +31,6 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  // const token = localStorage.getItem("token");
   const [menus, setMenus] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
 
@@ -701,7 +701,6 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                         }}
                         onSubmit={(updatedBlog) => {
                           // Add a re-fetch so views/other data refresh
-                          const token = localStorage.getItem("token");
                           // ✅ Instantly update local list (no manual refresh)
                           if (updatedBlog?.id) {
                             // existing blog edited

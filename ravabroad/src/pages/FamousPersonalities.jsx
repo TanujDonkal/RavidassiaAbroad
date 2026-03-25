@@ -12,14 +12,14 @@ export default function FamousPersonalities() {
   const [selectedIndex, setSelectedIndex] = useState(null);
 
   // ✅ Fetch data
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     const params = new URLSearchParams(
       Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
     );
     const res = await fetch(`${API_BASE}/personalities?${params.toString()}`);
     const data = await res.json();
     setList(data || []);
-  };
+  }, [filters]);
 
   useEffect(() => {
     fetchList();
