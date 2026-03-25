@@ -30,7 +30,7 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const token = localStorage.getItem("token");
+  // const token = localStorage.getItem("token");
   const [menus, setMenus] = useState([]);
   const [selectedMenu, setSelectedMenu] = useState(null);
 

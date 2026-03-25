@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
-import { apiFetch } from "../utils/api";
+// import { apiFetch } from "../utils/api";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -14,7 +14,7 @@ function ScrollAndInit() {
 }
 
 export default function Layout() {
-  const [user, setUser] = useState(() => {
+  const [user] = useState(() => {
     try {
       const stored = localStorage.getItem("user");
       return stored ? JSON.parse(stored) : null;
@@ -23,7 +23,7 @@ export default function Layout() {
       return null;
     }
   });
-  const { open: openPopup } = require("./PopupProvider").usePopup();
+  // const { open: openPopup } = require("./PopupProvider").usePopup();
   // ...existing logic and effects...
 
   return (
@@ -147,10 +147,10 @@ export default function Layout() {
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Info</h4>
-                <a href=""><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</a>
-                <a href=""><i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com</a>
-                <a href=""><i className="fas fa-phone me-2"></i> — </a>
-                <a href="" className="mb-3"><i className="fas fa-print me-2"></i> — </a>
+                <span className="d-block"><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</span>
+                <a href="mailto:ravidassiaabroad@gmail.com"><i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com</a>
+                <span className="d-block"><i className="fas fa-phone me-2"></i> — </span>
+                <span className="d-block mb-3"><i className="fas fa-print me-2"></i> — </span>
                 <div className="d-flex align-items-center">
                   <i className="fas fa-share fa-2x text-secondary me-2"></i>
                   <a className="btn mx-1" href="https://www.facebook.com/RavidassiaAbroad" target="_blank" rel="noreferrer"><i className="fab fa-facebook-f"></i></a>

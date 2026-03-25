@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 export default function Home() {
   const carouselRef = useRef(null);
   const [carousel, setCarousel] = useState(null);
-  const [slides] = useState([]);
+  // const [slides] = useState([]);
   const [menus, setMenus] = useState([]);
 
   useEffect(() => {

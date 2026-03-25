@@ -145,7 +145,8 @@ export default function Auth() {
       }, 500);
       return () => clearInterval(interval);
     }
-  }, [handleGoogleResponse]);
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <div className="auth-root">
