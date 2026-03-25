@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
+import SiteSearchModal from "./SiteSearchModal";
 // import { apiFetch } from "../utils/api";
 
 function ScrollAndInit() {
@@ -186,6 +187,8 @@ export default function Layout() {
       </div>
       {/* Navbar End */}
 
+      <SiteSearchModal />
+
       {/* Page content */}
       <Outlet />
 
@@ -253,7 +256,7 @@ export default function Layout() {
               </span>
             </div>
             <div className="col-md-6 text-center text-md-end text-white">
-              Designed By <a className="border-bottom text-white" href="https://htmlcodex.com">HTML Codex</a>
+              Designed By <a className="border-bottom text-white" href="https://codezypher.com" target="_blank" rel="noreferrer">Codezypher</a>
             </div>
           </div>
         </div>

@@ -1,20 +1,25 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { API_BASE } from "../utils/api";
 
 export default function FamousPersonalities() {
+  const [searchParams] = useSearchParams();
+  const requestedPersonId = searchParams.get("person");
+  const searchText = searchParams.get("q")?.trim() || "";
+  const hasSearchLanding = Boolean(requestedPersonId || searchText);
+
   const [list, setList] = useState([]);
   const [filters, setFilters] = useState({
-    caste: "Chamar",
+    caste: hasSearchLanding ? "" : "Chamar",
     region: "",
     category: "",
     sc_st_type: "",
   });
   const [selectedIndex, setSelectedIndex] = useState(null);
 
-  // ✅ Fetch data
   const fetchList = useCallback(async () => {
     const params = new URLSearchParams(
-      Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
+      Object.fromEntries(Object.entries(filters).filter(([_, value]) => value))
     );
     const res = await fetch(`${API_BASE}/personalities?${params.toString()}`);
     const data = await res.json();
@@ -23,31 +28,79 @@ export default function FamousPersonalities() {
 
   useEffect(() => {
     fetchList();
-  }, [filters, fetchList]);
+  }, [fetchList]);
 
-  const selected = selectedIndex !== null ? list[selectedIndex] : null;
+  useEffect(() => {
+    if (!requestedPersonId && !searchText) return;
 
-  // ✅ Next / Prev handlers
+    setFilters((current) => {
+      if (current.caste === "") return current;
+      return { ...current, caste: "" };
+    });
+  }, [requestedPersonId, searchText]);
+
+  const filteredList = useMemo(() => {
+    if (!searchText) return list;
+
+    const normalized = searchText.toLowerCase();
+    return list.filter((person) =>
+      [
+        person.name,
+        person.category,
+        person.region,
+        person.caste,
+        person.sc_st_type,
+        person.short_bio,
+        person.full_bio,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalized))
+    );
+  }, [list, searchText]);
+
+  useEffect(() => {
+    if (!requestedPersonId || filteredList.length === 0) return;
+
+    const index = filteredList.findIndex(
+      (person) => String(person.id) === String(requestedPersonId)
+    );
+
+    if (index !== -1) {
+      setSelectedIndex(index);
+    }
+  }, [filteredList, requestedPersonId]);
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    if (selectedIndex > filteredList.length - 1) {
+      setSelectedIndex(filteredList.length ? 0 : null);
+    }
+  }, [filteredList.length, selectedIndex]);
+
+  const selected = selectedIndex !== null ? filteredList[selectedIndex] : null;
+
   const handleNext = useCallback(() => {
-    if (list.length > 0)
-      setSelectedIndex((prev) => (prev + 1) % list.length);
-  }, [list]);
+    if (filteredList.length > 0) {
+      setSelectedIndex((prev) => (prev + 1) % filteredList.length);
+    }
+  }, [filteredList.length]);
 
   const handlePrev = useCallback(() => {
-    if (list.length > 0)
-      setSelectedIndex((prev) => (prev - 1 + list.length) % list.length);
-  }, [list]);
+    if (filteredList.length > 0) {
+      setSelectedIndex((prev) => (prev - 1 + filteredList.length) % filteredList.length);
+    }
+  }, [filteredList.length]);
 
   const handleClose = useCallback(() => setSelectedIndex(null), []);
 
-  // ✅ Keyboard navigation
   useEffect(() => {
-    const handleKey = (e) => {
+    const handleKey = (event) => {
       if (selectedIndex === null) return;
-      if (e.key === "ArrowRight") handleNext();
-      if (e.key === "ArrowLeft") handlePrev();
-      if (e.key === "Escape") handleClose();
+      if (event.key === "ArrowRight") handleNext();
+      if (event.key === "ArrowLeft") handlePrev();
+      if (event.key === "Escape") handleClose();
     };
+
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [selectedIndex, handleNext, handlePrev, handleClose]);
@@ -55,18 +108,23 @@ export default function FamousPersonalities() {
   return (
     <main className="container py-5">
       <h2 className="text-center text-primary fw-bold mb-4">
-        🌟 Famous Personalities
+        Famous Personalities
       </h2>
 
-      {/* Filters */}
+      {searchText && (
+        <div className="alert alert-light border mb-4" role="status">
+          Search results for <strong>{searchText}</strong>
+        </div>
+      )}
+
       <div className="famous-filters card p-3 mb-4 shadow-sm">
         <div className="row g-3">
           <div className="col-6 col-md-3">
             <select
               className="form-select form-select-sm"
               value={filters.region}
-              onChange={(e) =>
-                setFilters({ ...filters, region: e.target.value })
+              onChange={(event) =>
+                setFilters({ ...filters, region: event.target.value })
               }
             >
               <option value="">All Regions</option>
@@ -78,8 +136,8 @@ export default function FamousPersonalities() {
             <select
               className="form-select form-select-sm"
               value={filters.caste}
-              onChange={(e) =>
-                setFilters({ ...filters, caste: e.target.value })
+              onChange={(event) =>
+                setFilters({ ...filters, caste: event.target.value })
               }
             >
               <option value="Chamar">Chamar</option>
@@ -92,8 +150,8 @@ export default function FamousPersonalities() {
             <select
               className="form-select form-select-sm"
               value={filters.sc_st_type}
-              onChange={(e) =>
-                setFilters({ ...filters, sc_st_type: e.target.value })
+              onChange={(event) =>
+                setFilters({ ...filters, sc_st_type: event.target.value })
               }
             >
               <option value="">All</option>
@@ -105,8 +163,8 @@ export default function FamousPersonalities() {
             <select
               className="form-select form-select-sm"
               value={filters.category}
-              onChange={(e) =>
-                setFilters({ ...filters, category: e.target.value })
+              onChange={(event) =>
+                setFilters({ ...filters, category: event.target.value })
               }
             >
               <option value="">All Categories</option>
@@ -120,23 +178,22 @@ export default function FamousPersonalities() {
         </div>
       </div>
 
-      {/* Listing */}
       <div className="row g-3 g-md-4">
-        {list.length === 0 && (
+        {filteredList.length === 0 && (
           <div className="text-center text-muted">No personalities found.</div>
         )}
 
-        {list.map((p, i) => (
+        {filteredList.map((person, index) => (
           <div
-            key={p.id}
+            key={person.id}
             className="famous-card-col col-6 col-md-4 col-lg-3 d-flex"
-            onClick={() => setSelectedIndex(i)}
+            onClick={() => setSelectedIndex(index)}
             style={{ cursor: "pointer" }}
           >
             <div className="card shadow-sm border-0 h-100 flex-fill">
               <img
-                src={p.photo_url}
-                alt={p.name}
+                src={person.photo_url}
+                alt={person.name}
                 className="card-img-top"
                 style={{
                   height: "200px",
@@ -145,10 +202,10 @@ export default function FamousPersonalities() {
               />
               <div className="card-body text-center p-2">
                 <h6 className="fw-semibold mb-1" style={{ fontSize: "0.9rem" }}>
-                  {p.name}
+                  {person.name}
                 </h6>
                 <p className="text-muted mb-0" style={{ fontSize: "0.75rem" }}>
-                  {p.category} • {p.region}
+                  {person.category} • {person.region}
                 </p>
                 <p
                   className="text-secondary mt-1"
@@ -159,7 +216,7 @@ export default function FamousPersonalities() {
                     overflow: "hidden",
                   }}
                 >
-                  {p.short_bio}
+                  {person.short_bio}
                 </p>
               </div>
             </div>
@@ -167,7 +224,6 @@ export default function FamousPersonalities() {
         ))}
       </div>
 
-      {/* Fullscreen Modal */}
       {selected && (
         <div
           className="famous-modal modal fade show"
@@ -186,11 +242,8 @@ export default function FamousPersonalities() {
             }}
           >
             <div className="modal-content border-0 bg-dark text-light h-100 overflow-hidden">
-              {/* Header */}
               <div className="famous-modal-header modal-header border-0 bg-primary text-white">
-                <h5 className="modal-title text-center w-100">
-                  {selected.name}
-                </h5>
+                <h5 className="modal-title text-center w-100">{selected.name}</h5>
                 <button
                   type="button"
                   className="btn-close btn-close-white position-absolute end-0 me-3"
@@ -198,7 +251,6 @@ export default function FamousPersonalities() {
                 ></button>
               </div>
 
-              {/* Body */}
               <div
                 className="modal-body text-center overflow-auto py-4"
                 style={{ maxHeight: "100%" }}
@@ -236,7 +288,6 @@ export default function FamousPersonalities() {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="famous-modal-footer modal-footer border-0 justify-content-between px-4 pb-4">
                 <button
                   className="btn btn-outline-light btn-sm px-4"

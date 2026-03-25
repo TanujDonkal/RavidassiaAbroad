@@ -338,7 +338,7 @@ const fetchCategories = async () => {
       <div className="banner-area gray-bg pt-90 pb-90">
         <div className="container text-center">
           <img
-            src="https://images.unsplash.com/photo-1534080564583-6be75777b70a?auto=format&fit=crop&w=900&q=80"
+            src=""
             alt="Banner"
             className="img-fluid rounded shadow"
           />

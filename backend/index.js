@@ -293,6 +293,171 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+const SEARCHABLE_STATIC_PAGES = [
+  {
+    type: "page",
+    title: "Home",
+    path: "/",
+    summary: "Main landing page with featured content and quick links.",
+    meta: "Page",
+    keywords: ["home", "landing", "community"],
+  },
+  {
+    type: "page",
+    title: "About",
+    path: "/about",
+    summary: "Learn about Ravidassia Abroad and the community mission.",
+    meta: "Page",
+    keywords: ["about", "mission", "community"],
+  },
+  {
+    type: "page",
+    title: "Blogs / News",
+    path: "/blogs",
+    summary: "Latest news, articles, updates, and featured stories.",
+    meta: "Page",
+    keywords: ["blogs", "news", "updates"],
+  },
+  {
+    type: "page",
+    title: "Famous Personalities",
+    path: "/personalities",
+    summary: "Explore notable personalities, leaders, scholars, and activists.",
+    meta: "Page",
+    keywords: ["personalities", "leaders", "scholars", "activists"],
+  },
+  {
+    type: "page",
+    title: "Connect SC/ST by Country",
+    path: "/connect-scst",
+    summary: "Join and connect with SC/ST community members by country.",
+    meta: "Form",
+    keywords: ["scst", "connect", "country", "community"],
+  },
+  {
+    type: "page",
+    title: "Ravidassia Abroad Matrimonial",
+    path: "/matrimonial",
+    summary: "Create or manage your matrimonial biodata and profile.",
+    meta: "Form",
+    keywords: ["matrimonial", "biodata", "matchmaking"],
+  },
+  {
+    type: "page",
+    title: "Countries",
+    path: "/countries",
+    summary: "Browse country-specific community and location content.",
+    meta: "Page",
+    keywords: ["countries", "locations", "abroad"],
+  },
+  {
+    type: "page",
+    title: "Feature",
+    path: "/feature",
+    summary: "Featured highlights and curated site content.",
+    meta: "Page",
+    keywords: ["feature", "featured", "highlights"],
+  },
+  {
+    type: "page",
+    title: "Training",
+    path: "/training",
+    summary: "Training and coaching related content and resources.",
+    meta: "Page",
+    keywords: ["training", "coaching", "resources"],
+  },
+  {
+    type: "page",
+    title: "Testimonial",
+    path: "/testimonial",
+    summary: "Community feedback, testimonials, and shared experiences.",
+    meta: "Page",
+    keywords: ["testimonial", "feedback", "stories"],
+  },
+  {
+    type: "page",
+    title: "Contact",
+    path: "/contact",
+    summary: "Reach out to the Ravidassia Abroad team.",
+    meta: "Page",
+    keywords: ["contact", "email", "support"],
+  },
+];
+
+function normalizeSearchTokens(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2);
+}
+
+function scoreSearchResult(query, result) {
+  if (!query) return 1;
+
+  const normalizedQuery = query.toLowerCase().trim();
+  const title = String(result.title || "").toLowerCase();
+  const summary = String(result.summary || "").toLowerCase();
+  const meta = String(result.meta || "").toLowerCase();
+  const keywordText = Array.isArray(result.keywords)
+    ? result.keywords.join(" ").toLowerCase()
+    : String(result.keywords || "").toLowerCase();
+
+  let score = 0;
+  if (title === normalizedQuery) score += 120;
+  if (title.startsWith(normalizedQuery)) score += 80;
+  if (title.includes(normalizedQuery)) score += 55;
+  if (meta.includes(normalizedQuery)) score += 30;
+  if (summary.includes(normalizedQuery)) score += 20;
+  if (keywordText.includes(normalizedQuery)) score += 18;
+
+  const queryTokens = normalizeSearchTokens(query);
+  for (const token of queryTokens) {
+    if (title.includes(token)) score += 12;
+    if (summary.includes(token)) score += 6;
+    if (meta.includes(token)) score += 6;
+    if (keywordText.includes(token)) score += 5;
+  }
+
+  return score;
+}
+
+function buildStaticSearchResults(query, limit) {
+  return SEARCHABLE_STATIC_PAGES.map((entry) => ({
+    ...entry,
+    score: scoreSearchResult(query, entry),
+  }))
+    .filter((entry) => (!query ? true : entry.score > 0))
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+    .slice(0, limit);
+}
+
+function buildRelatedKeywords(query, results) {
+  const queryTokens = new Set(normalizeSearchTokens(query));
+  const seen = new Set();
+  const keywords = [];
+
+  for (const result of results) {
+    const tokens = [
+      ...normalizeSearchTokens(result.title),
+      ...normalizeSearchTokens(result.meta),
+      ...(Array.isArray(result.keywords)
+        ? result.keywords.flatMap((keyword) => normalizeSearchTokens(keyword))
+        : normalizeSearchTokens(result.keywords)),
+    ];
+
+    for (const token of tokens) {
+      if (queryTokens.has(token) || seen.has(token)) continue;
+      seen.add(token);
+      keywords.push(token);
+      if (keywords.length >= 10) return keywords;
+    }
+  }
+
+  return keywords;
+}
+
 // ---- HELPERS ----
 function getBearerToken(req) {
   const h = req.headers.authorization || "";
@@ -420,6 +585,160 @@ async function sendNotificationEmail(subject, html) {
 app.get("/api/health", (req, res) =>
   res.json({ ok: true, app: "Ravidassia API" })
 );
+
+app.get("/api/search", async (req, res) => {
+  try {
+    const query = String(req.query.q || "").trim();
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit =
+      Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 20)
+        : 12;
+
+    if (!query) {
+      const defaultResults = buildStaticSearchResults("", limit);
+      return res.json({
+        query: "",
+        results: defaultResults,
+        keywords: buildRelatedKeywords("", defaultResults),
+      });
+    }
+
+    const pattern = `%${query}%`;
+
+    const [blogResults, articleResults, personalityResults, menuResults] =
+      await Promise.all([
+        pool.query(
+          `
+            SELECT
+              'blog' AS type,
+              b.id::text AS entity_id,
+              b.title,
+              '/blogs/' || b.slug AS path,
+              COALESCE(b.excerpt, '') AS summary,
+              COALESCE(c.name, 'Blog') AS meta,
+              ARRAY_REMOVE(ARRAY[
+                COALESCE(c.name, NULL),
+                COALESCE(array_to_string(b.tags, ' '), NULL),
+                COALESCE(u.name, NULL)
+              ], NULL) AS keywords
+            FROM blog_posts b
+            LEFT JOIN blog_categories c ON b.category_id = c.id
+            LEFT JOIN users u ON b.author_id = u.id
+            WHERE b.status = 'published'
+              AND (
+                b.title ILIKE $1
+                OR COALESCE(b.excerpt, '') ILIKE $1
+                OR COALESCE(b.content, '') ILIKE $1
+                OR COALESCE(c.name, '') ILIKE $1
+                OR COALESCE(array_to_string(b.tags, ' '), '') ILIKE $1
+              )
+            ORDER BY b.created_at DESC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
+        pool.query(
+          `
+            SELECT
+              'article' AS type,
+              id::text AS entity_id,
+              title,
+              '/articles/' || slug AS path,
+              LEFT(COALESCE(content, ''), 220) AS summary,
+              'Article' AS meta,
+              ARRAY[]::text[] AS keywords
+            FROM static_articles
+            WHERE title ILIKE $1 OR COALESCE(content, '') ILIKE $1
+            ORDER BY id DESC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
+        pool.query(
+          `
+            SELECT
+              'personality' AS type,
+              id::text AS entity_id,
+              name AS title,
+              '/personalities?person=' || id AS path,
+              COALESCE(short_bio, '') AS summary,
+              COALESCE(category, 'Personality') AS meta,
+              ARRAY_REMOVE(ARRAY[
+                COALESCE(caste, NULL),
+                COALESCE(region, NULL),
+                COALESCE(category, NULL),
+                COALESCE(sc_st_type, NULL)
+              ], NULL) AS keywords
+            FROM famous_personalities
+            WHERE
+              name ILIKE $1
+              OR COALESCE(short_bio, '') ILIKE $1
+              OR COALESCE(full_bio, '') ILIKE $1
+              OR COALESCE(category, '') ILIKE $1
+              OR COALESCE(region, '') ILIKE $1
+              OR COALESCE(caste, '') ILIKE $1
+            ORDER BY id DESC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
+        pool.query(
+          `
+            SELECT
+              'menu' AS type,
+              id::text AS entity_id,
+              label AS title,
+              path,
+              'Site navigation' AS summary,
+              'Menu' AS meta,
+              ARRAY[]::text[] AS keywords
+            FROM site_menus
+            WHERE label ILIKE $1 OR path ILIKE $1
+            ORDER BY position ASC, id ASC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
+      ]);
+
+    const staticResults = buildStaticSearchResults(query, limit);
+    const mergedResults = [
+      ...blogResults.rows,
+      ...articleResults.rows,
+      ...personalityResults.rows,
+      ...menuResults.rows,
+      ...staticResults,
+    ]
+      .map((result) => ({
+        ...result,
+        score: scoreSearchResult(query, result),
+      }))
+      .filter((result) => result.score > 0);
+
+    const dedupedResults = [];
+    const seen = new Set();
+
+    for (const result of mergedResults.sort(
+      (a, b) => b.score - a.score || a.title.localeCompare(b.title)
+    )) {
+      const key = `${result.type}:${result.path}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      dedupedResults.push(result);
+      if (dedupedResults.length >= limit) break;
+    }
+
+    res.json({
+      query,
+      results: dedupedResults,
+      keywords: buildRelatedKeywords(query, dedupedResults),
+    });
+  } catch (err) {
+    console.error("Search error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // REGISTER
 app.post("/api/auth/register", async (req, res) => {

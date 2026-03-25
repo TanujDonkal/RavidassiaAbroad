@@ -82,6 +82,16 @@ export function getMe() {
   return apiFetch("/auth/me");
 }
 
+export function searchSite(query = "", limit = 12) {
+  const params = new URLSearchParams();
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+  params.set("limit", String(limit));
+
+  return apiFetch(`/search?${params.toString()}`);
+}
+
 // ----------------------------
 // SC/ST & Matrimonial Admin
 // ----------------------------
