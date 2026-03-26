@@ -4,12 +4,26 @@ import dotenv from "dotenv";
 import pkg from "pg";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import helmet from "helmet";
 import nodemailer from "nodemailer";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { OAuth2Client } from "google-auth-library";
 import { Resend } from "resend";
+import {
+  CURRENT_POLICY_VERSION,
+  PRIVACY_CONTACT_EMAIL,
+  RETENTION_POLICY,
+  getRequestIp,
+  isValidEmail,
+  normalizeBooleanInput,
+  normalizeEmail,
+  normalizeOptionalText,
+  normalizeRequiredText,
+  sanitizeRichText,
+  sanitizeUrl,
+} from "./compliance.js";
 
 dotenv.config();
 
@@ -17,6 +31,12 @@ const { Pool } = pkg;
 const app = express();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
+const rateLimitStore = new Map();
+const IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -42,6 +62,88 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+app.disable("x-powered-by");
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()"
+  );
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; frame-src https:; font-src 'self' https: data:;"
+  );
+  next();
+});
+
+function cleanupExpiredOtps() {
+  const now = Date.now();
+  for (const [email, record] of otpStore.entries()) {
+    if (!record?.expiresAt || now > record.expiresAt) {
+      otpStore.delete(email);
+    }
+  }
+}
+
+setInterval(cleanupExpiredOtps, 60 * 1000).unref?.();
+
+function createRateLimiter({ windowMs, max, bucket }) {
+  return (req, res, next) => {
+    const ip = getRequestIp(req);
+    const key = `${bucket}:${ip}`;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    if (entry.count >= max) {
+      return res
+        .status(429)
+        .json({ message: "Too many requests. Please try again later." });
+    }
+
+    entry.count += 1;
+    next();
+  };
+}
+
+function makeUploader(folder) {
+  return multer({
+    storage: new CloudinaryStorage({
+      cloudinary,
+      params: {
+        folder,
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        resource_type: "image",
+        use_filename: false,
+        unique_filename: true,
+      },
+    }),
+    fileFilter: (_req, file, callback) => {
+      if (IMAGE_MIME_TYPES.has(file.mimetype)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Only JPG, PNG, and WEBP images are allowed"));
+    },
+    limits: { fileSize: 5 * 1024 * 1024 },
+  });
+}
 
 // Safely decode token if exists in Authorization header
 function decodeUserIfAny(req) {
@@ -93,20 +195,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Helper function for reusable uploaders
-function makeUploader(folder) {
-  return multer({
-    storage: new CloudinaryStorage({
-      cloudinary,
-      params: {
-        folder,
-        allowed_formats: ["jpg", "jpeg", "png", "webp"],
-      },
-    }),
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max per file
-  });
-}
-
 // Dedicated uploaders for each feature
 const uploadProfile = makeUploader("ravidassia_profile_dp");
 const uploadMatrimonial = makeUploader("ravidassia_matrimonials");
@@ -116,9 +204,20 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "ravidassia_matrimonials",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    resource_type: "image",
   },
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  fileFilter: (_req, file, callback) => {
+    if (IMAGE_MIME_TYPES.has(file.mimetype)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Only JPG, PNG, and WEBP images are allowed"));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 // ---- ENV ----
 const {
   PORT = 5000,
@@ -279,6 +378,263 @@ async function initDB() {
     );
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS static_articles (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      content TEXT,
+      image_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS article_comments (
+      id SERIAL PRIMARY KEY,
+      article_id INT REFERENCES static_articles(id) ON DELETE CASCADE,
+      user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      parent_id INT REFERENCES article_comments(id) ON DELETE CASCADE,
+      name TEXT,
+      email TEXT,
+      comment_text TEXT NOT NULL,
+      is_approved BOOLEAN DEFAULT TRUE,
+      deleted_by_user BOOLEAN DEFAULT FALSE,
+      consent_given BOOLEAN DEFAULT FALSE,
+      consent_version TEXT,
+      consent_given_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS site_menus (
+      id SERIAL PRIMARY KEY,
+      label TEXT NOT NULL,
+      path TEXT NOT NULL,
+      parent_id INT REFERENCES site_menus(id) ON DELETE SET NULL,
+      position INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS famous_personalities (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      caste TEXT,
+      category TEXT,
+      region TEXT,
+      sc_st_type TEXT,
+      short_bio TEXT,
+      full_bio TEXT,
+      photo_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS privacy_requests (
+      id SERIAL PRIMARY KEY,
+      request_type VARCHAR(40) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      message TEXT,
+      status VARCHAR(30) DEFAULT 'open',
+      admin_notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      resolved_at TIMESTAMP,
+      resolved_by INT REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      admin_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      admin_email TEXT,
+      admin_role TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      details JSONB,
+      ip_address TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS global_temples (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      country TEXT NOT NULL,
+      city TEXT NOT NULL,
+      location_label TEXT,
+      address TEXT,
+      description TEXT,
+      image_url TEXT,
+      gallery_urls TEXT[] DEFAULT ARRAY[]::TEXT[],
+      maps_url TEXT,
+      website_url TEXT,
+      established_year INT,
+      contact_info TEXT,
+      seva_info TEXT,
+      featured BOOLEAN DEFAULT FALSE,
+      display_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  const schemaPatches = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS policy_ack_version TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS policy_ack_at TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMP`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS replied BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS consent_version TEXT`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+    `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS annual_income VARCHAR(100)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS father_name VARCHAR(150)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS father_occupation VARCHAR(150)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS mother_name VARCHAR(150)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS mother_occupation VARCHAR(150)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS siblings INT`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS family_type VARCHAR(100)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS religion VARCHAR(100)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS caste VARCHAR(100)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS partner_expectations TEXT`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS partner_age_range VARCHAR(50)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS partner_country VARCHAR(100)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS partner_marital_status VARCHAR(50)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS privacy_accepted VARCHAR(20)`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS photo_url TEXT`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS religion_beliefs TEXT`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS consent_version TEXT`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+    `ALTER TABLE matrimonial_submissions ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE content_requests ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'open'`,
+    `ALTER TABLE content_requests ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE content_requests ADD COLUMN IF NOT EXISTS consent_version TEXT`,
+    `ALTER TABLE content_requests ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+    `ALTER TABLE content_requests ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE blog_comments ADD COLUMN IF NOT EXISTS parent_id INT REFERENCES blog_comments(id) ON DELETE CASCADE`,
+    `ALTER TABLE blog_comments ADD COLUMN IF NOT EXISTS deleted_by_user BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE blog_comments ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE blog_comments ADD COLUMN IF NOT EXISTS consent_version TEXT`,
+    `ALTER TABLE blog_comments ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+    `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS deleted_by_user BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_version TEXT`,
+    `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+  ];
+
+  for (const query of schemaPatches) {
+    await pool.query(query);
+  }
+
+  const templeCountResult = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM global_temples"
+  );
+
+  if (templeCountResult.rows[0]?.count === 0) {
+    await pool.query(
+      `
+        INSERT INTO global_temples
+          (name, country, city, location_label, address, description, image_url, gallery_urls, maps_url, website_url, established_year, contact_info, seva_info, featured, display_order)
+        VALUES
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15),
+          ($16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30),
+          ($31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45),
+          ($46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$60)
+      `,
+      [
+        "Shri Guru Ravidass Sabha Temple",
+        "Canada",
+        "Brampton",
+        "Ontario, Canada",
+        "Near central Brampton community corridor",
+        "A vibrant sangat space for weekly satsang, youth gatherings, and community seva with a strong Punjabi Ravidassia presence.",
+        "https://images.unsplash.com/photo-1512632578888-169bbbc64f33?auto=format&fit=crop&w=1200&q=80",
+        [
+          "https://images.unsplash.com/photo-1512632578888-169bbbc64f33?auto=format&fit=crop&w=1200&q=80",
+          "https://images.unsplash.com/photo-1524499982521-1ffd58dd89ea?auto=format&fit=crop&w=1200&q=80",
+          "https://images.unsplash.com/photo-1509099863731-ef4bff19e808?auto=format&fit=crop&w=1200&q=80",
+        ],
+        "https://maps.google.com/?q=Brampton+Ontario+Guru+Ravidass+Temple",
+        "",
+        2004,
+        "Community desk available for sangat and event inquiries.",
+        "Hosts langar seva, Gurpurab celebrations, and cultural programmes.",
+        true,
+        1,
+        "Guru Ravidass Temple Southall",
+        "United Kingdom",
+        "London",
+        "Southall, London",
+        "Southall Broadway community zone",
+        "A long-standing temple and cultural anchor for Ravidassia families in the UK, known for large gatherings and well-organized community events.",
+        "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?auto=format&fit=crop&w=1200&q=80",
+        [
+          "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?auto=format&fit=crop&w=1200&q=80",
+          "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+        ],
+        "https://maps.google.com/?q=Southall+Guru+Ravidass+Temple",
+        "",
+        1998,
+        "Weekend sangat support and event coordination available.",
+        "Special focus on youth engagement, keertan, and heritage events.",
+        true,
+        2,
+        "Guru Ravidass Gurughar",
+        "United States",
+        "New York",
+        "Queens, New York",
+        "Queens community district",
+        "A growing sangat center serving families across New York with prayer services, cultural education, and support for new immigrants.",
+        "https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80",
+        [
+          "https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80",
+          "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+        ],
+        "https://maps.google.com/?q=Queens+New+York+Guru+Ravidass+Temple",
+        "",
+        2010,
+        "Reachable through the temple office for visits and events.",
+        "Supports sangat meetups, spiritual learning, and festive celebrations.",
+        false,
+        3,
+        "Shri Guru Ravidass Mandir",
+        "India",
+        "Jalandhar",
+        "Punjab, India",
+        "Doaba region",
+        "A heritage-rooted temple space connected with deep Ravidassia devotion, sangat gatherings, and festival observances across Punjab.",
+        "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=80",
+        [
+          "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=80",
+          "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80",
+        ],
+        "https://maps.google.com/?q=Jalandhar+Punjab+Guru+Ravidass+Mandir",
+        "",
+        1987,
+        "Temple office open during daily prayer and major programmes.",
+        "Known for spiritual gatherings, kirtan, and Gurpurab events.",
+        true,
+        4,
+      ]
+    );
+  }
+
   console.log("✅ Database initialized");
 }
 
@@ -381,6 +737,46 @@ const SEARCHABLE_STATIC_PAGES = [
     summary: "Reach out to the Ravidassia Abroad team.",
     meta: "Page",
     keywords: ["contact", "email", "support"],
+  },
+  {
+    type: "page",
+    title: "Temples Globally",
+    path: "/temples-globally",
+    summary: "Browse Guru Ravidass temples by country with photos, maps, and community details.",
+    meta: "Directory",
+    keywords: ["temples", "gurughar", "mandir", "directory", "countries"],
+  },
+  {
+    type: "page",
+    title: "Privacy Policy",
+    path: "/privacy-policy",
+    summary: "How the website currently collects, uses, and stores personal information.",
+    meta: "Legal",
+    keywords: ["privacy", "policy", "data"],
+  },
+  {
+    type: "page",
+    title: "Terms of Use",
+    path: "/terms-of-use",
+    summary: "Rules for using the current Ravidassia Abroad website.",
+    meta: "Legal",
+    keywords: ["terms", "use", "rules"],
+  },
+  {
+    type: "page",
+    title: "Community Guidelines",
+    path: "/community-guidelines",
+    summary: "Community behavior and moderation expectations for the current platform.",
+    meta: "Legal",
+    keywords: ["community", "guidelines", "moderation"],
+  },
+  {
+    type: "page",
+    title: "Privacy / Data Request",
+    path: "/privacy-data-request",
+    summary: "Request access, correction, deletion, or account deletion for your data.",
+    meta: "Privacy",
+    keywords: ["privacy", "data request", "deletion", "access"],
   },
 ];
 
@@ -485,13 +881,70 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+async function logAdminAction(req, action, entityType, entityId = null, details = {}) {
+  if (!req.user) return;
+
+  try {
+    await pool.query(
+      `INSERT INTO admin_audit_logs
+        (admin_user_id, admin_email, admin_role, action, entity_type, entity_id, details, ip_address)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        req.user.id,
+        req.user.email || null,
+        req.user.role || null,
+        action,
+        entityType,
+        entityId ? String(entityId) : null,
+        JSON.stringify(details || {}),
+        getRequestIp(req),
+      ]
+    );
+  } catch (err) {
+    console.error("Audit log write failed:", err);
+  }
+}
+
+function validatePassword(value) {
+  return typeof value === "string" && value.trim().length >= 6;
+}
+
+function sendValidationError(res, message) {
+  return res.status(400).json({ message });
+}
+
+function getSafePublicCommentFields(type) {
+  const table = type === "articles" ? "article_comments" : "blog_comments";
+  const field = type === "articles" ? "article_id" : "post_id";
+  return { table, field };
+}
+
+const authRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  bucket: "auth",
+});
+const commentRateLimit = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 12,
+  bucket: "comments",
+});
+const formRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  bucket: "sensitive-forms",
+});
+
 // 🟢 Step 1: Request password reset (send OTP)
 
 // 🟢 Step 1: Request password reset (send OTP)
-app.post("/api/auth/request-reset", async (req, res) => {
+app.post("/api/auth/request-reset", authRateLimit, async (req, res) => {
   try {
-    const { email } = req.body;  // <-- IMPORTANT
-    if (!email) return res.status(400).json({ message: "Email required" });
+    cleanupExpiredOtps();
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !isValidEmail(email)) {
+      return sendValidationError(res, "Valid email required");
+    }
 
     const user = await pool.query(
       "SELECT id, email, name FROM users WHERE email=$1",
@@ -531,11 +984,20 @@ app.post("/api/auth/request-reset", async (req, res) => {
 
 
 // 🟢 Step 2: Verify OTP and reset password
-app.post("/api/auth/reset-password", async (req, res) => {
+app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    cleanupExpiredOtps();
+    const email = normalizeEmail(req.body?.email);
+    const otp = normalizeRequiredText(req.body?.otp, 12);
+    const newPassword = String(req.body?.newPassword || "");
     if (!email || !otp || !newPassword)
       return res.status(400).json({ message: "Missing fields" });
+    if (!validatePassword(newPassword)) {
+      return sendValidationError(
+        res,
+        "Password must be at least 6 characters"
+      );
+    }
 
     const record = otpStore.get(email);
     if (!record)
@@ -606,7 +1068,13 @@ app.get("/api/search", async (req, res) => {
 
     const pattern = `%${query}%`;
 
-    const [blogResults, articleResults, personalityResults, menuResults] =
+    const [
+      blogResults,
+      articleResults,
+      personalityResults,
+      menuResults,
+      templeResults,
+    ] =
       await Promise.all([
         pool.query(
           `
@@ -700,6 +1168,32 @@ app.get("/api/search", async (req, res) => {
           `,
           [pattern, limit]
         ),
+        pool.query(
+          `
+            SELECT
+              'temple' AS type,
+              id::text AS entity_id,
+              name AS title,
+              '/temples-globally?country=' || REPLACE(country, ' ', '%20') || '&temple=' || id AS path,
+              COALESCE(description, '') AS summary,
+              country AS meta,
+              ARRAY_REMOVE(ARRAY[
+                COALESCE(city, NULL),
+                COALESCE(location_label, NULL),
+                COALESCE(country, NULL)
+              ], NULL) AS keywords
+            FROM global_temples
+            WHERE
+              name ILIKE $1
+              OR country ILIKE $1
+              OR city ILIKE $1
+              OR COALESCE(location_label, '') ILIKE $1
+              OR COALESCE(description, '') ILIKE $1
+            ORDER BY featured DESC, display_order ASC, id DESC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
       ]);
 
     const staticResults = buildStaticSearchResults(query, limit);
@@ -708,6 +1202,7 @@ app.get("/api/search", async (req, res) => {
       ...articleResults.rows,
       ...personalityResults.rows,
       ...menuResults.rows,
+      ...templeResults.rows,
       ...staticResults,
     ]
       .map((result) => ({
@@ -740,14 +1235,56 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
-// REGISTER
-app.post("/api/auth/register", async (req, res) => {
+app.get("/api/temples", async (req, res) => {
   try {
-    let { name, email, password } = req.body || {};
-    if (!name || !email || !password)
-      return res.status(400).json({ message: "All fields required" });
+    const { country } = req.query;
+    const params = [];
+    let query = `
+      SELECT *
+      FROM global_temples
+      WHERE 1=1
+    `;
 
-    email = email.toLowerCase();
+    if (country) {
+      params.push(country);
+      query += ` AND country = $${params.length}`;
+    }
+
+    query += " ORDER BY featured DESC, display_order ASC, country ASC, city ASC, name ASC";
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Temples fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// REGISTER
+app.post("/api/auth/register", authRateLimit, async (req, res) => {
+  try {
+    let { name, email, password, policyAccepted, marketingOptIn } =
+      req.body || {};
+    name = normalizeRequiredText(name, 100);
+    email = normalizeEmail(email);
+    if (!name || !email || !password) {
+      return sendValidationError(res, "All fields required");
+    }
+    if (!isValidEmail(email)) {
+      return sendValidationError(res, "Valid email required");
+    }
+    if (!validatePassword(password)) {
+      return sendValidationError(
+        res,
+        "Password must be at least 6 characters"
+      );
+    }
+    if (!normalizeBooleanInput(policyAccepted)) {
+      return sendValidationError(
+        res,
+        "You must agree to the Terms of Use and Privacy Policy"
+      );
+    }
     const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
       email,
     ]);
@@ -756,8 +1293,17 @@ app.post("/api/auth/register", async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
     const inserted = await pool.query(
-      "INSERT INTO users (name, email, password_hash) VALUES ($1,$2,$3) RETURNING id, name, email, role, photo_url, phone, city",
-      [name, email, hash]
+      `INSERT INTO users
+        (name, email, password_hash, marketing_opt_in, policy_ack_version, policy_ack_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       RETURNING id, name, email, role, photo_url, phone, city, marketing_opt_in`,
+      [
+        name,
+        email,
+        hash,
+        normalizeBooleanInput(marketingOptIn),
+        CURRENT_POLICY_VERSION,
+      ]
     );
 
     const user = inserted.rows[0];
@@ -776,17 +1322,16 @@ app.post("/api/auth/register", async (req, res) => {
 
 // LOGIN
 // LOGIN
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authRateLimit, async (req, res) => {
   try {
     let { email, password } = req.body || {};
+    email = normalizeEmail(email);
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
 
-    email = email.toLowerCase();
-
     // ✅ Now fetch photo_url, phone, and city as well
     const result = await pool.query(
-      "SELECT id, name, email, role, password_hash, photo_url, phone, city FROM users WHERE email=$1",
+      "SELECT id, name, email, role, password_hash, photo_url, phone, city, marketing_opt_in FROM users WHERE email=$1",
       [email]
     );
 
@@ -813,9 +1358,12 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-app.post("/api/auth/google", async (req, res) => {
+app.post("/api/auth/google", authRateLimit, async (req, res) => {
   try {
     const { credential } = req.body;
+    if (!credential) {
+      return sendValidationError(res, "Google credential required");
+    }
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -831,8 +1379,11 @@ app.post("/api/auth/google", async (req, res) => {
     if (userRes.rows.length === 0) {
       const hash = await bcrypt.hash(jwt.sign({ email }, JWT_SECRET), 10);
       const insert = await pool.query(
-        "INSERT INTO users (name,email,password_hash,photo_url) VALUES ($1,$2,$3,$4) RETURNING *",
-        [name, email.toLowerCase(), hash, picture]
+        `INSERT INTO users
+          (name,email,password_hash,photo_url,marketing_opt_in,policy_ack_version,policy_ack_at)
+         VALUES ($1,$2,$3,$4,$5,$6,NOW())
+         RETURNING *`,
+        [name, email.toLowerCase(), hash, picture, false, CURRENT_POLICY_VERSION]
       );
       user = insert.rows[0];
     } else user = userRes.rows[0];
@@ -855,7 +1406,7 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/api/auth/me", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, role, photo_url, phone, city, created_at FROM users WHERE id=$1",
+      "SELECT id, name, email, role, photo_url, phone, city, created_at, marketing_opt_in FROM users WHERE id=$1",
       [req.user.id]
     );
 
@@ -870,26 +1421,34 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
 });
 
 // ---- SC/ST SUBMISSION ----
-app.post("/api/scst-submissions", requireAuth, async (req, res) => {
+app.post("/api/scst-submissions", requireAuth, formRateLimit, async (req, res) => {
   try {
     const userId = req.user.id;
-    const {
-      name,
-      email,
-      country,
-      state,
-      city,
-      phone,
-      platform,
-      instagram,
-      proof,
-      message,
-    } = req.body || {};
+    const name = normalizeRequiredText(req.body?.name, 120);
+    const email = normalizeEmail(req.body?.email);
+    const country = normalizeRequiredText(req.body?.country, 100);
+    const state = normalizeOptionalText(req.body?.state, 100);
+    const city = normalizeOptionalText(req.body?.city, 100);
+    const phone = normalizeOptionalText(req.body?.phone, 50);
+    const platform = normalizeOptionalText(req.body?.platform, 20) || "WhatsApp";
+    const instagram = normalizeOptionalText(req.body?.instagram, 100);
+    const proof = normalizeOptionalText(req.body?.proof, 255);
+    const message = normalizeOptionalText(
+      sanitizeRichText(req.body?.message),
+      4000
+    );
+    const consentGiven = normalizeBooleanInput(req.body?.consent_given);
+    const marketingOptIn = normalizeBooleanInput(req.body?.marketing_opt_in);
 
-    if (!name || !email || !country)
-      return res
-        .status(400)
-        .json({ message: "name, email, and country required" });
+    if (!name || !email || !country) {
+      return sendValidationError(res, "name, email, and country required");
+    }
+    if (!isValidEmail(email)) {
+      return sendValidationError(res, "Valid email required");
+    }
+    if (!consentGiven) {
+      return sendValidationError(res, "Consent is required");
+    }
 
     const existing = await pool.query(
       "SELECT id FROM scst_submissions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1",
@@ -902,8 +1461,10 @@ app.post("/api/scst-submissions", requireAuth, async (req, res) => {
         `UPDATE scst_submissions SET
           name=$1, email=$2, country=$3, state=$4, city=$5,
           phone=$6, platform=$7, instagram=$8, proof=$9, message=$10,
-          status='pending', replied=false, replied_at=NULL
-         WHERE id=$11`,
+          status='pending', replied=false, replied_at=NULL,
+          consent_given=$11, consent_version=$12, consent_given_at=NOW(),
+          marketing_opt_in=$13
+         WHERE id=$14`,
         [
           name,
           email,
@@ -915,6 +1476,9 @@ app.post("/api/scst-submissions", requireAuth, async (req, res) => {
           instagram,
           proof,
           message,
+          consentGiven,
+          CURRENT_POLICY_VERSION,
+          marketingOptIn,
           existingId,
         ]
       );
@@ -929,8 +1493,8 @@ app.post("/api/scst-submissions", requireAuth, async (req, res) => {
 
     await pool.query(
       `INSERT INTO scst_submissions
-       (user_id,name,email,country,state,city,phone,platform,instagram,proof,message,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')`,
+       (user_id,name,email,country,state,city,phone,platform,instagram,proof,message,status,consent_given,consent_version,consent_given_at,marketing_opt_in)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13,NOW(),$14)`,
       [
         userId,
         name,
@@ -943,6 +1507,9 @@ app.post("/api/scst-submissions", requireAuth, async (req, res) => {
         instagram,
         proof,
         message,
+        consentGiven,
+        CURRENT_POLICY_VERSION,
+        marketingOptIn,
       ]
     );
 
@@ -998,19 +1565,29 @@ app.get("/api/scst-submissions/mine", async (req, res) => {
 app.post(
   "/api/matrimonial-submissions",
   requireAuth,
+  formRateLimit,
   uploadMatrimonial.single("photo"),
   async (req, res) => {
     try {
       const d = req.body || {};
       const userId = req.user.id;
+      const consentGiven = normalizeBooleanInput(d.consent_given);
+      const marketingOptIn = normalizeBooleanInput(d.marketing_opt_in);
 
       // Normalize fields from frontend
       d.origin_state = d.home_state_india || d.origin_state;
       d.current_status = d.status_type || d.current_status;
+      d.partner_expectations = sanitizeRichText(d.partner_expectations || "");
 
       // Validate minimum required fields
       if (!d.name?.trim() || !d.email?.trim() || !d.country_living?.trim()) {
         return res.status(400).json({ message: "Required fields missing" });
+      }
+      if (!isValidEmail(d.email)) {
+        return sendValidationError(res, "Valid email required");
+      }
+      if (!consentGiven) {
+        return sendValidationError(res, "Consent is required");
       }
 
       const dobValue = d.dob?.trim() ? d.dob : null;
@@ -1035,8 +1612,10 @@ app.post(
             father_name=$21, father_occupation=$22, mother_name=$23, mother_occupation=$24,
             siblings=$25, family_type=$26, religion=$27, caste=$28,
             partner_expectations=$29, partner_age_range=$30, partner_country=$31,
-            privacy_accepted=$32, photo_url=$33, religion_beliefs=$34
-          WHERE user_id=$35`,
+            privacy_accepted=$32, photo_url=$33, religion_beliefs=$34,
+            consent_given=$35, consent_version=$36, consent_given_at=NOW(),
+            marketing_opt_in=$37
+          WHERE user_id=$38`,
           [
             d.name,
             d.gender,
@@ -1072,6 +1651,9 @@ app.post(
             d.privacy_accepted || null,
             photoUrl || null,
             d.religion_beliefs || null,
+            consentGiven,
+            CURRENT_POLICY_VERSION,
+            marketingOptIn,
             userId,
           ]
         );
@@ -1093,14 +1675,15 @@ app.post(
            company_or_institution, income_range, annual_income,
            father_name, father_occupation, mother_name, mother_occupation, siblings,
            family_type, religion, caste, partner_expectations, partner_age_range,
-           partner_country, privacy_accepted, photo_url, religion_beliefs)
+           partner_country, privacy_accepted, photo_url, religion_beliefs,
+           consent_given, consent_version, consent_given_at, marketing_opt_in)
          VALUES
-          ($1,$2,$3,$4,$5,$6,$7,
-           $8,$9,$10,$11,$12,$13,
-           $14,$15,$16,$17,$18,$19,
-           $20,$21,$22,$23,$24,$25,
-           $26,$27,$28,$29,$30,$31,
-           $32,$33,$34,$35)`,
+           ($1,$2,$3,$4,$5,$6,$7,
+            $8,$9,$10,$11,$12,$13,
+            $14,$15,$16,$17,$18,$19,
+            $20,$21,$22,$23,$24,$25,
+            $26,$27,$28,$29,$30,$31,
+            $32,$33,$34,$35,$36,$37,NOW(),$38)`,
         [
           userId,
           d.name,
@@ -1137,6 +1720,9 @@ app.post(
           d.privacy_accepted || null,
           photoUrl || null,
           d.religion_beliefs || null,
+          consentGiven,
+          CURRENT_POLICY_VERSION,
+          marketingOptIn,
         ]
       );
 
@@ -1222,6 +1808,7 @@ app.delete(
     try {
       const id = req.params.id;
       await pool.query("DELETE FROM scst_submissions WHERE id=$1", [id]);
+      await logAdminAction(req, "delete", "scst_submission", id);
       res.json({ message: "Deleted successfully" });
     } catch (err) {
       console.error("SC/ST delete error:", err);
@@ -1256,6 +1843,7 @@ app.delete(
       await pool.query("DELETE FROM matrimonial_submissions WHERE id=$1", [
         req.params.id,
       ]);
+      await logAdminAction(req, "delete", "matrimonial_submission", req.params.id);
       res.json({ message: "Deleted successfully" });
     } catch (err) {
       console.error("Matrimonial delete error:", err);
@@ -1279,6 +1867,10 @@ app.post(
       await pool.query("DELETE FROM matrimonial_submissions WHERE id = ANY($1)", [
         ids,
       ]);
+      await logAdminAction(req, "bulk_delete", "matrimonial_submission", null, {
+        ids,
+        count: ids.length,
+      });
 
       res.json({
         message: `Deleted ${ids.length} matrimonial submissions successfully`,
@@ -1360,10 +1952,19 @@ app.put(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    const { id } = req.params;
-    const { role } = req.body;
-    await pool.query("UPDATE users SET role=$1 WHERE id=$2", [role, id]);
-    res.json({ message: "Role updated" });
+    try {
+      const { id } = req.params;
+      const { role } = req.body;
+      if (!["user", "moderate_admin", "main_admin", "admin"].includes(role)) {
+        return sendValidationError(res, "Invalid role");
+      }
+      await pool.query("UPDATE users SET role=$1 WHERE id=$2", [role, id]);
+      await logAdminAction(req, "role_change", "user", id, { role });
+      res.json({ message: "Role updated" });
+    } catch (err) {
+      console.error("Role update error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
 );
 
@@ -1397,6 +1998,7 @@ app.delete(
           .json({ message: "Cannot delete another main_admin" });
 
       await pool.query("DELETE FROM users WHERE id=$1", [id]);
+      await logAdminAction(req, "delete", "user", id);
       res.json({ message: "🗑️ User deleted successfully" });
     } catch (err) {
       console.error("❌ User delete error:", err);
@@ -1437,6 +2039,10 @@ app.post(
 
       const eligibleIds = rows.map((r) => r.id);
       await pool.query("DELETE FROM users WHERE id = ANY($1)", [eligibleIds]);
+      await logAdminAction(req, "bulk_delete", "user", null, {
+        ids: eligibleIds,
+        count: eligibleIds.length,
+      });
 
       res.json({
         message: `🗑️ Deleted ${eligibleIds.length} users successfully`,
@@ -1463,6 +2069,10 @@ app.post(
 
       // Delete all selected submissions
       await pool.query("DELETE FROM scst_submissions WHERE id = ANY($1)", [ids]);
+      await logAdminAction(req, "bulk_delete", "scst_submission", null, {
+        ids,
+        count: ids.length,
+      });
 
       res.json({
         message: `🗑️ Deleted ${ids.length} SC/ST submissions successfully`,
@@ -1476,14 +2086,18 @@ app.post(
 
 app.post(
   "/api/user/update-profile",
+  requireAuth,
   uploadProfile.single("photo"),
   async (req, res) => {
     try {
-      const u = decodeUserIfAny(req);
-      if (!u) return res.status(401).json({ message: "Unauthorized" });
-
+      const u = req.user;
       const d = req.body;
       const newPhotoUrl = req.file ? req.file.path : null;
+      const name = normalizeRequiredText(d.name, 100);
+      const phone = normalizeOptionalText(d.phone, 50);
+      const city = normalizeOptionalText(d.city, 100);
+      const marketingOptIn = normalizeBooleanInput(d.marketing_opt_in);
+      if (!name) return sendValidationError(res, "Name is required");
 
       // Fetch old photo
       const oldPhotoRes = await pool.query(
@@ -1495,9 +2109,9 @@ app.post(
       // Update user info
       await pool.query(
         `UPDATE users
-       SET name=$1, phone=$2, city=$3, photo_url=COALESCE($4, photo_url)
-       WHERE id=$5`,
-        [d.name, d.phone, d.city, newPhotoUrl, u.id]
+       SET name=$1, phone=$2, city=$3, photo_url=COALESCE($4, photo_url), marketing_opt_in=$5
+       WHERE id=$6`,
+        [name, phone, city, newPhotoUrl, marketingOptIn, u.id]
       );
 
       // 🧹 Delete old Cloudinary photo if replaced
@@ -1516,6 +2130,7 @@ app.post(
       res.json({
         message: "✅ Profile updated successfully!",
         photo_url: newPhotoUrl || oldPhotoUrl,
+        marketing_opt_in: marketingOptIn,
       });
     } catch (err) {
       console.error("Profile update error:", err);
@@ -1526,19 +2141,50 @@ app.post(
 
 // ---- CONTENT REQUEST ----
 // Public submission
-app.post("/api/content-requests", async (req, res) => {
+app.post("/api/content-requests", formRateLimit, async (req, res) => {
   try {
-    const { name, email, content_url, type, details } = req.body || {};
-    if (!name || !email || !content_url || !type)
+    const name = normalizeRequiredText(req.body?.name, 100);
+    const email = normalizeEmail(req.body?.email);
+    const contentUrl = sanitizeUrl(req.body?.content_url);
+    const requestType = normalizeRequiredText(
+      req.body?.type || req.body?.request_type,
+      20
+    );
+    const details = normalizeOptionalText(
+      sanitizeRichText(req.body?.details),
+      4000
+    );
+    const consentGiven = normalizeBooleanInput(req.body?.consent_given);
+    const marketingOptIn = normalizeBooleanInput(req.body?.marketing_opt_in);
+    if (!name || !email || !contentUrl || !requestType)
       return res.status(400).json({ message: "All fields required" });
+    if (!isValidEmail(email)) {
+      return sendValidationError(res, "Valid email required");
+    }
+    if (!consentGiven) {
+      return sendValidationError(res, "Consent is required");
+    }
 
     await pool.query(
-      `INSERT INTO content_requests (name, email, content_url, request_type, details)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [name, email, content_url, type, details]
+      `INSERT INTO content_requests
+        (name, email, content_url, request_type, details, status, consent_given, consent_version, consent_given_at, marketing_opt_in)
+       VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, NOW(), $8)`,
+      [
+        name,
+        email,
+        contentUrl,
+        requestType,
+        details,
+        consentGiven,
+        CURRENT_POLICY_VERSION,
+        marketingOptIn,
+      ]
     );
 
-    res.json({ message: "Request submitted successfully!" });
+    res.json({
+      message: "Request submitted successfully!",
+      privacy_contact_email: PRIVACY_CONTACT_EMAIL,
+    });
   } catch (err) {
     console.error("Content request error:", err);
     res.status(500).json({ message: "Server error" });
@@ -1573,6 +2219,7 @@ app.delete(
       await pool.query("DELETE FROM content_requests WHERE id=$1", [
         req.params.id,
       ]);
+      await logAdminAction(req, "delete", "content_request", req.params.id);
       res.json({ message: "Deleted successfully" });
     } catch (err) {
       console.error("Delete content request error:", err);
@@ -1594,6 +2241,10 @@ app.post(
       }
 
       await pool.query("DELETE FROM content_requests WHERE id = ANY($1)", [ids]);
+      await logAdminAction(req, "bulk_delete", "content_request", null, {
+        ids,
+        count: ids.length,
+      });
 
       res.json({
         message: `Deleted ${ids.length} content requests successfully`,
@@ -1601,6 +2252,171 @@ app.post(
     } catch (err) {
       console.error("Bulk delete content requests error:", err);
       res.status(500).json({ message: "Server error during bulk delete" });
+    }
+  }
+);
+
+app.post("/api/privacy-requests", formRateLimit, async (req, res) => {
+  try {
+    const user = decodeUserIfAny(req);
+    const requestType = normalizeRequiredText(req.body?.request_type, 40);
+    const name = normalizeRequiredText(req.body?.name, 120);
+    const email = normalizeEmail(req.body?.email);
+    const message = normalizeOptionalText(
+      sanitizeRichText(req.body?.message),
+      4000
+    );
+
+    if (!["access", "correction", "deletion", "account_deletion"].includes(requestType)) {
+      return sendValidationError(res, "Invalid request type");
+    }
+    if (!name || !email || !message) {
+      return sendValidationError(res, "All fields required");
+    }
+    if (!isValidEmail(email)) {
+      return sendValidationError(res, "Valid email required");
+    }
+
+    const insert = await pool.query(
+      `INSERT INTO privacy_requests
+        (request_type, name, email, user_id, message, status)
+       VALUES ($1,$2,$3,$4,$5,'open')
+       RETURNING *`,
+      [requestType, name, email, user?.id || null, message]
+    );
+
+    if (requestType === "account_deletion" && user?.id) {
+      await pool.query(
+        "UPDATE users SET deletion_requested_at = NOW() WHERE id = $1",
+        [user.id]
+      );
+    }
+
+    res.status(201).json({
+      message: "Privacy request submitted successfully",
+      request: insert.rows[0],
+      privacy_contact_email: PRIVACY_CONTACT_EMAIL,
+    });
+  } catch (err) {
+    console.error("Privacy request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get(
+  "/api/admin/privacy-requests",
+  requireAuth,
+  requireAdmin,
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT * FROM privacy_requests ORDER BY created_at DESC"
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Privacy requests fetch error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.patch(
+  "/api/admin/privacy-requests/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const status = normalizeRequiredText(req.body?.status, 30) || "resolved";
+      const adminNotes = normalizeOptionalText(req.body?.admin_notes, 4000);
+      if (!["open", "in_review", "resolved", "closed"].includes(status)) {
+        return sendValidationError(res, "Invalid status");
+      }
+
+      const result = await pool.query(
+        `UPDATE privacy_requests
+         SET status=$1, admin_notes=$2, resolved_at=CASE WHEN $1 IN ('resolved','closed') THEN NOW() ELSE NULL END, resolved_by=$3
+         WHERE id=$4
+         RETURNING *`,
+        [status, adminNotes, req.user.id, req.params.id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Privacy request not found" });
+      }
+
+      await logAdminAction(req, "resolve", "privacy_request", req.params.id, {
+        status,
+      });
+
+      res.json({
+        message: "Privacy request updated successfully",
+        request: result.rows[0],
+      });
+    } catch (err) {
+      console.error("Privacy request update error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/privacy-requests/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM privacy_requests WHERE id=$1", [req.params.id]);
+      await logAdminAction(req, "delete", "privacy_request", req.params.id);
+      res.json({ message: "Privacy request deleted successfully" });
+    } catch (err) {
+      console.error("Privacy request delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/privacy-requests/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body || {};
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return sendValidationError(res, "No IDs provided");
+      }
+
+      await pool.query("DELETE FROM privacy_requests WHERE id = ANY($1)", [ids]);
+      await logAdminAction(req, "bulk_delete", "privacy_request", null, {
+        ids,
+        count: ids.length,
+      });
+      res.json({ message: `Deleted ${ids.length} privacy requests successfully` });
+    } catch (err) {
+      console.error("Privacy request bulk delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/audit-events",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const action = normalizeRequiredText(req.body?.action, 100);
+      const entityType = normalizeRequiredText(req.body?.entity_type, 100);
+      const entityId = normalizeOptionalText(req.body?.entity_id, 100);
+      const details = req.body?.details || {};
+      if (!action || !entityType) {
+        return sendValidationError(res, "Action and entity type are required");
+      }
+      await logAdminAction(req, action, entityType, entityId, details);
+      res.json({ message: "Audit event recorded" });
+    } catch (err) {
+      console.error("Audit event error:", err);
+      res.status(500).json({ message: "Server error" });
     }
   }
 );
@@ -1782,6 +2598,9 @@ app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
     // ✅ Defaults
     if (!category_id) category_id = 1;
     if (!status) status = "published";
+    title = normalizeRequiredText(title, 255);
+    excerpt = sanitizeRichText(excerpt || "");
+    content = sanitizeRichText(content || "");
 
     // ✅ Insert and return the new blog
     const insertRes = await pool.query(
@@ -1810,14 +2629,17 @@ app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Blog create error:", err);
-    res.status(500).json({ message: err.message || "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 app.put("/api/admin/blogs/:id", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, content, excerpt, image_url, category_id, status } =
+    let { title, content, excerpt, image_url, category_id, status } =
       req.body;
+    title = normalizeRequiredText(title, 255);
+    excerpt = sanitizeRichText(excerpt || "");
+    content = sanitizeRichText(content || "");
 
     // ✅ Update existing blog
     await pool.query(
@@ -1846,7 +2668,7 @@ app.put("/api/admin/blogs/:id", requireAuth, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Blog update error:", err);
-    res.status(500).json({ message: err.message || "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -1907,15 +2729,23 @@ app.get("/api/:type/:id/comments", async (req, res) => {
   try {
     const { type, id } = req.params;
 
-    const table = type === "articles" ? "article_comments" : "blog_comments";
-    const field = type === "articles" ? "article_id" : "post_id";
+    const { table, field } = getSafePublicCommentFields(type);
 
     const result = await pool.query(
-      `SELECT * FROM ${table}
+      `SELECT
+         c.id,
+         c.parent_id,
+         c.user_id,
+         c.name,
+         c.comment_text,
+         c.created_at,
+         u.photo_url
+       FROM ${table} c
+       LEFT JOIN users u ON c.user_id = u.id
        WHERE ${field}=$1 
        AND is_approved=true 
-       AND deleted_by_user=false
-       ORDER BY created_at ASC`,
+       AND COALESCE(c.deleted_by_user,false)=false
+       ORDER BY c.created_at ASC`,
       [id]
     );
 
@@ -1934,13 +2764,34 @@ app.get("/api/:type/:id/comments", async (req, res) => {
 });
 
 // 🟢 Add a comment or reply (blogs or articles)
-app.post("/api/:type/:id/comments", async (req, res) => {
+app.post("/api/:type/:id/comments", commentRateLimit, async (req, res) => {
   try {
     const { type, id } = req.params;
-    const { user_id, name, email, comment_text, parent_id } = req.body;
+    const authUser = decodeUserIfAny(req);
+    const { parent_id } = req.body || {};
+    const commentText = normalizeRequiredText(
+      sanitizeRichText(req.body?.comment_text),
+      5000
+    );
+    const consentGiven = normalizeBooleanInput(req.body?.consent_given);
+    const { table, field } = getSafePublicCommentFields(type);
+    const name = authUser?.name || normalizeRequiredText(req.body?.name, 120);
+    const email = authUser?.email || normalizeEmail(req.body?.email);
 
-    const table = type === "articles" ? "article_comments" : "blog_comments";
-    const field = type === "articles" ? "article_id" : "post_id";
+    if (!commentText) {
+      return sendValidationError(res, "Comment text is required");
+    }
+    if (!authUser) {
+      if (!name || !email) {
+        return sendValidationError(res, "Name and email are required");
+      }
+      if (!isValidEmail(email)) {
+        return sendValidationError(res, "Valid email required");
+      }
+      if (!consentGiven) {
+        return sendValidationError(res, "Consent is required");
+      }
+    }
 
     // ✅ Parent check
     if (parent_id) {
@@ -1954,10 +2805,19 @@ app.post("/api/:type/:id/comments", async (req, res) => {
 
     // ✅ Insert comment
     const result = await pool.query(
-      `INSERT INTO ${table} (${field}, user_id, name, email, comment_text, parent_id)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO ${table} (${field}, user_id, name, email, comment_text, parent_id, consent_given, consent_version, consent_given_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
        RETURNING *`,
-      [id, user_id || null, name, email, comment_text, parent_id || null]
+      [
+        id,
+        authUser?.id || null,
+        name,
+        email || null,
+        commentText,
+        parent_id || null,
+        authUser ? true : consentGiven,
+        CURRENT_POLICY_VERSION,
+      ]
     );
 
     res.json({
@@ -1971,12 +2831,12 @@ app.post("/api/:type/:id/comments", async (req, res) => {
 });
 
 // 🟢 USER SOFT DELETE (own comment only)
-app.patch("/api/:type/comments/:id/delete", async (req, res) => {
+app.patch("/api/:type/comments/:id/delete", requireAuth, async (req, res) => {
   try {
     const { type, id } = req.params;
-    const userId = req.body.user_id;
+    const userId = req.user.id;
 
-    const table = type === "articles" ? "article_comments" : "blog_comments";
+    const { table } = getSafePublicCommentFields(type);
 
     const check = await pool.query(`SELECT user_id FROM ${table} WHERE id=$1`, [
       id,
@@ -2008,9 +2868,10 @@ app.delete(
   async (req, res) => {
     try {
       const { type, id } = req.params;
-      const table = type === "articles" ? "article_comments" : "blog_comments";
+      const { table } = getSafePublicCommentFields(type);
 
       await pool.query(`DELETE FROM ${table} WHERE id=$1`, [id]);
+      await logAdminAction(req, "delete", `${type}_comment`, id);
       res.json({ message: "🗑️ Comment deleted by admin (cascade applied)" });
     } catch (err) {
       console.error("❌ Admin delete error:", err);
@@ -2241,6 +3102,189 @@ app.delete(
 );
 
 // 🌍 Public - get personalities with filters
+app.post(
+  "/api/admin/temples/bulk-delete",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "No temple IDs provided" });
+      }
+
+      await pool.query("DELETE FROM global_temples WHERE id = ANY($1)", [ids]);
+      res.json({ message: `Deleted ${ids.length} temples successfully` });
+    } catch (err) {
+      console.error("Bulk delete temples error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.get("/api/admin/temples", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM global_temples ORDER BY featured DESC, display_order ASC, country ASC, city ASC, name ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Admin temples fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/admin/temples", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      country,
+      city,
+      location_label,
+      address,
+      description,
+      image_url,
+      gallery_urls,
+      maps_url,
+      website_url,
+      established_year,
+      contact_info,
+      seva_info,
+      featured,
+      display_order,
+    } = req.body || {};
+
+    if (!name || !country || !city) {
+      return res.status(400).json({ message: "Name, country, and city are required" });
+    }
+
+    const result = await pool.query(
+      `
+        INSERT INTO global_temples
+          (name, country, city, location_label, address, description, image_url, gallery_urls, maps_url, website_url, established_year, contact_info, seva_info, featured, display_order, updated_at)
+        VALUES
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+        RETURNING *
+      `,
+      [
+        name,
+        country,
+        city,
+        location_label || null,
+        address || null,
+        description || null,
+        image_url || null,
+        Array.isArray(gallery_urls) ? gallery_urls.filter(Boolean) : [],
+        maps_url || null,
+        website_url || null,
+        established_year ? Number(established_year) : null,
+        contact_info || null,
+        seva_info || null,
+        Boolean(featured),
+        Number.isFinite(Number(display_order)) ? Number(display_order) : 0,
+      ]
+    );
+
+    res.json({ message: "Temple added successfully", temple: result.rows[0] });
+  } catch (err) {
+    console.error("Temple create error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/api/admin/temples/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      country,
+      city,
+      location_label,
+      address,
+      description,
+      image_url,
+      gallery_urls,
+      maps_url,
+      website_url,
+      established_year,
+      contact_info,
+      seva_info,
+      featured,
+      display_order,
+    } = req.body || {};
+
+    if (!name || !country || !city) {
+      return res.status(400).json({ message: "Name, country, and city are required" });
+    }
+
+    const result = await pool.query(
+      `
+        UPDATE global_temples
+        SET
+          name=$1,
+          country=$2,
+          city=$3,
+          location_label=$4,
+          address=$5,
+          description=$6,
+          image_url=$7,
+          gallery_urls=$8,
+          maps_url=$9,
+          website_url=$10,
+          established_year=$11,
+          contact_info=$12,
+          seva_info=$13,
+          featured=$14,
+          display_order=$15,
+          updated_at=NOW()
+        WHERE id=$16
+        RETURNING *
+      `,
+      [
+        name,
+        country,
+        city,
+        location_label || null,
+        address || null,
+        description || null,
+        image_url || null,
+        Array.isArray(gallery_urls) ? gallery_urls.filter(Boolean) : [],
+        maps_url || null,
+        website_url || null,
+        established_year ? Number(established_year) : null,
+        contact_info || null,
+        seva_info || null,
+        Boolean(featured),
+        Number.isFinite(Number(display_order)) ? Number(display_order) : 0,
+        req.params.id,
+      ]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Temple not found" });
+    }
+
+    res.json({ message: "Temple updated successfully", temple: result.rows[0] });
+  } catch (err) {
+    console.error("Temple update error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete(
+  "/api/admin/temples/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM global_temples WHERE id=$1", [req.params.id]);
+      res.json({ message: "Temple deleted successfully" });
+    } catch (err) {
+      console.error("Temple delete error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
 app.get("/api/personalities", async (req, res) => {
   try {
     const { caste, region, category, sc_st_type } = req.query;
@@ -2429,7 +3473,10 @@ app.get("/api/admin/articles", requireAuth, requireAdmin, async (_, res) => {
 // 🔒 Admin – Create new article
 app.post("/api/admin/articles", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, slug, content, image_url } = req.body;
+    const title = normalizeRequiredText(req.body?.title, 255);
+    const slug = normalizeRequiredText(req.body?.slug, 255);
+    const content = sanitizeRichText(req.body?.content || "");
+    const image_url = req.body?.image_url || null;
     await pool.query(
       `INSERT INTO static_articles (title, slug, content, image_url)
        VALUES ($1,$2,$3,$4)`,
@@ -2449,7 +3496,10 @@ app.put(
   requireAdmin,
   async (req, res) => {
     try {
-      const { title, slug, content, image_url } = req.body;
+      const title = normalizeRequiredText(req.body?.title, 255);
+      const slug = normalizeRequiredText(req.body?.slug, 255);
+      const content = sanitizeRichText(req.body?.content || "");
+      const image_url = req.body?.image_url || null;
       await pool.query(
         `UPDATE static_articles 
        SET title=$1, slug=$2, content=$3, image_url=$4, updated_at=NOW()
@@ -2589,11 +3639,19 @@ The Ravidassia Abroad Team
           "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE id = $1",
           [submissionId]
         );
+        await logAdminAction(req, "reply", "scst_submission", submissionId, {
+          email,
+          country,
+        });
       } else {
         await pool.query(
           "UPDATE scst_submissions SET replied = true, replied_at = NOW() WHERE email = $1",
           [email]
         );
+        await logAdminAction(req, "reply", "scst_submission", null, {
+          email,
+          country,
+        });
       }
 
       // 🟡 6️⃣ Respond to Frontend

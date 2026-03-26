@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { usePopup } from "../components/PopupProvider";
 import "../css/Comments.css";
-import { API_BASE } from "../utils/api";
+import { apiFetch, API_BASE } from "../utils/api";
+import ComplianceNotice from "./ComplianceNotice";
+import {
+  GENERAL_COLLECTION_NOTICE,
+  GUEST_COMMENT_CONSENT,
+} from "../utils/compliance";
 
 export default function Comments() {
   const location = useLocation();
@@ -14,7 +19,12 @@ export default function Comments() {
   const [postId, setPostId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", comment_text: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    comment_text: "",
+    consent_given: false,
+  });
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   // 🧭 Scroll helper
@@ -87,12 +97,7 @@ export default function Comments() {
               "Content-Type": "application/json",
               Authorization: token ? `Bearer ${token}` : "",
             },
-            body:
-              user?.role === "admin" ||
-              user?.role === "main_admin" ||
-              user?.role === "moderate_admin"
-                ? null
-                : JSON.stringify({ user_id: user?.id }),
+            body: null,
           });
 
           if (!res.ok) throw new Error("Failed to delete comment");
@@ -136,26 +141,31 @@ export default function Comments() {
   const handleSubmit = async (e, parent_id = null) => {
     e.preventDefault();
     if (!form.comment_text.trim()) return;
+    if (!user?.id && !form.consent_given) {
+      popup.open({
+        title: "Consent required",
+        message: "Please confirm the guest comment consent before posting.",
+        type: "warning",
+      });
+      return;
+    }
 
     const commentData = {
-      user_id: user?.id || null,
       name: user?.name || form.name,
       email: user?.email || form.email,
       comment_text: form.comment_text,
       parent_id,
-      post_id: postId,
+      consent_given: user?.id ? true : form.consent_given,
     };
 
     try {
-      const res = await fetch(`${API_BASE}/${type}/${postId}/comments`, {
+      const data = await apiFetch(`/${type}/${postId}/comments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(commentData),
       });
 
-      if (!res.ok) throw new Error("Failed to post comment");
-
       const newComment = {
+        ...(data.comment || {}),
         ...commentData,
         created_at: new Date().toISOString(),
         replies: [],
@@ -180,7 +190,7 @@ export default function Comments() {
         setComments((prev) => [newComment, ...prev]);
       }
 
-      setForm({ name: "", email: "", comment_text: "" });
+      setForm({ name: "", email: "", comment_text: "", consent_given: false });
       setReplyingTo(null);
     } catch (err) {
       console.error("❌ Comment submit error:", err);
@@ -296,6 +306,10 @@ export default function Comments() {
               <form onSubmit={(e) => handleSubmit(e, c.id)}>
                 {!user?.id && (
                   <>
+                    <ComplianceNotice
+                      text={GENERAL_COLLECTION_NOTICE}
+                      className="mb-2"
+                    />
                     <input
                       type="text"
                       className="form-control mb-2"
@@ -316,6 +330,24 @@ export default function Comments() {
                       }
                       required
                     />
+                    <div className="form-check mb-2">
+                      <input
+                        id={`guestReplyConsent-${c.id}`}
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={form.consent_given}
+                        onChange={(e) =>
+                          setForm({ ...form, consent_given: e.target.checked })
+                        }
+                        required
+                      />
+                      <label
+                        className="form-check-label"
+                        htmlFor={`guestReplyConsent-${c.id}`}
+                      >
+                        {GUEST_COMMENT_CONSENT}
+                      </label>
+                    </div>
                   </>
                 )}
 
@@ -376,6 +408,7 @@ export default function Comments() {
       <form onSubmit={(e) => handleSubmit(e, null)} className="mt-4">
         {!user?.id && (
           <>
+            <ComplianceNotice text={GENERAL_COLLECTION_NOTICE} />
             <input
               type="text"
               className="form-control mb-2"
@@ -392,6 +425,21 @@ export default function Comments() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
             />
+            <div className="form-check mb-3">
+              <input
+                id="guestCommentConsent"
+                type="checkbox"
+                className="form-check-input"
+                checked={form.consent_given}
+                onChange={(e) =>
+                  setForm({ ...form, consent_given: e.target.checked })
+                }
+                required
+              />
+              <label className="form-check-label" htmlFor="guestCommentConsent">
+                {GUEST_COMMENT_CONSENT}
+              </label>
+            </div>
           </>
         )}
         <textarea

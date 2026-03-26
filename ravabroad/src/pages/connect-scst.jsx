@@ -13,6 +13,12 @@ import {
   saveFormDraft,
   setPostAuthRedirect,
 } from "../utils/formDrafts";
+import ComplianceNotice from "../components/ComplianceNotice";
+import {
+  CONNECT_SCST_CONSENT,
+  GENERAL_COLLECTION_NOTICE,
+  MARKETING_OPT_IN_LABEL,
+} from "../utils/compliance";
 
 const SCST_DRAFT_KEY = "connect_scst_form_draft";
 
@@ -26,7 +32,11 @@ export default function ConnectSCST() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [formValues, setFormValues] = useState({ platform: "WhatsApp" });
+  const [formValues, setFormValues] = useState({
+    platform: "WhatsApp",
+    consent_given: false,
+    marketing_opt_in: false,
+  });
   const [submissionData, setSubmissionData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -202,6 +212,9 @@ export default function ConnectSCST() {
           )}
 
           <form onSubmit={handleSubmit} className="row g-3 bg-light p-4 rounded">
+            <div className="col-12">
+              <ComplianceNotice text={GENERAL_COLLECTION_NOTICE} className="mb-0" />
+            </div>
             <div className="col-md-6">
               <label htmlFor="name" className="form-label">
                 Full Name *
@@ -340,10 +353,13 @@ export default function ConnectSCST() {
                 className="form-check-input"
                 type="checkbox"
                 id="consent"
+                name="consent_given"
+                checked={Boolean(formValues.consent_given)}
+                onChange={handleChange}
                 required
               />
               <label className="form-check-label" htmlFor="consent">
-                I agree to community rules &amp; allow admins to contact me.
+                {CONNECT_SCST_CONSENT}
               </label>
               <button
                 type="button"
@@ -352,6 +368,30 @@ export default function ConnectSCST() {
               >
                 View rules
               </button>
+            </div>
+
+            <div className="col-12 form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="scst-marketing-opt-in"
+                name="marketing_opt_in"
+                checked={Boolean(formValues.marketing_opt_in)}
+                onChange={handleChange}
+              />
+              <label
+                className="form-check-label"
+                htmlFor="scst-marketing-opt-in"
+              >
+                {MARKETING_OPT_IN_LABEL}
+              </label>
+            </div>
+
+            <div className="col-12">
+              <p className="small text-muted mb-0">
+                Community rules still apply, and admins may contact you about
+                this request.
+              </p>
             </div>
 
             <div className="col-12 text-end">

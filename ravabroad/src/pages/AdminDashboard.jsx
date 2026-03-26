@@ -20,6 +20,9 @@ const AdminMenuModal = lazy(() => import("../components/admin/AdminMenuModal"));
 const AdminPersonalitiesSection = lazy(() =>
   import("../components/admin/AdminPersonalitiesSection")
 );
+const AdminPrivacyRequestsSection = lazy(() =>
+  import("../components/admin/AdminPrivacyRequestsSection")
+);
 const AdminRecipientsSection = lazy(() =>
   import("../components/admin/AdminRecipientsSection")
 );
@@ -28,7 +31,9 @@ const AdminScstSubmissionsSection = lazy(() =>
   import("../components/admin/AdminScstSubmissionsSection")
 );
 const AdminSubmissionDetailsModal = lazy(() => import("../components/admin/AdminSubmissionDetailsModal"));
+const AdminTemplesSection = lazy(() => import("../components/admin/AdminTemplesSection"));
 const AdminUsersSection = lazy(() => import("../components/admin/AdminUsersSection"));
+const TempleFormModal = lazy(() => import("../components/TempleFormModal"));
 
 export default function AdminDashboard() {
   const createDefaultReplyForm = () => ({
@@ -40,6 +45,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]); // SC/ST
+  const [privacyRequests, setPrivacyRequests] = useState([]);
   const [recipients, setRecipients] = useState([]);
   const [matrimonialSubs, setMatrimonialSubs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +67,9 @@ export default function AdminDashboard() {
   const [personalities, setPersonalities] = useState([]);
   const [showPersonalityModal, setShowPersonalityModal] = useState(false);
   const [selectedPersonality, setSelectedPersonality] = useState(null);
+  const [temples, setTemples] = useState([]);
+  const [showTempleModal, setShowTempleModal] = useState(false);
+  const [selectedTemple, setSelectedTemple] = useState(null);
 
   // 💬 Reply modal state (for SC/ST connect)
   const [replyTarget, setReplyTarget] = useState(null);
@@ -144,6 +153,11 @@ export default function AdminDashboard() {
           setSubmissions(Array.isArray(data) ? data : []);
         }
 
+        if (activeTab === "privacyRequests") {
+          const data = await apiFetch("/admin/privacy-requests", { headers });
+          setPrivacyRequests(Array.isArray(data) ? data : []);
+        }
+
         if (activeTab === "categories") {
           const data = await apiFetch("/admin/categories", { headers });
           setCategories(Array.isArray(data) ? data : []);
@@ -152,6 +166,11 @@ export default function AdminDashboard() {
         if (activeTab === "menus") {
           const data = await apiFetch("/admin/menus", { headers });
           setMenus(Array.isArray(data) ? data : []);
+        }
+
+        if (activeTab === "temples" || activeTab === "dashboard") {
+          const data = await apiFetch("/admin/temples", { headers });
+          setTemples(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error("Failed to fetch:", err);
@@ -189,6 +208,16 @@ export default function AdminDashboard() {
   const handleOpenModal = (submission) => {
     setSelectedSubmission(submission);
     setShowModal(true);
+    const entityType =
+      activeTab === "matrimonial" ? "matrimonial_submission" : "scst_submission";
+    apiFetch("/admin/audit-events", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "view",
+        entity_type: entityType,
+        entity_id: submission.id,
+      }),
+    }).catch(() => {});
   };
 
   const handleCloseModal = () => {
@@ -282,6 +311,24 @@ export default function AdminDashboard() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const fetchTemples = async () => {
+    try {
+      const data = await apiFetch("/admin/temples");
+      setTemples(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to refresh temples:", err);
+    }
+  };
+
+  const fetchPrivacyRequests = async () => {
+    try {
+      const data = await apiFetch("/admin/privacy-requests");
+      setPrivacyRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to refresh privacy requests:", err);
+    }
   };
 
   const handleOpenReplyModal = (submission) => {
@@ -454,6 +501,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResolvePrivacyRequest = async (request) => {
+    try {
+      await apiFetch(`/admin/privacy-requests/${request.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "resolved",
+          admin_notes: "Resolved from admin dashboard",
+        }),
+      });
+      popup.open({
+        title: "Resolved",
+        message: `Privacy request #${request.id} marked as resolved.`,
+        type: "success",
+      });
+      await fetchPrivacyRequests();
+    } catch (err) {
+      popup.open({
+        title: "Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
   // Call it once when component mounts
   useEffect(() => {
     fetchPersonalities();
@@ -504,6 +575,12 @@ export default function AdminDashboard() {
         setRecipients((prev) => prev.filter((r) => r.id !== id));
       } else if (type === "menus") {
         setMenus((prev) => prev.filter((m) => m.id !== id));
+      } else if (type === "temples") {
+        setTemples((prev) => prev.filter((temple) => temple.id !== id));
+      } else if (type === "privacy-requests") {
+        setPrivacyRequests((prev) =>
+          prev.filter((request) => request.id !== id)
+        );
       }
     } catch (err) {
       console.error("❌ Delete error:", err);
@@ -567,6 +644,14 @@ export default function AdminDashboard() {
             setRecipients((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
           } else if (type === "menus") {
             setMenus((prev) => prev.filter((m) => !selectedIds.includes(m.id)));
+          } else if (type === "temples") {
+            setTemples((prev) =>
+              prev.filter((temple) => !selectedIds.includes(temple.id))
+            );
+          } else if (type === "privacy-requests") {
+            setPrivacyRequests((prev) =>
+              prev.filter((request) => !selectedIds.includes(request.id))
+            );
           }
 
           setSelectedIds([]);
@@ -610,6 +695,12 @@ export default function AdminDashboard() {
       value: matrimonialSubs.length || 0,
       icon: "bi-heart",
       color: "bg-danger",
+    },
+    {
+      label: "Global Temples",
+      value: temples.length || 0,
+      icon: "bi-building",
+      color: "bg-dark",
     },
   ];
   const suspenseFallback = <div className="text-center py-4">Loading...</div>;
@@ -735,6 +826,11 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   icon: "bi-flag",
                   label: "Content Requests",
                 },
+                {
+                  tab: "privacyRequests",
+                  icon: "bi-shield-lock",
+                  label: "Privacy Requests",
+                },
                 { tab: "blogs", icon: "bi-newspaper", label: "Blogs" },
                 { tab: "categories", icon: "bi-tags", label: "Categories" },
                 { tab: "menus", icon: "bi-list", label: "Menus" },
@@ -743,6 +839,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   icon: "bi-stars",
                   label: "Famous Personalities",
                 },
+                { tab: "temples", icon: "bi-building", label: "Global Temples" },
                 { tab: "articles", icon: "bi-journal-text", label: "Articles" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
@@ -1004,6 +1101,53 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                     />
                   </Suspense>
                 )}
+
+                {activeTab === "privacyRequests" && (
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminPrivacyRequestsSection
+                      loading={loading}
+                      requests={privacyRequests}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(
+                          checked ? privacyRequests.map((request) => request.id) : []
+                        );
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("privacy-requests")}
+                      onResolve={handleResolvePrivacyRequest}
+                      onDelete={(requestId) =>
+                        handleDelete("privacy-requests", requestId)
+                      }
+                    />
+                  </Suspense>
+                )}
+                {activeTab === "temples" && (
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminTemplesSection
+                      temples={temples}
+                      selectedIds={selectedIds}
+                      selectAll={selectAll}
+                      onToggleSelectAll={(checked) => {
+                        setSelectAll(checked);
+                        setSelectedIds(checked ? temples.map((temple) => temple.id) : []);
+                      }}
+                      onToggleSelect={handleToggleSelection}
+                      onBulkDelete={() => handleBulkDelete("temples")}
+                      onNew={() => {
+                        setSelectedTemple(null);
+                        setShowTempleModal(true);
+                      }}
+                      onEdit={(temple) => {
+                        setSelectedTemple(temple);
+                        setShowTempleModal(true);
+                      }}
+                      onDelete={(templeId) => handleDelete("temples", templeId)}
+                    />
+                  </Suspense>
+                )}
                 {showPersonalityModal && (
                   <Suspense fallback={suspenseFallback}>
                     <PersonalityFormModal
@@ -1013,6 +1157,18 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                         setSelectedPersonality(null);
                       }}
                       onSubmit={fetchPersonalities}
+                    />
+                  </Suspense>
+                )}
+                {showTempleModal && (
+                  <Suspense fallback={suspenseFallback}>
+                    <TempleFormModal
+                      temple={selectedTemple}
+                      onClose={() => {
+                        setShowTempleModal(false);
+                        setSelectedTemple(null);
+                      }}
+                      onSubmit={fetchTemples}
                     />
                   </Suspense>
                 )}

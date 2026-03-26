@@ -15,6 +15,12 @@ import {
   setPostAuthRedirect,
 } from "../utils/formDrafts";
 import "../css/MatrimonialForm.css";
+import ComplianceNotice from "../components/ComplianceNotice";
+import {
+  GENERAL_COLLECTION_NOTICE,
+  MARKETING_OPT_IN_LABEL,
+  MATRIMONIAL_CONSENT,
+} from "../utils/compliance";
 
 const MATRIMONIAL_DRAFT_KEY = "matrimonial_form_draft";
 
@@ -27,7 +33,10 @@ export default function MatrimonialForm() {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submissionData, setSubmissionData] = useState(null);
-  const [formValues, setFormValues] = useState({});
+  const [formValues, setFormValues] = useState({
+    consent_given: false,
+    marketing_opt_in: false,
+  });
   const thanksRef = useRef(null);
   const pendingSubmissionRefreshRef = useRef(false);
   const [thanksModal, setThanksModal] = useState(null);
@@ -293,6 +302,7 @@ export default function MatrimonialForm() {
             onSubmit={handleSubmit}
             encType="multipart/form-data"
           >
+            <ComplianceNotice text={GENERAL_COLLECTION_NOTICE} />
             {/* === STEP 1 === */}
             <div
               data-step="1"
@@ -681,6 +691,42 @@ export default function MatrimonialForm() {
                     <option>Yes</option>
                     <option>No</option>
                   </select>
+                </div>
+
+                <div className="col-12">
+                  <div className="form-check mt-2">
+                    <input
+                      id="matrimonial-consent"
+                      type="checkbox"
+                      name="consent_given"
+                      className="form-check-input"
+                      checked={Boolean(formValues.consent_given)}
+                      onChange={handleChange}
+                      required
+                    />
+                    <label className="form-check-label" htmlFor="matrimonial-consent">
+                      {MATRIMONIAL_CONSENT}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="col-12">
+                  <div className="form-check mt-2">
+                    <input
+                      id="matrimonial-marketing-opt-in"
+                      type="checkbox"
+                      name="marketing_opt_in"
+                      className="form-check-input"
+                      checked={Boolean(formValues.marketing_opt_in)}
+                      onChange={handleChange}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="matrimonial-marketing-opt-in"
+                    >
+                      {MARKETING_OPT_IN_LABEL}
+                    </label>
+                  </div>
                 </div>
 
                 <div className="col-12">

@@ -8,10 +8,11 @@ const SOURCE_LABELS = {
   article: "Articles",
   personality: "Personalities",
   menu: "Menus",
+  temple: "Temples",
   page: "Pages",
 };
 
-const SOURCE_ORDER = ["blog", "article", "personality", "menu", "page"];
+const SOURCE_ORDER = ["blog", "article", "personality", "temple", "menu", "page"];
 
 function toInternalPath(path) {
   if (!path) return "/";

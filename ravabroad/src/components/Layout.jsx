@@ -3,7 +3,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
 import SiteSearchModal from "./SiteSearchModal";
-// import { apiFetch } from "../utils/api";
+import ContentRequestModal from "./ContentRequestModal";
+import {
+  LEGAL_PATHS,
+  PRIVACY_CONTACT_EMAIL,
+  SUPPORT_CONTACT_EMAIL,
+} from "../utils/compliance";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -61,9 +66,9 @@ export default function Layout() {
         <div className="row gx-0 align-items-center">
           <div className="col-lg-5 text-center text-lg-start mb-lg-0">
             <div className="d-flex">
-              <a href="mailto:RavidassiaAbroad@gmail.com" className="text-muted me-4">
+              <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`} className="text-muted me-4">
                 <i className="fas fa-envelope text-secondary me-2"></i>
-                RavidassiaAbroad@gmail.com
+                {SUPPORT_CONTACT_EMAIL}
               </a>
             </div>
           </div>
@@ -188,6 +193,7 @@ export default function Layout() {
       {/* Navbar End */}
 
       <SiteSearchModal />
+      <ContentRequestModal />
 
       {/* Page content */}
       <Outlet />
@@ -200,7 +206,8 @@ export default function Layout() {
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Info</h4>
                 <span className="d-block"><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</span>
-                <a href="mailto:ravidassiaabroad@gmail.com"><i className="fas fa-envelope me-2"></i> ravidassiaabroad@gmail.com</a>
+                <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}><i className="fas fa-envelope me-2"></i> {SUPPORT_CONTACT_EMAIL}</a>
+                <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="mt-2"><i className="fas fa-shield-alt me-2"></i> {PRIVACY_CONTACT_EMAIL}</a>
                 <span className="d-block"><i className="fas fa-phone me-2"></i> — </span>
                 <span className="d-block mb-3"><i className="fas fa-print me-2"></i> — </span>
                 <div className="site-footer-social d-flex align-items-center">
@@ -222,13 +229,12 @@ export default function Layout() {
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
-                <h4 className="text-secondary mb-4">Site Links</h4>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> Teachings</span>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> History</span>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> Temples & Centers</span>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> Festivals & Events</span>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> Youth Programs</span>
-                <span className="text-white" style={{ cursor: "default", display: "block", marginBottom: "0.5rem" }}><i className="fas fa-angle-right me-2"></i> Contact</span>
+                <h4 className="text-secondary mb-4">Legal & Help</h4>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.privacy}><i className="fas fa-angle-right me-2"></i> Privacy Policy</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.terms}><i className="fas fa-angle-right me-2"></i> Terms of Use</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.guidelines}><i className="fas fa-angle-right me-2"></i> Community Guidelines</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.dataRequest}><i className="fas fa-angle-right me-2"></i> Privacy / Data Request</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to="/contact"><i className="fas fa-angle-right me-2"></i> Contact</Link>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">

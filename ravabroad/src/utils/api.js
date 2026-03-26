@@ -112,8 +112,10 @@ const ADMIN_COLLECTION_PATHS = {
   categories: "categories",
   recipients: "recipients",
   "content-requests": "content-requests",
+  "privacy-requests": "privacy-requests",
   menus: "menus",
   personalities: "personalities",
+  temples: "temples",
 };
 
 function resolveAdminCollectionPath(type) {

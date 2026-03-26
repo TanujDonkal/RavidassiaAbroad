@@ -28,6 +28,11 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const DynamicPage = lazy(() => import("./pages/DynamicPage"));
 const FamousPersonalities = lazy(() => import("./pages/FamousPersonalities"));
 const PostDetail = lazy(() => import("./pages/PostDetail"));
+const TemplesGlobally = lazy(() => import("./pages/temples-globally"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
+const CommunityGuidelines = lazy(() => import("./pages/CommunityGuidelines"));
+const PrivacyDataRequest = lazy(() => import("./pages/PrivacyDataRequest"));
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -86,7 +91,12 @@ export default function App() {
             <Route path="/blogs" element={<Blogs />} />
             <Route path="/blogs/:slug" element={<BlogDetail />} />
             <Route path="/personalities" element={<FamousPersonalities />} />
+            <Route path="/temples-globally" element={<TemplesGlobally />} />
             <Route path="/articles/:slug" element={<PostDetail />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-use" element={<TermsOfUse />} />
+            <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+            <Route path="/privacy-data-request" element={<PrivacyDataRequest />} />
             {/* Catch-all: dynamic menu pages, then 404 */}
             <Route path="/*" element={<DynamicPage />} />
             <Route path="*" element={<NotFound />} />

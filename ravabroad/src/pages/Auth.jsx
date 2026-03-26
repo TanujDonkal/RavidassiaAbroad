@@ -4,6 +4,11 @@ import "../css/auth.css";
 import { login, register, API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { clearPostAuthRedirect, getPostAuthRedirect } from "../utils/formDrafts";
+import {
+  LEGAL_PATHS,
+  MARKETING_OPT_IN_LABEL,
+  SIGNUP_ACKNOWLEDGMENT,
+} from "../utils/compliance";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
@@ -16,7 +21,13 @@ export default function Auth() {
   const [panelRight, setPanelRight] = useState(false);
   const [msg, setMsg] = useState(null);
   const [signIn, setSignIn] = useState({ email: "", password: "" });
-  const [signUp, setSignUp] = useState({ name: "", email: "", password: "" });
+  const [signUp, setSignUp] = useState({
+    name: "",
+    email: "",
+    password: "",
+    policyAccepted: false,
+    marketingOptIn: false,
+  });
 
   useEffect(() => {
     const mode = (searchParams.get("mode") || "").toLowerCase();
@@ -49,7 +60,13 @@ export default function Auth() {
     e.preventDefault();
     setMsg(null);
     try {
-      const data = await register(signUp);
+      const data = await register({
+        name: signUp.name,
+        email: signUp.email,
+        password: signUp.password,
+        policyAccepted: signUp.policyAccepted,
+        marketingOptIn: signUp.marketingOptIn,
+      });
       setMsg(data.message || "User created successfully.");
       finishAuth(data, "Account created successfully!");
     } catch (err) {
@@ -184,6 +201,11 @@ export default function Auth() {
           <form onSubmit={handleSignUp}>
             <h1>Create Account</h1>
             <div id="googleSignUpBtn"></div>
+            <p className="small text-muted mt-2 mb-3">
+              By continuing with Google, you agree to the{" "}
+              <Link to={LEGAL_PATHS.terms}>Terms of Use</Link> and acknowledge the{" "}
+              <Link to={LEGAL_PATHS.privacy}>Privacy Policy</Link>.
+            </p>
 
             <span>or use your email for registration</span>
             <input
@@ -211,6 +233,35 @@ export default function Auth() {
               required
               minLength={6}
             />
+            <label className="d-block text-start small mt-2">
+              <input
+                type="checkbox"
+                className="me-2"
+                checked={signUp.policyAccepted}
+                onChange={(e) =>
+                  setSignUp((prev) => ({
+                    ...prev,
+                    policyAccepted: e.target.checked,
+                  }))
+                }
+                required
+              />
+              {SIGNUP_ACKNOWLEDGMENT}
+            </label>
+            <label className="d-block text-start small mt-2">
+              <input
+                type="checkbox"
+                className="me-2"
+                checked={signUp.marketingOptIn}
+                onChange={(e) =>
+                  setSignUp((prev) => ({
+                    ...prev,
+                    marketingOptIn: e.target.checked,
+                  }))
+                }
+              />
+              {MARKETING_OPT_IN_LABEL}
+            </label>
             <button type="submit">Sign Up</button>
 
             <p className="auth-mobile-only">
@@ -230,6 +281,11 @@ export default function Auth() {
           <form onSubmit={handleSignIn}>
             <h1>Sign in</h1>
             <div id="googleSignInBtn"></div>
+            <p className="small text-muted mt-2 mb-3">
+              By continuing with Google, you agree to the{" "}
+              <Link to={LEGAL_PATHS.terms}>Terms of Use</Link> and acknowledge the{" "}
+              <Link to={LEGAL_PATHS.privacy}>Privacy Policy</Link>.
+            </p>
 
             <span>or use your account</span>
             <input
