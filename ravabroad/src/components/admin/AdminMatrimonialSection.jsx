@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export default function AdminMatrimonialSection({
   matrimonialSubs,
@@ -8,11 +8,36 @@ export default function AdminMatrimonialSection({
   onToggleSelect,
   onBulkDelete,
   onView,
+  onStatusChange,
   onDownloadInstagramCard,
   onDelete,
 }) {
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target)) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const statusBadgeClass =
+    {
+      approved: "text-bg-success",
+      pending: "text-bg-warning",
+      rejected: "text-bg-danger",
+      paused: "text-bg-secondary",
+      hidden: "text-bg-dark",
+      draft: "text-bg-light",
+    };
+
   return (
-    <div className="card shadow border-0 mb-7">
+    <div className="card shadow border-0 mb-7" ref={sectionRef}>
       <div className="card-header d-flex justify-content-between align-items-center">
         <h5 className="mb-0">Matrimonial Submissions</h5>
         {selectedIds.length > 0 && (
@@ -38,6 +63,7 @@ export default function AdminMatrimonialSection({
               <th>Country</th>
               <th>City</th>
               <th>Created</th>
+              <th>Review</th>
               <th>Data</th>
               <th>Download Data</th>
               <th>Delete</th>
@@ -46,7 +72,7 @@ export default function AdminMatrimonialSection({
           <tbody>
             {matrimonialSubs.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center text-muted py-4">
+                <td colSpan="11" className="text-center text-muted py-4">
                   No submissions yet.
                 </td>
               </tr>
@@ -69,6 +95,44 @@ export default function AdminMatrimonialSection({
                   <td>{submission.city_living}</td>
                   <td>{new Date(submission.created_at).toLocaleDateString()}</td>
                   <td>
+                    <div className="d-flex flex-column gap-2">
+                      <span
+                        className={`badge ${
+                          statusBadgeClass[submission.moderation_status || "pending"] ||
+                          "text-bg-light"
+                        } text-capitalize`}
+                      >
+                        {submission.moderation_status || "pending"}
+                      </span>
+                      <div className="d-flex flex-wrap gap-2">
+                        {(submission.moderation_status || "pending") !== "approved" && (
+                          <button
+                            className="btn btn-sm btn-outline-success"
+                            onClick={() => onStatusChange(submission.id, "approved")}
+                          >
+                            Approve
+                          </button>
+                        )}
+                        {(submission.moderation_status || "pending") !== "paused" && (
+                          <button
+                            className="btn btn-sm btn-outline-warning"
+                            onClick={() => onStatusChange(submission.id, "paused")}
+                          >
+                            Pause
+                          </button>
+                        )}
+                        {(submission.moderation_status || "pending") !== "rejected" && (
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => onStatusChange(submission.id, "rejected")}
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
                     <button
                       className="btn btn-sm btn-info"
                       onClick={() => onView(submission)}
@@ -77,22 +141,31 @@ export default function AdminMatrimonialSection({
                     </button>
                   </td>
                   <td className="d-flex gap-2">
-                    <div className="btn-group">
+                    <div className="btn-group position-relative">
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary dropdown-toggle"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false"
+                        aria-expanded={openDropdownId === submission.id}
+                        onClick={() =>
+                          setOpenDropdownId((current) =>
+                            current === submission.id ? null : submission.id
+                          )
+                        }
                       >
                         Download for Instagram
                       </button>
-                      <ul className="dropdown-menu">
+                      <ul
+                        className={`dropdown-menu${
+                          openDropdownId === submission.id ? " show" : ""
+                        }`}
+                      >
                         <li>
                           <button
                             className="dropdown-item"
-                            onClick={() =>
-                              onDownloadInstagramCard(submission, "post")
-                            }
+                            onClick={() => {
+                              setOpenDropdownId(null);
+                              onDownloadInstagramCard(submission, "post");
+                            }}
                           >
                             Instagram Post (1:1)
                           </button>
@@ -100,9 +173,10 @@ export default function AdminMatrimonialSection({
                         <li>
                           <button
                             className="dropdown-item"
-                            onClick={() =>
-                              onDownloadInstagramCard(submission, "reel")
-                            }
+                            onClick={() => {
+                              setOpenDropdownId(null);
+                              onDownloadInstagramCard(submission, "reel");
+                            }}
                           >
                             Instagram Reel (9:16)
                           </button>

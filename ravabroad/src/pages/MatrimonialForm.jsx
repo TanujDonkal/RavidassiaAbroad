@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { apiFetch } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
@@ -15,17 +15,22 @@ import {
   setPostAuthRedirect,
 } from "../utils/formDrafts";
 import "../css/MatrimonialForm.css";
+import "../css/Matrimony.css";
 import ComplianceNotice from "../components/ComplianceNotice";
+import MatrimonyInterestDashboard from "../components/matrimony/MatrimonyInterestDashboard";
 import {
   GENERAL_COLLECTION_NOTICE,
+  LEGAL_PATHS,
   MARKETING_OPT_IN_LABEL,
   MATRIMONIAL_CONSENT,
 } from "../utils/compliance";
+import { MATRIMONY_PLACEHOLDER } from "../utils/matrimony";
 
 const MATRIMONIAL_DRAFT_KEY = "matrimonial_form_draft";
 
 export default function MatrimonialForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const popup = usePopup();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +41,11 @@ export default function MatrimonialForm() {
   const [formValues, setFormValues] = useState({
     consent_given: false,
     marketing_opt_in: false,
+    contact_visibility: "on_request",
+    photo_visibility: "hidden",
+    show_profile_to: "everyone",
+    want_to_see: "everyone",
+    is_public_listing: true,
   });
   const thanksRef = useRef(null);
   const pendingSubmissionRefreshRef = useRef(false);
@@ -80,6 +90,13 @@ export default function MatrimonialForm() {
       destroyBootstrapModal(thanksInstance);
     };
   }, []);
+
+  useEffect(() => {
+    document.title =
+      location.pathname === "/matrimony/my-profile"
+        ? "My Matrimony Dashboard"
+        : "Ravidassia Matrimonial Form";
+  }, [location.pathname]);
 
   // Fetch logged-in user's submission
   const fetchMySubmission = async () => {
@@ -158,7 +175,7 @@ export default function MatrimonialForm() {
 
     if (!localStorage.getItem("token")) {
       persistDraft(formValues, step);
-      setPostAuthRedirect("/matrimonial");
+      setPostAuthRedirect("/matrimony/post");
       popup.open({
         title: "Login Required",
         message:
@@ -168,11 +185,11 @@ export default function MatrimonialForm() {
         cancelText: "Login",
         onConfirm: () =>
           navigate("/auth?mode=signup", {
-            state: { redirectTo: "/matrimonial" },
+            state: { redirectTo: "/matrimony/post" },
           }),
         onCancel: () =>
           navigate("/auth", {
-            state: { redirectTo: "/matrimonial" },
+            state: { redirectTo: "/matrimony/post" },
           }),
       });
       return;
@@ -212,7 +229,20 @@ export default function MatrimonialForm() {
 
   return (
     <div className="container py-5">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <Link to="/matrimony" className="btn btn-link text-decoration-none px-0">
+          ← Back to Matrimony Listings
+        </Link>
+        <Link to="/matrimony/my-profile" className="btn btn-outline-dark rounded-pill">
+          My Matrimony Dashboard
+        </Link>
+      </div>
       <h2 className="text-center mb-4 fw-bold text-primary">
+        {location.pathname === "/matrimony/my-profile"
+          ? "My Matrimony Dashboard"
+          : "Ravidassia Matrimonial Form"}
+      </h2>
+      <h2 className="d-none">
         Ravidassia Matrimonial Form 💍
       </h2>
 
@@ -228,7 +258,7 @@ export default function MatrimonialForm() {
 
           <div className="text-center mb-3">
             <img
-              src={submissionData.photo_url || "/template/img/no-photo.png"}
+              src={submissionData.photo_url || MATRIMONY_PLACEHOLDER}
               alt="profile"
               className="rounded-circle"
               width="120"
@@ -260,6 +290,8 @@ export default function MatrimonialForm() {
               ))}
             </tbody>
           </table>
+
+          <MatrimonyInterestDashboard />
 
           <div className="text-center mt-3">
             <button
@@ -394,6 +426,17 @@ export default function MatrimonialForm() {
                     rows="1"
                     value={formValues.religion_beliefs || ""}
                     onChange={handleChange}
+                  ></textarea>
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Short Public Bio / About</label>
+                  <textarea
+                    name="about_me"
+                    className="form-control"
+                    rows="3"
+                    value={formValues.about_me || ""}
+                    onChange={handleChange}
+                    placeholder="Share a short introduction for your public matrimonial listing."
                   ></textarea>
                 </div>
                 <div className="col-md-6">
@@ -692,6 +735,82 @@ export default function MatrimonialForm() {
                     <option>No</option>
                   </select>
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">
+                    Who can see your contact details?
+                  </label>
+                  <select
+                    name="contact_visibility"
+                    className="form-select"
+                    value={formValues.contact_visibility || "on_request"}
+                    onChange={handleChange}
+                  >
+                    <option value="hidden">Hidden</option>
+                    <option value="on_request">On Request</option>
+                    <option value="public_after_accept">Public After Accept</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">
+                    How should your profile picture appear?
+                  </label>
+                  <select
+                    name="photo_visibility"
+                    className="form-select"
+                    value={formValues.photo_visibility || "hidden"}
+                    onChange={handleChange}
+                  >
+                    <option value="hidden">Hidden</option>
+                    <option value="blurred">Blurred</option>
+                    <option value="public">Public</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Who can view your profile?</label>
+                  <select
+                    name="show_profile_to"
+                    className="form-select"
+                    value={formValues.show_profile_to || "everyone"}
+                    onChange={handleChange}
+                  >
+                    <option value="everyone">Everyone</option>
+                    <option value="males_only">Males Only</option>
+                    <option value="females_only">Females Only</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">
+                    Which profiles do you want to see in listings?
+                  </label>
+                  <select
+                    name="want_to_see"
+                    className="form-select"
+                    value={formValues.want_to_see || "everyone"}
+                    onChange={handleChange}
+                  >
+                    <option value="everyone">Everyone</option>
+                    <option value="males">Males</option>
+                    <option value="females">Females</option>
+                  </select>
+                </div>
+                <div className="col-12">
+                  <div className="form-check mt-2">
+                    <input
+                      id="matrimonial-public-listing"
+                      type="checkbox"
+                      name="is_public_listing"
+                      className="form-check-input"
+                      checked={Boolean(formValues.is_public_listing)}
+                      onChange={handleChange}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="matrimonial-public-listing"
+                    >
+                      Show my profile in matrimonial listings after approval
+                    </label>
+                  </div>
+                </div>
 
                 <div className="col-12">
                   <div className="form-check mt-2">
@@ -707,6 +826,9 @@ export default function MatrimonialForm() {
                     <label className="form-check-label" htmlFor="matrimonial-consent">
                       {MATRIMONIAL_CONSENT}
                     </label>
+                    <div className="small mt-2">
+                      <Link to={LEGAL_PATHS.privacy}>Privacy Policy</Link>
+                    </div>
                   </div>
                 </div>
 

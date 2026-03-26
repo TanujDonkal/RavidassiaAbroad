@@ -6,6 +6,22 @@ import { getRecipients, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import html2canvas from "html2canvas";
 
+const ADMIN_TABS = new Set([
+  "dashboard",
+  "users",
+  "submissions",
+  "recipients",
+  "matrimonial",
+  "contentRequests",
+  "privacyRequests",
+  "blogs",
+  "categories",
+  "menus",
+  "personalities",
+  "temples",
+  "articles",
+]);
+
 const PersonalityFormModal = lazy(() => import("../components/PersonalityFormModal"));
 const ArticleManager = lazy(() => import("../components/ArticleManager"));
 const AdminBlogsSection = lazy(() => import("../components/admin/AdminBlogsSection"));
@@ -42,7 +58,10 @@ export default function AdminDashboard() {
       "1. Respect all members.\n2. Avoid spam or hate speech.\n3. Keep discussions about community growth and unity.",
   });
 
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem("adminActiveTab");
+    return ADMIN_TABS.has(savedTab) ? savedTab : "dashboard";
+  });
   const [users, setUsers] = useState([]);
   const [submissions, setSubmissions] = useState([]); // SC/ST
   const [privacyRequests, setPrivacyRequests] = useState([]);
@@ -74,6 +93,10 @@ export default function AdminDashboard() {
   // 💬 Reply modal state (for SC/ST connect)
   const [replyTarget, setReplyTarget] = useState(null);
   const [replyForm, setReplyForm] = useState(createDefaultReplyForm);
+
+  useEffect(() => {
+    localStorage.setItem("adminActiveTab", activeTab);
+  }, [activeTab]);
 
   const MATRIMONIAL_LABELS = {
   dob: "Date of Birth",
@@ -108,6 +131,232 @@ export default function AdminDashboard() {
   religion: "Religion Preference",
   partner_expectations: "Partner Expectations",
 };
+
+  const handleDownloadInstagramAsset = async (data, format = "post") => {
+    const width = 1080;
+    const height = format === "reel" ? 1920 : 1350;
+    const photoSize = format === "reel" ? 320 : 250;
+    const photoUrl = data.photo_url || "/template/img/no-photo.svg";
+    const subtitleParts = [data.gender, data.marital_status, data.country_living]
+      .filter(Boolean)
+      .map((item) => escapeHtml(item));
+    const highlightChips = [
+      data.education,
+      data.occupation,
+      data.status_type,
+      data.city_living,
+    ]
+      .filter(Boolean)
+      .slice(0, format === "reel" ? 4 : 3)
+      .map(
+        (item) => `
+          <div style="padding:12px 18px; border-radius:999px; background:rgba(255, 255, 255, 0.12); border:1px solid rgba(255,255,255,0.16); color:#fff7ed; font-size:${format === "reel" ? 22 : 20}px; font-weight:700; letter-spacing:0.02em;">
+            ${escapeHtml(item)}
+          </div>
+        `
+      )
+      .join("");
+
+    const sections = [
+      buildInstagramSection(
+        "Personal",
+        ["dob", "height", "caste", "complexion", "religion_beliefs"],
+        data
+      ),
+      buildInstagramSection(
+        "Location",
+        ["country_living", "city_living", "home_state_india", "status_type"],
+        data
+      ),
+      buildInstagramSection(
+        "Career",
+        [
+          "education",
+          "occupation",
+          "company_or_institution",
+          "annual_income",
+          "income_range",
+        ],
+        data
+      ),
+      buildInstagramSection(
+        "Family",
+        [
+          "father_name",
+          "father_occupation",
+          "mother_name",
+          "mother_occupation",
+          "siblings",
+          "family_type",
+        ],
+        data
+      ),
+      buildInstagramSection(
+        "Partner Preference",
+        [
+          "partner_age_range",
+          "partner_country",
+          "partner_marital_status",
+          "religion",
+          "partner_expectations",
+        ],
+        data
+      ),
+    ]
+      .filter(Boolean)
+      .join("");
+
+    const container = document.getElementById("downloadCard");
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="width:${width}px; height:${height}px; position:relative; overflow:hidden; font-family:Arial, Helvetica, sans-serif; background:
+        radial-gradient(circle at top left, rgba(251, 191, 36, 0.34), transparent 34%),
+        radial-gradient(circle at top right, rgba(236, 72, 153, 0.22), transparent 28%),
+        linear-gradient(160deg, #0f172a 0%, #172554 48%, #1d4ed8 100%);
+        color:#ffffff; box-sizing:border-box;">
+        <div style="position:absolute; inset:28px; border:1px solid rgba(255,255,255,0.12); border-radius:42px; background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));"></div>
+        <div style="position:relative; z-index:1; height:100%; padding:${format === "reel" ? "64px 60px 58px" : "54px 54px 48px"}; box-sizing:border-box; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:28px; margin-bottom:${format === "reel" ? "34px" : "26px"};">
+            <div style="flex:1; min-width:0;">
+              <div style="display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border-radius:999px; background:rgba(251, 191, 36, 0.14); border:1px solid rgba(251, 191, 36, 0.34); color:#fde68a; font-size:20px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;">
+                Ravidassia Abroad Matrimonial
+              </div>
+              <div style="margin-top:22px; font-size:${format === "reel" ? 74 : 58}px; font-weight:900; line-height:1.02; color:#ffffff; overflow-wrap:anywhere;">
+                ${escapeHtml(data.name || "Community Profile")}
+              </div>
+              <div style="margin-top:14px; font-size:${format === "reel" ? 28 : 24}px; line-height:1.4; color:rgba(226, 232, 240, 0.95);">
+                ${subtitleParts.join(" | ") || "Ravidassia Abroad matrimonial profile"}
+              </div>
+            </div>
+            <div style="position:relative; flex:0 0 auto;">
+              <div style="position:absolute; inset:-18px; border-radius:50%; background:radial-gradient(circle, rgba(251,191,36,0.45), transparent 68%);"></div>
+              <img
+                src="${escapeHtml(photoUrl)}"
+                alt="${escapeHtml(data.name || "Matrimonial profile")}"
+                style="position:relative; width:${photoSize}px; height:${photoSize}px; border-radius:36px; object-fit:cover; display:block; border:8px solid rgba(255,255,255,0.88); box-shadow:0 22px 58px rgba(15,23,42,0.42);"
+              />
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:${format === "reel" ? "30px" : "24px"};">
+            ${highlightChips}
+          </div>
+
+          <div style="flex:1; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-content:start;">
+            ${sections}
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:${format === "reel" ? "28px" : "22px"}; padding-top:18px; border-top:1px solid rgba(255,255,255,0.12);">
+            <div style="font-size:22px; color:rgba(226, 232, 240, 0.95); font-weight:600;">
+              Professionally formatted for Instagram ${format === "reel" ? "Reels" : "Posts"}
+            </div>
+            <div style="font-size:24px; letter-spacing:0.14em; text-transform:uppercase; color:#fbbf24; font-weight:900;">
+              Ravidassia Abroad
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const exportNode = container.firstElementChild;
+    if (!exportNode) return;
+
+    const canvas = await html2canvas(exportNode, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: null,
+    });
+    const image = canvas.toDataURL("image/jpeg", 0.96);
+
+    const link = document.createElement("a");
+    link.href = image;
+    link.download = `${(data.name || "matrimonial-profile")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")}-${format}.jpg`;
+    link.click();
+    container.innerHTML = "";
+  };
+
+  const INSTAGRAM_LABELS = {
+    ...MATRIMONIAL_LABELS,
+    name: "Full Name",
+    gender: "Gender",
+    email: "Email",
+    phone: "Phone / WhatsApp",
+    father_name: "Father's Name",
+    father_occupation: "Father's Occupation",
+    mother_name: "Mother's Name",
+    mother_occupation: "Mother's Occupation",
+  };
+
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const formatSubmissionValue = (field, value) => {
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    if (field === "dob") {
+      const parsedDate = new Date(value);
+      if (!Number.isNaN(parsedDate.getTime())) {
+        return parsedDate.toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "Yes" : "No";
+    }
+
+    return String(value);
+  };
+
+  const buildInstagramSection = (title, fields, data) => {
+    const rows = fields
+      .map((field) => {
+        const value = formatSubmissionValue(field, data[field]);
+        if (!value) {
+          return "";
+        }
+
+        return `
+          <div style="display:grid; grid-template-columns:200px 1fr; gap:16px; padding:12px 0; border-bottom:1px solid rgba(148, 163, 184, 0.18);">
+            <div style="font-size:20px; letter-spacing:0.08em; text-transform:uppercase; color:#cbd5f5; font-weight:700;">
+              ${escapeHtml(INSTAGRAM_LABELS[field] || field.replaceAll("_", " "))}
+            </div>
+            <div style="font-size:26px; line-height:1.35; color:#f8fafc; font-weight:500; overflow-wrap:anywhere;">
+              ${escapeHtml(value)}
+            </div>
+          </div>
+        `;
+      })
+      .filter(Boolean)
+      .join("");
+
+    if (!rows) {
+      return "";
+    }
+
+    return `
+      <section style="background:rgba(15, 23, 42, 0.62); border:1px solid rgba(255, 255, 255, 0.1); border-radius:28px; padding:24px 28px; backdrop-filter:blur(14px); box-shadow:0 28px 60px rgba(15, 23, 42, 0.22);">
+        <div style="font-size:22px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:#fbbf24; margin-bottom:8px;">
+          ${escapeHtml(title)}
+        </div>
+        ${rows}
+      </section>
+    `;
+  };
 
   // --------------------------
   // FETCH DATA
@@ -530,6 +779,31 @@ export default function AdminDashboard() {
     fetchPersonalities();
   }, []);
 
+  const handleMatrimonialStatusChange = async (submissionId, moderationStatus) => {
+    try {
+      const data = await apiFetch(`/admin/matrimonial/${submissionId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ moderation_status: moderationStatus }),
+      });
+      setMatrimonialSubs((prev) =>
+        prev.map((submission) =>
+          submission.id === submissionId ? data.submission : submission
+        )
+      );
+      popup.open({
+        title: "Updated",
+        message: `Matrimonial submission marked as ${moderationStatus}.`,
+        type: "success",
+      });
+    } catch (err) {
+      popup.open({
+        title: "Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
   // --------------------------
   // DELETE HANDLERS
   // --------------------------
@@ -677,30 +951,35 @@ export default function AdminDashboard() {
       value: users.length || 0,
       icon: "bi-people",
       color: "bg-primary",
+      tab: "users",
     },
     {
       label: "SC/ST Submissions",
       value: submissions.length || 0,
       icon: "bi-file-earmark-text",
       color: "bg-info",
+      tab: "submissions",
     },
     {
       label: "Recipients",
       value: recipients.length || 0,
       icon: "bi-envelope",
       color: "bg-success",
+      tab: "recipients",
     },
     {
       label: "Matrimonial Entries",
       value: matrimonialSubs.length || 0,
       icon: "bi-heart",
       color: "bg-danger",
+      tab: "matrimonial",
     },
     {
       label: "Global Temples",
       value: temples.length || 0,
       icon: "bi-building",
       color: "bg-dark",
+      tab: "temples",
     },
   ];
   const suspenseFallback = <div className="text-center py-4">Loading...</div>;
@@ -745,7 +1024,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
     ">
 
       <!-- PROFILE IMAGE -->
-      <img src="${data.photo_url || "/template/img/no-photo.png"}"
+      <img src="${data.photo_url || "/template/img/no-photo.svg"}"
         style="
           width:${format === "reel" ? 320 : 260}px;
           height:${format === "reel" ? 320 : 260}px;
@@ -803,6 +1082,7 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
   link.download = `${data.name}-${format}.png`;
   link.click();
 };
+  void handleDownloadInstagramCard;
 
   return (
     <div className="admin-dashboard d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
@@ -878,7 +1158,31 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                   <div className="row g-4 mb-5">
                     {stats.map((s, i) => (
                       <div key={i} className="col-xl-3 col-sm-6">
-                        <div className="card shadow border-0">
+                        <div
+                          className="card shadow border-0 h-100"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setActiveTab(s.tab)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setActiveTab(s.tab);
+                            }
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                          }}
+                          onMouseEnter={(event) => {
+                            event.currentTarget.style.transform = "translateY(-2px)";
+                            event.currentTarget.style.boxShadow =
+                              "0 1rem 2rem rgba(15, 23, 42, 0.12)";
+                          }}
+                          onMouseLeave={(event) => {
+                            event.currentTarget.style.transform = "translateY(0)";
+                            event.currentTarget.style.boxShadow = "";
+                          }}
+                        >
                           <div className="card-body">
                             <div className="d-flex align-items-center justify-content-between">
                               <div>
@@ -1023,7 +1327,8 @@ const handleDownloadInstagramCard = async (data, format = "post") => {
                       onToggleSelect={handleToggleSelection}
                       onBulkDelete={() => handleBulkDelete("matrimonial")}
                       onView={handleOpenModal}
-                      onDownloadInstagramCard={handleDownloadInstagramCard}
+                      onStatusChange={handleMatrimonialStatusChange}
+                      onDownloadInstagramCard={handleDownloadInstagramAsset}
                       onDelete={(submissionId) =>
                         handleDelete("matrimonial", submissionId)
                       }

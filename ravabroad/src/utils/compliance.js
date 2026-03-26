@@ -22,7 +22,7 @@ export const CONNECT_SCST_CONSENT =
   "I consent to Ravidassia Abroad collecting and using the information in this form, including my contact details and supporting proof, to review my SC/ST community request, contact me about it, and store it for admin processing.";
 
 export const MATRIMONIAL_CONSENT =
-  "I expressly consent to Ravidassia Abroad collecting, storing, and using the information and photo in this biodata form for matrimonial profile review and related admin processing. I understand this form may contain sensitive personal information, and I can later request correction or deletion subject to platform rules and legal requirements.";
+  "I expressly consent to Ravidassia Abroad collecting, storing, and using the information and photo in this biodata form for matrimonial profile review, listing display according to my selected privacy settings, and related admin processing. I understand I can later request correction, hiding, or deletion subject to platform rules and legal requirements.";
 
 export const GUEST_COMMENT_CONSENT =
   "I consent to the use of my name, email, and comment for moderation, publication, and comment management.";

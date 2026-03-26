@@ -62,7 +62,7 @@ export default function AdminSubmissionDetailsModal({
               <div>
                 <div className="text-center mb-3">
                   <img
-                    src={submission.photo_url || "/template/img/no-photo.png"}
+                    src={submission.photo_url || "/template/img/no-photo.svg"}
                     alt="profile"
                     className="rounded-circle shadow-sm"
                     width="100"

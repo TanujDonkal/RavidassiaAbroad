@@ -1,8 +1,9 @@
 // src/components/AuthMenu.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function AuthMenu({ compact = false }) {
+  const menuRef = useRef(null);
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem("user");
@@ -30,6 +31,25 @@ export default function AuthMenu({ compact = false }) {
       window.removeEventListener("storage", syncAuth);
     };
   }, []);
+
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [open]);
 
   if (!user)
     return (
@@ -66,49 +86,50 @@ const avatarContent = user.photo_url ? (
 );
 
   return (
-    <div className="dropdown topbar-auth-dropdown">
-  <button
-    className="topbar-auth-toggle btn dropdown-toggle p-0 border-0 bg-transparent d-flex align-items-center justify-content-center"
-    id="userMenu"
-    data-bs-toggle="dropdown"
-    aria-expanded="false"
-    style={{ width: 42, height: 42 }}
-  >
-    {avatarContent}
-  </button>
-
-  <ul
-    className="topbar-user-menu dropdown-menu dropdown-menu-end shadow-sm mt-2"
-    aria-labelledby="userMenu"
-  >
-    <li className="dropdown-item-text fw-semibold">{user.name}</li>
-    <li>
-      <Link to="/profile" className="dropdown-item">
-        My Profile
-      </Link>
-    </li>
-    {user.role?.includes("admin") && (
-      <li>
-        <Link to="/admin" className="dropdown-item">
-          Admin Dashboard
-        </Link>
-      </li>
-    )}
-    <li>
+    <div className="dropdown topbar-auth-dropdown position-relative" ref={menuRef}>
       <button
-        className="dropdown-item text-danger"
-        onClick={() => {
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-          window.dispatchEvent(new Event("auth-updated"));
-          window.location.href = "/auth";
-        }}
+        className="topbar-auth-toggle btn p-0 border-0 bg-transparent d-flex align-items-center justify-content-center"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        style={{ width: 42, height: 42 }}
+        onClick={() => setOpen((current) => !current)}
       >
-        Logout
+        {avatarContent}
       </button>
-    </li>
-  </ul>
-</div>
 
+      <ul
+        className={`topbar-user-menu dropdown-menu dropdown-menu-end shadow-sm mt-2${
+          open ? " show" : ""
+        }`}
+        style={{ display: open ? "block" : "none" }}
+      >
+        <li className="dropdown-item-text fw-semibold">{user.name}</li>
+        <li>
+          <Link to="/profile" className="dropdown-item" onClick={() => setOpen(false)}>
+            My Profile
+          </Link>
+        </li>
+        {user.role?.includes("admin") && (
+          <li>
+            <Link to="/admin" className="dropdown-item" onClick={() => setOpen(false)}>
+              Admin Dashboard
+            </Link>
+          </li>
+        )}
+        <li>
+          <button
+            className="dropdown-item text-danger"
+            onClick={() => {
+              localStorage.removeItem("user");
+              localStorage.removeItem("token");
+              window.dispatchEvent(new Event("auth-updated"));
+              window.location.href = "/auth";
+            }}
+          >
+            Logout
+          </button>
+        </li>
+      </ul>
+    </div>
   );
 }

@@ -19,7 +19,7 @@ export default function ViewMatrimonialProfile() {
       <h2 className="mb-4 text-center">My Matrimonial Profile</h2>
       <div className="card shadow p-4 mx-auto" style={{ maxWidth: 800 }}>
         <img
-          src={data.photo_url || "/template/img/no-photo.png"}
+          src={data.photo_url || "/template/img/no-photo.svg"}
           alt="profile"
           className="rounded-circle mx-auto d-block mb-3"
           width="120"
