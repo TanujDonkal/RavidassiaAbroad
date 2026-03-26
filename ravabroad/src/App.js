@@ -1,6 +1,6 @@
 // src/App.js
 import React, { Suspense, lazy, useEffect, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -21,6 +21,8 @@ const ConnectSCST = lazy(() => import("./pages/connect-scst"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const MatrimonialForm = lazy(() => import("./pages/MatrimonialForm"));
+const MatrimonyListings = lazy(() => import("./pages/MatrimonyListings"));
+const MatrimonyProfileDetail = lazy(() => import("./pages/MatrimonyProfileDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Blogs = lazy(() => import("./pages/Blogs"));
 const BlogDetail = lazy(() => import("./pages/BlogDetail"));
@@ -33,6 +35,15 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
 const CommunityGuidelines = lazy(() => import("./pages/CommunityGuidelines"));
 const PrivacyDataRequest = lazy(() => import("./pages/PrivacyDataRequest"));
+const StudentsHub = lazy(() => import("./pages/StudentsHub"));
+const StudentsTests = lazy(() => import("./pages/StudentsTests"));
+const StudentExamDashboard = lazy(() => import("./pages/StudentExamDashboard"));
+const StudentVariantDashboard = lazy(() => import("./pages/StudentVariantDashboard"));
+const StudentTestList = lazy(() => import("./pages/StudentTestList"));
+const StudentTestOverview = lazy(() => import("./pages/StudentTestOverview"));
+const StudentTestRunner = lazy(() => import("./pages/StudentTestRunner"));
+const StudentAttemptHistory = lazy(() => import("./pages/StudentAttemptHistory"));
+const StudentAttemptResult = lazy(() => import("./pages/StudentAttemptResult"));
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -86,7 +97,26 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/matrimonial" element={<MatrimonialForm />} />
+            <Route path="/matrimony" element={<MatrimonyListings />} />
+            <Route
+              path="/matrimony/post"
+              element={
+                <ProtectedRoute>
+                  <MatrimonialForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/matrimony/my-profile"
+              element={
+                <ProtectedRoute>
+                  <MatrimonialForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/matrimony/:id" element={<MatrimonyProfileDetail />} />
+            <Route path="/matrimonial" element={<Navigate to="/matrimony" replace />} />
+            <Route path="/matrimonial/post" element={<Navigate to="/matrimony/post" replace />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route path="/blogs/:slug" element={<BlogDetail />} />
@@ -97,6 +127,64 @@ export default function App() {
             <Route path="/terms-of-use" element={<TermsOfUse />} />
             <Route path="/community-guidelines" element={<CommunityGuidelines />} />
             <Route path="/privacy-data-request" element={<PrivacyDataRequest />} />
+            <Route path="/students" element={<StudentsHub />} />
+            <Route path="/students/tests" element={<StudentsTests />} />
+            <Route
+              path="/students/tests/:examSlug"
+              element={
+                <ProtectedRoute>
+                  <StudentExamDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/:variantSlug"
+              element={
+                <ProtectedRoute>
+                  <StudentVariantDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/tests"
+              element={
+                <ProtectedRoute>
+                  <StudentTestList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/tests/:testId"
+              element={
+                <ProtectedRoute>
+                  <StudentTestOverview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/tests/:testId/start"
+              element={
+                <ProtectedRoute>
+                  <StudentTestRunner />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/attempts"
+              element={
+                <ProtectedRoute>
+                  <StudentAttemptHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/tests/:examSlug/attempts/:attemptId/result"
+              element={
+                <ProtectedRoute>
+                  <StudentAttemptResult />
+                </ProtectedRoute>
+              }
+            />
             {/* Catch-all: dynamic menu pages, then 404 */}
             <Route path="/*" element={<DynamicPage />} />
             <Route path="*" element={<NotFound />} />

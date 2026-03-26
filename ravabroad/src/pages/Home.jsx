@@ -11,6 +11,24 @@ export default function Home() {
   // const [slides] = useState([]);
   const [menus, setMenus] = useState([]);
 
+  const quickLinks = (() => {
+    const baseMenus =
+      menus.length === 0
+        ? [
+            { id: "connect-scst", label: "Connect SC/ST by Country", path: "/connect-scst", position: 1 },
+            { id: "matrimony", label: "RavidassiaAbroad Matrimonial", path: "/matrimony", position: 2 },
+            { id: "history", label: "History", path: "/history", position: 3 },
+          ]
+        : menus;
+
+    const hasStudentsLink = baseMenus.some((menu) => menu.path === "/students");
+    const mergedMenus = hasStudentsLink
+      ? baseMenus
+      : [...baseMenus, { id: "students-quick-link", label: "Students", path: "/students", position: 999 }];
+
+    return [...mergedMenus].sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
+  })();
+
   useEffect(() => {
     document.title = "Ravidassia Abroad";
 
@@ -173,26 +191,11 @@ export default function Home() {
       <Navbar bg="dark" variant="dark" className="home-quick-links border-bottom border-body">
         <Container>
           <Nav className="mx-auto d-flex flex-wrap justify-content-center">
-            {menus.length === 0 ? (
-              <>
-                {/* Fallback when no menus in DB */}
-                <Nav.Link href="/connect-scst">
-                  Connect SC/ST by Country
-                </Nav.Link>
-                <Nav.Link href="/matrimonial">
-                  RavidassiaAbroad Matrimonial
-                </Nav.Link>
-                <Nav.Link href="/history">History</Nav.Link>
-              </>
-            ) : (
-              menus
-                .sort((a, b) => a.position - b.position)
-                .map((menu) => (
-                  <Nav.Link key={menu.id} href={menu.path}>
-                    {menu.label}
-                  </Nav.Link>
-                ))
-            )}
+            {quickLinks.map((menu) => (
+              <Nav.Link key={menu.id} href={menu.path}>
+                {menu.label}
+              </Nav.Link>
+            ))}
           </Nav>
         </Container>
       </Navbar>

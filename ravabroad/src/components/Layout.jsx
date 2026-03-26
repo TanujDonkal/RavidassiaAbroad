@@ -144,7 +144,7 @@ export default function Layout() {
                   <span className="dropdown-toggle">History</span>
                 </a>
                 <div className="site-dropdown-menu dropdown-menu m-0">
-                  <NavLink to="/feature" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Feature</NavLink>
+                  <NavLink to="/feature" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Ravidassia Religion</NavLink>
                   <NavLink to="/countries" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Countries</NavLink>
                   <NavLink to="/testimonial" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Testimonial</NavLink>
                   <NavLink to="/training" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Training</NavLink>

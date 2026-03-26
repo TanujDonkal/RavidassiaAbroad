@@ -180,4 +180,66 @@ export function createUser(data) {
   });
 }
 
+export function getStudentOverview() {
+  return apiFetch("/students/overview");
+}
+
+export function getStudentCatalog() {
+  return apiFetch("/students/catalog");
+}
+
+export function getExamDashboard(examSlug) {
+  return apiFetch(`/students/exams/${examSlug}/dashboard`);
+}
+
+export function getExamTests(examSlug, variantSlug = "") {
+  const params = new URLSearchParams();
+  if (variantSlug) {
+    params.set("variant", variantSlug);
+  }
+  return apiFetch(`/students/exams/${examSlug}/tests${params.toString() ? `?${params.toString()}` : ""}`);
+}
+
+export function getTestOverview(testId) {
+  return apiFetch(`/students/tests/${testId}`);
+}
+
+export function createExamAttempt(testId) {
+  return apiFetch(`/students/tests/${testId}/attempts`, {
+    method: "POST",
+  });
+}
+
+export function getAttemptDetail(attemptId) {
+  return apiFetch(`/students/attempts/${attemptId}`);
+}
+
+export function saveAttemptAnswer(attemptId, payload) {
+  return apiFetch(`/students/attempts/${attemptId}/answers`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function saveAttemptSectionState(attemptId, payload) {
+  return apiFetch(`/students/attempts/${attemptId}/section-state`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function submitAttempt(attemptId) {
+  return apiFetch(`/students/attempts/${attemptId}/submit`, {
+    method: "POST",
+  });
+}
+
+export function getExamAttempts(examSlug) {
+  return apiFetch(`/students/exams/${examSlug}/attempts`);
+}
+
+export function getAttemptResult(attemptId) {
+  return apiFetch(`/students/attempts/${attemptId}/result`);
+}
+
 

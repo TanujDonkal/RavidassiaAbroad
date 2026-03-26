@@ -1,10 +1,12 @@
-// src/components/ProtectedRoute.jsx
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { setPostAuthRedirect } from "../utils/formDrafts";
 
 export default function ProtectedRoute({ children, adminOnly = false }) {
+  const location = useLocation();
   const token = localStorage.getItem("token");
   let user = {};
+
   try {
     user = JSON.parse(localStorage.getItem("user") || "{}");
   } catch {
@@ -13,16 +15,16 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // ❌ No token → redirect to login
+  const redirectTo = `${location.pathname}${location.search}${location.hash}`;
+
   if (!token) {
-    return <Navigate to="/auth" replace />;
+    setPostAuthRedirect(redirectTo);
+    return <Navigate to="/auth" replace state={{ redirectTo }} />;
   }
 
-  // 🔒 If adminOnly, check role
   if (adminOnly && user.role !== "main_admin" && user.role !== "moderate_admin") {
     return <Navigate to="/" replace />;
   }
 
-  // ✅ Authorized → show page
   return children;
 }
