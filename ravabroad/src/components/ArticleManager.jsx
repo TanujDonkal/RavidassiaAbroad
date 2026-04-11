@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { apiFetch, API_BASE } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import { usePopup } from "../components/PopupProvider";
@@ -44,14 +44,10 @@ export default function ArticleManager() {
       setUploading(true);
       const formData = new FormData();
       formData.append("image", file);
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/admin/blogs/upload`, {
+      const data = await apiFetch("/admin/blogs/upload", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
       setForm((f) => ({ ...f, image_url: data.image_url }));
       popup.open({
         title: "✅ Uploaded",

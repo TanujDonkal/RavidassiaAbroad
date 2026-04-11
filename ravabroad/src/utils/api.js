@@ -1,4 +1,5 @@
 // src/utils/api.js
+import { clearStoredAuth } from "./auth";
 
 // 🌍 Automatically detect local or production environment
 const isLocalhost =
@@ -17,13 +18,6 @@ export const API_BASE = `${BASE_URL}/api`;
 
 
 // ----------------------------
-// Helper to get token
-// ----------------------------
-function getToken() {
-  return localStorage.getItem("token") || null;
-}
-
-// ----------------------------
 // Generic request wrapper
 // ----------------------------
 
@@ -38,20 +32,18 @@ export async function apiFetch(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  // ✅ Always attach token — works for both FormData & JSON
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    if (res.status === 401) {
+      clearStoredAuth();
+    }
     console.error("API error response:", res.status, data);
     throw new Error(data.message || "API error");
   }

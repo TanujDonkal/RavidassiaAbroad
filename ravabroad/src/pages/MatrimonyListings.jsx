@@ -8,6 +8,7 @@ import {
   getProfilePhotoUrl,
 } from "../utils/matrimony";
 import "../css/Matrimony.css";
+import { isAuthenticated } from "../utils/auth";
 
 function promptAuth(popup, navigate, redirectTo) {
   popup.open({
@@ -34,7 +35,7 @@ export default function MatrimonyListings() {
     ageMax: "",
   });
 
-  const isLoggedIn = Boolean(localStorage.getItem("token"));
+  const isLoggedIn = isAuthenticated();
 
   const loadProfiles = async (activeFilters = filters) => {
     setLoading(true);

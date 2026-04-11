@@ -5,7 +5,6 @@ import { apiFetch } from "../utils/api";
 import "../css/BlogFormModal.css";
 import { usePopup } from "../components/PopupProvider";
 import GlobalLoader from "../components/GlobalLoader";
-import { API_BASE } from "../utils/api";
 
 export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
   const popup = usePopup();
@@ -29,12 +28,7 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(
-          `${API_BASE}/admin/categories`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
+        const data = await apiFetch("/admin/categories");
         const normalized = Array.isArray(data)
           ? data.map((c) => ({ ...c, id: String(c.id) }))
           : [];
@@ -115,19 +109,12 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
 
       // 🟢 Upload image if new one selected
       if (form.image_file) {
-        const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append("image", form.image_file);
-        const res = await fetch(
-          `${API_BASE}/admin/blogs/upload`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-          }
-        );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Image upload failed");
+        const data = await apiFetch("/admin/blogs/upload", {
+          method: "POST",
+          body: formData,
+        });
         imageUrl = data.image_url;
       }
 

@@ -8,6 +8,8 @@ import GlobalLoader from "./components/GlobalLoader";
 import { PopupProvider } from "./components/PopupProvider";
 import FormSubmitOverlay from "./components/FormSubmitOverlay";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { getMe } from "./utils/api";
+import { clearStoredAuth, getStoredUser, setStoredUser } from "./utils/auth";
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
 const Service = lazy(() => import("./pages/Service"));
@@ -66,6 +68,30 @@ export default function App() {
     const timeout = setTimeout(() => setLoading(false), 600);
     return () => clearTimeout(timeout);
   }, [location]);
+
+  useEffect(() => {
+    if (!getStoredUser()?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    getMe()
+      .then((data) => {
+        if (!cancelled && data?.user) {
+          setStoredUser(data.user);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearStoredAuth();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <ErrorBoundary>

@@ -19,6 +19,7 @@ import {
   GENERAL_COLLECTION_NOTICE,
   MARKETING_OPT_IN_LABEL,
 } from "../utils/compliance";
+import { isAuthenticated } from "../utils/auth";
 
 const SCST_DRAFT_KEY = "connect_scst_form_draft";
 
@@ -60,7 +61,7 @@ export default function ConnectSCST() {
       }));
     }
 
-    if (localStorage.getItem("token")) {
+    if (isAuthenticated()) {
       fetchMySubmission();
     }
 
@@ -117,7 +118,7 @@ export default function ConnectSCST() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!localStorage.getItem("token")) {
+    if (!isAuthenticated()) {
       promptForAuth();
       return;
     }

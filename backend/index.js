@@ -29,6 +29,7 @@ dotenv.config();
 
 const { Pool } = pkg;
 const app = express();
+app.set("trust proxy", 1);
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const otpStore = new Map();
 const rateLimitStore = new Map();
@@ -39,6 +40,17 @@ const IMAGE_MIME_TYPES = new Set([
 ]);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ra_session";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const AUTH_COOKIE_SECURE =
+  process.env.AUTH_COOKIE_SECURE === "true" || IS_PRODUCTION;
+const AUTH_COOKIE_SAME_SITE =
+  process.env.AUTH_COOKIE_SAME_SITE || (IS_PRODUCTION ? "None" : "Lax");
+const AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const serverState = {
+  dbReady: false,
+  lastDbError: null,
+};
 
 // ---- CORS ----
 const allowedPatterns = [
@@ -46,20 +58,24 @@ const allowedPatterns = [
   /^https:\/\/([a-z0-9-]+\.)?ravidassiaabroad\.com$/,
   /^https:\/\/([a-z0-9-]+\.)?ravidassia-abroad\.vercel\.app$/,
 ];
+
+function isAllowedOrigin(origin) {
+  return !origin || allowedPatterns.some((re) => re.test(origin));
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedPatterns.some((re) => re.test(origin))) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
-        console.log("❌ Blocked CORS origin:", origin);
+        console.log("Blocked CORS origin:", origin);
         callback(new Error("CORS not allowed"));
       }
     },
     credentials: true,
-    // ✅ Added PATCH here
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
@@ -83,7 +99,7 @@ app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:; frame-src https:; font-src 'self' https: data:;"
+    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://use.fontawesome.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://accounts.google.com https://www.paypal.com https://code.jquery.com https://cdn.jsdelivr.net; connect-src 'self' https: http://localhost:* ws://localhost:*; frame-src https://www.paypal.com https://www.youtube.com; font-src 'self' https://fonts.gstatic.com https://use.fontawesome.com https://cdn.jsdelivr.net data:;"
   );
   next();
 });
@@ -98,6 +114,17 @@ function cleanupExpiredOtps() {
 }
 
 setInterval(cleanupExpiredOtps, 60 * 1000).unref?.();
+
+function cleanupExpiredRateLimits() {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (!entry?.resetAt || now > entry.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+setInterval(cleanupExpiredRateLimits, 60 * 1000).unref?.();
 
 function createRateLimiter({ windowMs, max, bucket }) {
   return (req, res, next) => {
@@ -145,17 +172,110 @@ function makeUploader(folder) {
   });
 }
 
-// Safely decode token if exists in Authorization header
+function parseCookies(req) {
+  const rawCookie = req.headers.cookie || "";
+  return rawCookie
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce((acc, part) => {
+      const index = part.indexOf("=");
+      if (index === -1) return acc;
+      const key = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {});
+}
+
+function getCookie(req, name) {
+  return parseCookies(req)[name] || null;
+}
+
+function serializeCookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`];
+  if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
+  if (options.path) parts.push(`Path=${options.path}`);
+  if (options.httpOnly) parts.push("HttpOnly");
+  if (options.secure) parts.push("Secure");
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  if (options.domain) parts.push(`Domain=${options.domain}`);
+  return parts.join("; ");
+}
+
+function setAuthCookie(res, token) {
+  res.setHeader(
+    "Set-Cookie",
+    serializeCookie(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: AUTH_COOKIE_SECURE,
+      sameSite: AUTH_COOKIE_SAME_SITE,
+      path: "/",
+      maxAge: Math.floor(AUTH_COOKIE_MAX_AGE_MS / 1000),
+    })
+  );
+}
+
+function clearAuthCookie(res) {
+  res.setHeader(
+    "Set-Cookie",
+    serializeCookie(AUTH_COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: AUTH_COOKIE_SECURE,
+      sameSite: AUTH_COOKIE_SAME_SITE,
+      path: "/",
+      maxAge: 0,
+    })
+  );
+}
+
+function getAuthToken(req) {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Bearer ")) {
+    return header.slice(7);
+  }
+  return getCookie(req, AUTH_COOKIE_NAME);
+}
+
+function requireTrustedOrigin(req, res, next) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    return next();
+  }
+
+  const origin = req.headers.origin;
+  if (origin) {
+    return isAllowedOrigin(origin)
+      ? next()
+      : res.status(403).json({ message: "Untrusted origin" });
+  }
+
+  const referer = req.headers.referer;
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      return isAllowedOrigin(refererOrigin)
+        ? next()
+        : res.status(403).json({ message: "Untrusted origin" });
+    } catch {
+      return res.status(403).json({ message: "Untrusted origin" });
+    }
+  }
+
+  if (getCookie(req, AUTH_COOKIE_NAME)) {
+    return res.status(403).json({ message: "Missing trusted origin" });
+  }
+
+  next();
+}
+
+app.use("/api", requireTrustedOrigin);
+
 function decodeUserIfAny(req) {
   try {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    const token = getAuthToken(req);
     if (!token) return null;
 
-    // Verify and decode JWT using your secret
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Return the essential user info
     return {
       id: decoded.id,
       name: decoded.name,
@@ -163,27 +283,10 @@ function decodeUserIfAny(req) {
       role: decoded.role || "user",
     };
   } catch (err) {
-    console.warn("⚠️ JWT decode failed:", err.message);
+    console.warn("JWT decode failed:", err.message);
     return null;
   }
 }
-
-// ✅ FIXED: Explicitly allow PATCH and preflight for all routes
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With"
-  );
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
 
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
@@ -2093,17 +2196,8 @@ function buildRelatedKeywords(query, results) {
   return keywords;
 }
 
-// ---- HELPERS ----
-function getBearerToken(req) {
-  const h = req.headers.authorization || "";
-  const parts = h.split(" ");
-  return parts.length === 2 && parts[0].toLowerCase() === "bearer"
-    ? parts[1]
-    : null;
-}
-
 function requireAuth(req, res, next) {
-  const token = getBearerToken(req);
+  const token = getAuthToken(req);
   if (!token) return res.status(401).json({ message: "Unauthorized" });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -2757,6 +2851,7 @@ app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
     ]);
 
     otpStore.delete(email);
+    clearAuthCookie(res);
     res.json({ message: "Password reset successful" });
   } catch (err) {
     console.error("❌ Reset password error:", err);
@@ -2786,9 +2881,23 @@ async function sendNotificationEmail(subject, html) {
 }
 
 // ---- ROUTES ----
-app.get("/api/health", (req, res) =>
-  res.json({ ok: true, app: "Ravidassia API" })
-);
+app.get("/api/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    serverState.dbReady = true;
+    serverState.lastDbError = null;
+    res.json({ ok: true, app: "Ravidassia API", db: "up" });
+  } catch (err) {
+    serverState.dbReady = false;
+    serverState.lastDbError = err.message;
+    res.status(503).json({
+      ok: false,
+      app: "Ravidassia API",
+      db: "down",
+      message: "Database unavailable",
+    });
+  }
+});
 
 app.get("/api/search", async (req, res) => {
   try {
@@ -3055,7 +3164,8 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.status(201).json({ message: "User created successfully", token, user });
+    setAuthCookie(res, token);
+    res.status(201).json({ message: "User created successfully", user });
   } catch (err) {
     console.error("Register error:", err);
     res.status(500).json({ message: "Server error" });
@@ -3091,9 +3201,9 @@ app.post("/api/auth/login", authRateLimit, async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // ✅ Return the complete user object including photo_url
     delete user.password_hash;
-    res.json({ token, user });
+    setAuthCookie(res, token);
+    res.json({ user });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
@@ -3137,7 +3247,8 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
     );
 
     delete user.password_hash;
-    res.json({ token, user });
+    setAuthCookie(res, token);
+    res.json({ user });
   } catch (err) {
     console.error("❌ Google auth error:", err);
     res.status(400).json({ message: "Invalid Google token" });
@@ -3744,6 +3855,11 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
     console.error("Fetch current user error:", err);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+app.post("/api/auth/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.json({ message: "Logged out successfully" });
 });
 
 // ---- SC/ST SUBMISSION ----
@@ -6689,8 +6805,21 @@ The Ravidassia Abroad Team
 );
 
 // ---- START SERVER ----
-app.listen(PORT, () => {
-  console.log(`🚀 API running on http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    await initDB();
+    await pool.query("SELECT 1");
+    serverState.dbReady = true;
+    serverState.lastDbError = null;
+    app.listen(PORT, () => {
+      console.log(`API running on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    serverState.dbReady = false;
+    serverState.lastDbError = err.message;
+    console.error("DB init failed:", err);
+    process.exit(1);
+  }
+}
 
-initDB().catch((err) => console.error("DB init failed:", err));
+startServer();

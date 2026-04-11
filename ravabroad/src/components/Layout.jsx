@@ -9,6 +9,8 @@ import {
   PRIVACY_CONTACT_EMAIL,
   SUPPORT_CONTACT_EMAIL,
 } from "../utils/compliance";
+import { apiFetch } from "../utils/api";
+import { clearStoredAuth, getStoredUser } from "../utils/auth";
 
 function ScrollAndInit() {
   const { pathname } = useLocation();
@@ -21,21 +23,23 @@ function ScrollAndInit() {
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const [user] = useState(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      localStorage.removeItem("user");
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => getStoredUser());
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const navbarRef = useRef(null);
 
   useEffect(() => {
     setIsMobileNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const syncAuth = () => setUser(getStoredUser());
+    window.addEventListener("auth-updated", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("auth-updated", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isMobileNavOpen) return undefined;
@@ -55,6 +59,18 @@ export default function Layout() {
       document.removeEventListener("touchstart", handlePointerDown);
     };
   }, [isMobileNavOpen]);
+
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // Local cleanup still matters if the server session is already gone.
+    } finally {
+      clearStoredAuth();
+      setIsMobileNavOpen(false);
+      window.location.href = "/auth";
+    }
+  };
   // const { open: openPopup } = require("./PopupProvider").usePopup();
   // ...existing logic and effects...
 
@@ -172,13 +188,7 @@ export default function Layout() {
                     {user.role?.includes("admin") && (
                       <Link to="/admin" className="btn btn-outline-dark rounded-pill" onClick={() => setIsMobileNavOpen(false)}>Admin Dashboard</Link>
                     )}
-                    <button className="btn btn-danger rounded-pill" onClick={() => {
-                      localStorage.removeItem("user");
-                      localStorage.removeItem("token");
-                      window.dispatchEvent(new Event("auth-updated"));
-                      setIsMobileNavOpen(false);
-                      window.location.href = "/auth";
-                    }}>Logout</button>
+                    <button className="btn btn-danger rounded-pill" onClick={handleLogout}>Logout</button>
                   </div>
                 </div>
               ) : (

@@ -8,6 +8,7 @@ import {
   GENERAL_COLLECTION_NOTICE,
   GUEST_COMMENT_CONSENT,
 } from "../utils/compliance";
+import { getStoredUser } from "../utils/auth";
 
 export default function Comments() {
   const location = useLocation();
@@ -25,7 +26,7 @@ export default function Comments() {
     comment_text: "",
     consent_given: false,
   });
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = getStoredUser() || {};
 
   // 🧭 Scroll helper
   const scrollToElement = (id) => {
@@ -77,30 +78,21 @@ export default function Comments() {
           const location = window.location.pathname;
           const type = location.includes("/articles") ? "articles" : "blogs";
 
-          const endpoint =
+          await apiFetch(
             user?.role === "admin" ||
-            user?.role === "main_admin" ||
-            user?.role === "moderate_admin"
-              ? `${API_BASE}/${type}/comments/${commentId}` // DELETE (admin)
-              : `${API_BASE}/${type}/comments/${commentId}/delete`; // PATCH (user)
-
-          const token = localStorage.getItem("token") || user?.token || "";
-
-          const res = await fetch(endpoint, {
-            method:
-              user?.role === "admin" ||
               user?.role === "main_admin" ||
               user?.role === "moderate_admin"
-                ? "DELETE"
-                : "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token ? `Bearer ${token}` : "",
-            },
-            body: null,
-          });
-
-          if (!res.ok) throw new Error("Failed to delete comment");
+              ? `/${type}/comments/${commentId}`
+              : `/${type}/comments/${commentId}/delete`,
+            {
+              method:
+                user?.role === "admin" ||
+                user?.role === "main_admin" ||
+                user?.role === "moderate_admin"
+                  ? "DELETE"
+                  : "PATCH",
+            }
+          );
 
           // ✅ Update UI instantly (remove from state)
           setComments((prev) =>

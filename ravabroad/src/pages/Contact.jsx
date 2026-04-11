@@ -1,4 +1,3 @@
-// src/pages/Contact.jsx
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 
@@ -19,9 +18,7 @@ export default function Contact() {
     const project = (fd.get("project") || "").toString().trim();
 
     const mailTo = "ravidassiaabroad@gmail.com";
-    const mailSub = encodeURIComponent(
-      `${subject || "New message"} — Ravidassia Abroad Website`
-    );
+    const mailSub = encodeURIComponent(`${subject || "New message"} - Ravidassia Abroad Website`);
     const mailBody = encodeURIComponent(
       `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nTopic/Project: ${project}\n\nMessage:\n${message}\n`
     );
@@ -31,7 +28,6 @@ export default function Contact() {
 
   return (
     <>
-      {/* Spinner (optional) */}
       <div
         id="spinner"
         className="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center"
@@ -45,16 +41,9 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Header / Breadcrumb */}
       <div className="container-fluid bg-breadcrumb">
-        <div
-          className="container text-center py-5"
-          style={{ maxWidth: "900px" }}
-        >
-          <h3
-            className="text-white display-3 mb-4 wow fadeInDown"
-            data-wow-delay="0.1s"
-          >
+        <div className="container text-center py-5" style={{ maxWidth: "900px" }}>
+          <h3 className="text-white display-3 mb-4 wow fadeInDown" data-wow-delay="0.1s">
             Contact Us
           </h3>
           <ol
@@ -67,7 +56,11 @@ export default function Contact() {
               </Link>
             </li>
             <li className="breadcrumb-item">
-              <span className="text-white" style={{ cursor: "default", textDecoration: "none" }} aria-current="page">
+              <span
+                className="text-white"
+                style={{ cursor: "default", textDecoration: "none" }}
+                aria-current="page"
+              >
                 Pages
               </span>
             </li>
@@ -76,285 +69,236 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Contact */}
-      <div className="container-fluid contact overflow-hidden py-5">
+      <div className="container-fluid contact overflow-hidden py-5 contact-page-shell">
         <div className="container py-5">
-          <div className="row g-5 mb-5">
-            {/* Left: Info */}
+          <div className="row g-5 mb-5 align-items-stretch">
             <div className="col-lg-6 wow fadeInLeft" data-wow-delay="0.1s">
-              <div className="sub-style">
-                <h5 className="sub-title text-primary pe-3">Quick Contact</h5>
-              </div>
-              <h1 className="display-5 mb-4">
-                We’re here for the global Ravidassia Sangat
-              </h1>
-              <p className="mb-5">
-                Reach out for community listings, event updates, corrections, or
-                to share resources. Students and newcomers are especially
-                welcome—ask us anything and we’ll try to guide you to the right
-                place.
-              </p>
+              <div className="contact-info-panel h-100">
+                <span className="contact-kicker">Quick Contact</span>
+                <h1 className="display-5 mb-4 contact-page-title">
+                  We're here for the global Ravidassia Sangat
+                </h1>
+                <p className="mb-4 contact-lead">
+                  Reach out for community listings, event updates, corrections, or to share resources.
+                  Students and newcomers are especially welcome. Ask us anything and we'll try to guide
+                  you to the right place.
+                </p>
 
-              <div className="d-flex border-bottom mb-4 pb-4">
-                <i className="fas fa-map-marked-alt fa-4x text-primary bg-light p-3 rounded"></i>
-                <div className="ps-3">
-                  <h5>Location</h5>
-                  <p className="mb-0">
-                    Halifax, Nova Scotia, Canada (Atlantic Time)
-                  </p>
+                <div className="contact-info-card">
+                  <div className="contact-info-icon">
+                    <i className="fas fa-map-marked-alt"></i>
+                  </div>
+                  <div>
+                    <h5>Location</h5>
+                    <p className="mb-0">Halifax, Nova Scotia, Canada (Atlantic Time)</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="row g-3">
-                <div className="col-xl-6">
-                  <div className="d-flex">
-                    <i className="fas fa-tty fa-3x text-primary"></i>
-                    <div className="ps-3">
+                <div className="row g-3 contact-detail-grid">
+                  <div className="col-xl-6">
+                    <div className="contact-mini-card h-100">
+                      <div className="contact-mini-icon">
+                        <i className="fas fa-envelope-open-text"></i>
+                      </div>
                       <h5 className="mb-3">Quick Contact</h5>
                       <div className="mb-3">
-                        <h6 className="mb-0">Email:</h6>
+                        <h6 className="mb-1">Email</h6>
                         <a
                           href="https://mail.google.com/mail/?view=cm&fs=1&to=ravidassiaabroad@gmail.com&su=Hello%20Ravidassia%20Abroad"
-                          className="text-muted me-4"
                           target="_blank"
                           rel="noreferrer"
                         >
-                          <i className="fas fa-envelope text-secondary me-2"></i>
-                          RavidassiaAbroad@gmail.com
+                          ravidassiaabroad@gmail.com
                         </a>
                       </div>
-                      <div className="mb-3">
-                        <h6 className="mb-0">Instagram:</h6>
+                      <div>
+                        <h6 className="mb-1">Instagram</h6>
                         <a
                           href="https://www.instagram.com/ravidassiaabroad/"
                           target="_blank"
                           rel="noreferrer"
-                          className="fs-6 text-primary"
                         >
                           @ravidassiaabroad
                         </a>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="col-xl-6">
-                  <div className="d-flex">
-                    <i className="fas fa-clone fa-3x text-primary"></i>
-                    <div className="ps-3">
-                      <h5 className="mb-3">Contact Hours</h5>
-                      <div className="mb-1">
-                        <h6 className="mb-0">Mon–Fri:</h6>
-                        <span className="fs-6 text-primary">
-                          10:00 am – 6:00 pm (AST)
-                        </span>
+                  <div className="col-xl-6">
+                    <div className="contact-mini-card h-100">
+                      <div className="contact-mini-icon">
+                        <i className="fas fa-clock"></i>
                       </div>
-                      <div className="mb-1">
-                        <h6 className="mb-0">Saturday:</h6>
-                        <span className="fs-6 text-primary">
-                          Community Events
-                        </span>
+                      <h5 className="mb-3">Contact Hours</h5>
+                      <div className="mb-2">
+                        <h6 className="mb-1">Mon-Fri</h6>
+                        <span>10:00 am - 6:00 pm (AST)</span>
+                      </div>
+                      <div className="mb-2">
+                        <h6 className="mb-1">Saturday</h6>
+                        <span>Community Events</span>
                       </div>
                       <div>
-                        <h6 className="mb-0">Sunday:</h6>
-                        <span className="fs-6 text-primary">Closed</span>
+                        <h6 className="mb-1">Sunday</h6>
+                        <span>Closed</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Socials */}
-              <div className="d-flex align-items-center pt-3">
-                <div className="me-4">
-                  <div
-                    className="bg-light d-flex align-items-center justify-content-center"
-                    style={{ width: 90, height: 90, borderRadius: 10 }}
-                  >
-                    <i className="fas fa-share fa-3x text-primary"></i>
+                <div className="contact-social-panel">
+                  <div className="contact-social-badge">
+                    <i className="fas fa-share-alt"></i>
                   </div>
-                </div>
-                <div className="d-flex flex-wrap gap-2">
-                  <a
-                    className="btn btn-secondary border-secondary me-2 p-0"
-                    href="https://www.facebook.com/RavidassiaAbroad"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    facebook <i className="fas fa-chevron-circle-right"></i>
-                  </a>
-                  <a
-                    className="btn btn-secondary border-secondary mx-2 p-0"
-                    href="https://x.com/ravidassiabroad"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    twitter <i className="fas fa-chevron-circle-right"></i>
-                  </a>
-                  <a
-                    className="btn btn-secondary border-secondary mx-2 p-0"
-                    href="https://www.instagram.com/ravidassiaabroad/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    instagram <i className="fas fa-chevron-circle-right"></i>
-                  </a>
-                  <a
-                    className="btn btn-secondary border-secondary mx-2 p-0"
-                    href="https://www.youtube.com/c/TheAmbedkarBrand"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    youtube <i className="fas fa-chevron-circle-right"></i>
-                  </a>
+                  <div className="contact-social-links">
+                    <a href="https://www.facebook.com/RavidassiaAbroad" target="_blank" rel="noreferrer">
+                      Facebook
+                    </a>
+                    <a href="https://x.com/ravidassiabroad" target="_blank" rel="noreferrer">
+                      X / Twitter
+                    </a>
+                    <a href="https://www.instagram.com/ravidassiaabroad/" target="_blank" rel="noreferrer">
+                      Instagram
+                    </a>
+                    <a href="https://www.youtube.com/c/TheAmbedkarBrand" target="_blank" rel="noreferrer">
+                      YouTube
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right: Form */}
             <div className="col-lg-6 wow fadeInRight" data-wow-delay="0.3s">
-              <div className="sub-style">
-                <h5 className="sub-title text-primary pe-3">Let’s Connect</h5>
-              </div>
-              <h1 className="display-5 mb-4">Send Your Message</h1>
-              <p className="mb-3">
-                This form will open your email client with the details
-                pre-filled. Prefer direct email? Write to{" "}
-                <a
-                  className="text-primary fw-bold"
-                  href="mailto:ravidassiaabroad@gmail.com"
-                >
-                  ravidassiaabroad@gmail.com
-                </a>
-                .
-              </p>
+              <div className="contact-form-panel h-100">
+                <span className="contact-kicker">Let's Connect</span>
+                <h1 className="display-5 mb-4 contact-page-title">Send Your Message</h1>
+                <p className="mb-4 contact-lead">
+                  This form opens your email client with the details pre-filled. Prefer direct email?
+                  Write to{" "}
+                  <a className="text-primary fw-bold" href="mailto:ravidassiaabroad@gmail.com">
+                    ravidassiaabroad@gmail.com
+                  </a>
+                  .
+                </p>
 
-              <form onSubmit={handleSubmit}>
-                <div className="row g-4">
-                  <div className="col-lg-12 col-xl-6">
-                    <div className="form-floating">
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="name"
-                        name="name"
-                        placeholder="Your Name"
-                        required
-                      />
-                      <label htmlFor="name">Your Name</label>
+                <form onSubmit={handleSubmit}>
+                  <div className="row g-4">
+                    <div className="col-lg-12 col-xl-6">
+                      <div className="form-floating">
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="name"
+                          name="name"
+                          placeholder="Your Name"
+                          required
+                        />
+                        <label htmlFor="name">Your Name</label>
+                      </div>
+                    </div>
+                    <div className="col-lg-12 col-xl-6">
+                      <div className="form-floating">
+                        <input
+                          type="email"
+                          className="form-control"
+                          id="email"
+                          name="email"
+                          placeholder="Your Email"
+                          required
+                        />
+                        <label htmlFor="email">Your Email</label>
+                      </div>
+                    </div>
+                    <div className="col-lg-12 col-xl-6">
+                      <div className="form-floating">
+                        <input
+                          type="tel"
+                          className="form-control"
+                          id="phone"
+                          name="phone"
+                          placeholder="Phone"
+                        />
+                        <label htmlFor="phone">Your Phone (optional)</label>
+                      </div>
+                    </div>
+                    <div className="col-lg-12 col-xl-6">
+                      <div className="form-floating">
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="project"
+                          name="project"
+                          placeholder="Topic"
+                        />
+                        <label htmlFor="project">Topic (e.g., Temple Listing)</label>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="form-floating">
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="subject"
+                          name="subject"
+                          placeholder="Subject"
+                          required
+                        />
+                        <label htmlFor="subject">Subject</label>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="form-floating">
+                        <textarea
+                          className="form-control"
+                          id="message"
+                          name="message"
+                          placeholder="Leave a message here"
+                          style={{ height: 170 }}
+                          required
+                        ></textarea>
+                        <label htmlFor="message">Message</label>
+                      </div>
+                    </div>
+                    <div className="col-12 d-grid">
+                      <button className="btn btn-primary py-3">Send Message</button>
+                    </div>
+                    <div className="col-12">
+                      <p className="small text-muted mb-0">
+                        Want to <strong>add, remove, or report</strong> content from the site or our
+                        socials? Use the link in the top bar or{" "}
+                        <button
+                          type="button"
+                          className="btn btn-link p-0 align-baseline"
+                          data-bs-toggle="modal"
+                          data-bs-target="#contentRequestModal"
+                          style={{ textDecoration: "underline" }}
+                        >
+                          open the request form
+                        </button>
+                        .
+                      </p>
                     </div>
                   </div>
-                  <div className="col-lg-12 col-xl-6">
-                    <div className="form-floating">
-                      <input
-                        type="email"
-                        className="form-control"
-                        id="email"
-                        name="email"
-                        placeholder="Your Email"
-                        required
-                      />
-                      <label htmlFor="email">Your Email</label>
-                    </div>
-                  </div>
-                  <div className="col-lg-12 col-xl-6">
-                    <div className="form-floating">
-                      <input
-                        type="tel"
-                        className="form-control"
-                        id="phone"
-                        name="phone"
-                        placeholder="Phone"
-                      />
-                      <label htmlFor="phone">Your Phone (optional)</label>
-                    </div>
-                  </div>
-                  <div className="col-lg-12 col-xl-6">
-                    <div className="form-floating">
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="project"
-                        name="project"
-                        placeholder="Topic"
-                      />
-                      <label htmlFor="project">
-                        Topic (e.g., Temple Listing)
-                      </label>
-                    </div>
-                  </div>
-                  <div className="col-12">
-                    <div className="form-floating">
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="subject"
-                        name="subject"
-                        placeholder="Subject"
-                        required
-                      />
-                      <label htmlFor="subject">Subject</label>
-                    </div>
-                  </div>
-                  <div className="col-12">
-                    <div className="form-floating">
-                      <textarea
-                        className="form-control"
-                        id="message"
-                        name="message"
-                        placeholder="Leave a message here"
-                        style={{ height: 160 }}
-                        required
-                      ></textarea>
-                      <label htmlFor="message">Message</label>
-                    </div>
-                  </div>
-                  <div className="col-12 d-grid">
-                    <button className="btn btn-primary py-3">
-                      Send Message
-                    </button>
-                  </div>
-                  <div className="col-12">
-                    <p className="small text-muted mb-0">
-                      Want to <strong>add / remove / report</strong> content
-                      from the site or our socials? Use the link in the top bar
-                      or{" "}
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 align-baseline"
-                        data-bs-toggle="modal"
-                        data-bs-target="#contentRequestModal"
-                        style={{ textDecoration: "underline" }}
-                      >
-                        open the request form
-                      </button>
-                      .
-                    </p>
-                  </div>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
           </div>
 
-          {/* Map (Halifax) */}
           <div className="pt-4">
-            <div
-              className="section-title text-center mb-4 wow fadeInUp"
-              data-wow-delay="0.1s"
-            >
+            <div className="section-title text-center mb-4 wow fadeInUp contact-section-head" data-wow-delay="0.1s">
               <div className="sub-style">
                 <h5 className="sub-title text-primary px-3">Find Us</h5>
               </div>
               <h1 className="display-6 mb-2">Halifax, Nova Scotia</h1>
               <p className="mb-0">
-                We’re a digital-first, volunteer-led effort. Meetings are
-                usually online; community meetups happen around major events.
+                We're a digital-first, volunteer-led effort. Meetings are usually online; community
+                meetups happen around major events.
               </p>
             </div>
 
             <div className="row justify-content-center">
               <div className="col-12 wow zoomIn" data-wow-delay="0.1s">
-                <div className="rounded h-100">
+                <div className="contact-map-frame rounded h-100">
                   <iframe
                     className="rounded w-100"
                     style={{ height: 480 }}
@@ -371,7 +315,6 @@ export default function Contact() {
         </div>
       </div>
 
-      {/* Back to Top (optional if handled globally) */}
       <button
         type="button"
         className="btn btn-primary btn-lg-square back-to-top"
