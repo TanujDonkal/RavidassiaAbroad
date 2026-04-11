@@ -4,6 +4,7 @@ import "../css/auth.css";
 import { login, register, API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { clearPostAuthRedirect, getPostAuthRedirect } from "../utils/formDrafts";
+import { setStoredUser } from "../utils/auth";
 import {
   LEGAL_PATHS,
   MARKETING_OPT_IN_LABEL,
@@ -44,9 +45,7 @@ export default function Auth() {
   };
 
   const finishAuth = (data, successMessage) => {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    window.dispatchEvent(new Event("auth-updated"));
+    setStoredUser(data.user);
     clearPostAuthRedirect();
     popup.open({
       title: "Welcome",
@@ -99,6 +98,7 @@ export default function Auth() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: response.credential }),
+        credentials: "include",
       });
 
       const data = await res.json();

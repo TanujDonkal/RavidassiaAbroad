@@ -1,28 +1,16 @@
 // src/components/AuthMenu.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { apiFetch } from "../utils/api";
+import { clearStoredAuth, getStoredUser } from "../utils/auth";
 
 export default function AuthMenu({ compact = false }) {
   const menuRef = useRef(null);
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      localStorage.removeItem("user");
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => getStoredUser());
 
   useEffect(() => {
     const syncAuth = () => {
-      try {
-        const stored = localStorage.getItem("user");
-        setUser(stored ? JSON.parse(stored) : null);
-      } catch {
-        localStorage.removeItem("user");
-        setUser(null);
-      }
+      setUser(getStoredUser());
     };
     window.addEventListener("auth-updated", syncAuth);
     window.addEventListener("storage", syncAuth);
@@ -50,6 +38,17 @@ export default function AuthMenu({ compact = false }) {
       document.removeEventListener("touchstart", handlePointerDown);
     };
   }, [open]);
+
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // Clear local auth state even if the server session has already expired.
+    } finally {
+      clearStoredAuth();
+      window.location.href = "/auth";
+    }
+  };
 
   if (!user)
     return (
@@ -119,12 +118,7 @@ const avatarContent = user.photo_url ? (
         <li>
           <button
             className="dropdown-item text-danger"
-            onClick={() => {
-              localStorage.removeItem("user");
-              localStorage.removeItem("token");
-              window.dispatchEvent(new Event("auth-updated"));
-              window.location.href = "/auth";
-            }}
+            onClick={handleLogout}
           >
             Logout
           </button>

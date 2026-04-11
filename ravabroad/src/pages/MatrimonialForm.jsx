@@ -25,6 +25,7 @@ import {
   MATRIMONIAL_CONSENT,
 } from "../utils/compliance";
 import { MATRIMONY_PLACEHOLDER } from "../utils/matrimony";
+import { isAuthenticated } from "../utils/auth";
 
 const MATRIMONIAL_DRAFT_KEY = "matrimonial_form_draft";
 
@@ -71,7 +72,7 @@ export default function MatrimonialForm() {
       setStep(savedDraft.step || 1);
     }
 
-    if (localStorage.getItem("token")) {
+    if (isAuthenticated()) {
       fetchMySubmission();
     }
 
@@ -173,7 +174,7 @@ export default function MatrimonialForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!localStorage.getItem("token")) {
+    if (!isAuthenticated()) {
       persistDraft(formValues, step);
       setPostAuthRedirect("/matrimony/post");
       popup.open({

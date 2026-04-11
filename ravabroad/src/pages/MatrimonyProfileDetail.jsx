@@ -8,6 +8,7 @@ import {
   getProfilePhotoUrl,
 } from "../utils/matrimony";
 import "../css/Matrimony.css";
+import { isAuthenticated } from "../utils/auth";
 
 function promptAuth(popup, navigate, redirectTo) {
   popup.open({
@@ -29,7 +30,7 @@ export default function MatrimonyProfileDetail() {
   const [loading, setLoading] = useState(true);
   const [contact, setContact] = useState(null);
 
-  const isLoggedIn = Boolean(localStorage.getItem("token"));
+  const isLoggedIn = isAuthenticated();
 
   const loadProfile = async () => {
     setLoading(true);

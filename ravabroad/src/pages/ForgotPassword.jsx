@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { useNavigate } from "react-router-dom";
+import { clearStoredAuth } from "../utils/auth";
 
 export default function ForgotPassword() {
   const popup = usePopup();
@@ -33,6 +34,7 @@ export default function ForgotPassword() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -58,6 +60,7 @@ export default function ForgotPassword() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -81,6 +84,7 @@ export default function ForgotPassword() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp, newPassword }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -91,9 +95,7 @@ export default function ForgotPassword() {
       });
 
       // Auto-logout
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      window.dispatchEvent(new Event("auth-updated"));
+      clearStoredAuth();
 
       // Redirect after 2s
       setTimeout(() => navigate("/auth"), 2000);

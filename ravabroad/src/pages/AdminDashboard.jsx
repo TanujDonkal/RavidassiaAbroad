@@ -5,6 +5,7 @@ import { usePopup } from "../components/PopupProvider";
 import { getRecipients, apiFetch } from "../utils/api";
 import "../css/webpixels.css";
 import html2canvas from "html2canvas";
+import { getStoredUser } from "../utils/auth";
 
 const ADMIN_TABS = new Set([
   "dashboard",
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [blogs, setBlogs] = useState([]);
   const popup = usePopup();
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUser = getStoredUser() || {};
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showBlogModal, setShowBlogModal] = useState(false);
@@ -365,9 +366,6 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
-
         if (activeTab === "blogs") {
           const data = await apiFetch("/admin/blogs");
           setBlogs(Array.isArray(data) ? data : []);
@@ -375,19 +373,19 @@ export default function AdminDashboard() {
 
         // USERS
         if (activeTab === "users" || activeTab === "dashboard") {
-          const usersData = await apiFetch("/admin/users", { headers });
+          const usersData = await apiFetch("/admin/users");
           setUsers(Array.isArray(usersData) ? usersData : []);
         }
 
         // SC/ST SUBMISSIONS
         if (activeTab === "submissions" || activeTab === "dashboard") {
-          const subsData = await apiFetch("/admin/scst-submissions", { headers });
+          const subsData = await apiFetch("/admin/scst-submissions");
           setSubmissions(Array.isArray(subsData) ? subsData : []);
         }
 
         // MATRIMONIAL SUBMISSIONS
         if (activeTab === "matrimonial" || activeTab === "dashboard") {
-          const matrData = await apiFetch("/admin/matrimonial", { headers });
+          const matrData = await apiFetch("/admin/matrimonial");
           setMatrimonialSubs(Array.isArray(matrData) ? matrData : []);
         }
 
@@ -398,27 +396,27 @@ export default function AdminDashboard() {
         }
 
         if (activeTab === "contentRequests") {
-          const data = await apiFetch("/admin/content-requests", { headers });
+          const data = await apiFetch("/admin/content-requests");
           setSubmissions(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "privacyRequests") {
-          const data = await apiFetch("/admin/privacy-requests", { headers });
+          const data = await apiFetch("/admin/privacy-requests");
           setPrivacyRequests(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "categories") {
-          const data = await apiFetch("/admin/categories", { headers });
+          const data = await apiFetch("/admin/categories");
           setCategories(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "menus") {
-          const data = await apiFetch("/admin/menus", { headers });
+          const data = await apiFetch("/admin/menus");
           setMenus(Array.isArray(data) ? data : []);
         }
 
         if (activeTab === "temples" || activeTab === "dashboard") {
-          const data = await apiFetch("/admin/temples", { headers });
+          const data = await apiFetch("/admin/temples");
           setTemples(Array.isArray(data) ? data : []);
         }
       } catch (err) {
@@ -983,107 +981,6 @@ export default function AdminDashboard() {
     },
   ];
   const suspenseFallback = <div className="text-center py-4">Loading...</div>;
-  // ✅ PRINT MATRIMONIAL POST / REEL IN BRAND STYLE WITH GOLD GLOW ANIMATION
-const handleDownloadInstagramCard = async (data, format = "post") => {
-
-  const width = 1080;
-  const height = format === "reel" ? 1920 : 1350;
-
-  // Build visible biodata rows (hide empty)
-  const biodataRows = Object.entries(MATRIMONIAL_LABELS)
-    .filter(([field]) => data[field] && data[field] !== "")
-    .map(
-      ([field, label]) => `
-        <div style="margin-bottom: 10px;">
-          <span style="font-weight:600">${label}:</span> ${data[field]}
-        </div>
-      `
-    )
-    .join("");
-
-  // AUTO FONT SCALING BASED ON FIELD COUNT
-  const fieldCount = biodataRows.split("<div").length;
-  let fontSize = format === "reel" ? 40 : 32;
-
-  if (fieldCount > 20) fontSize -= 10;
-  if (fieldCount > 30) fontSize -= 15;
-
-  // Insert into hidden DIV
-  const container = document.getElementById("downloadCard");
-
-  container.innerHTML = `
-    <div style="
-      width:${width}px;
-      height:${height}px;
-      background:white;
-      padding:50px;
-      font-family: 'Poppins', sans-serif;
-      box-sizing:border-box;
-      text-align:center;
-      overflow:hidden;
-    ">
-
-      <!-- PROFILE IMAGE -->
-      <img src="${data.photo_url || "/template/img/no-photo.svg"}"
-        style="
-          width:${format === "reel" ? 320 : 260}px;
-          height:${format === "reel" ? 320 : 260}px;
-          border-radius:50%;
-          object-fit:cover;
-          border:6px solid #ffb400;
-          margin-bottom:20px;
-        "
-      />
-
-      <!-- NAME -->
-      <div style="font-size:${format === "reel" ? 60 : 48}px; font-weight:700;">
-        ${data.name}
-      </div>
-
-      <!-- SUBTITLE -->
-      <div style="font-size:${format === "reel" ? 36 : 26}px; color:#777; margin-bottom:35px;">
-        ${data.gender || ""} • ${data.marital_status || ""}
-      </div>
-
-      <!-- BIODATA LIST -->
-      <div style="
-        font-size:${fontSize}px;
-        line-height:1.35;
-        text-align:left;
-        margin:0 auto;
-        width:85%;
-        max-height:${height - 650}px;
-      ">
-        ${biodataRows}
-      </div>
-
-      <!-- FOOTER -->
-      <div style="
-        position:absolute;
-        bottom:40px;
-        width:100%;
-        text-align:center;
-        font-size:${format === "reel" ? 36 : 28}px;
-        font-weight:600;
-        color:#ffb400;
-      ">
-        Ravidassia Abroad Matrimonial
-      </div>
-
-    </div>
-  `;
-
-  // Generate PNG
-  const canvas = await html2canvas(container, { scale: 2, useCORS: true });
-  const image = canvas.toDataURL("image/png");
-
-  const link = document.createElement("a");
-  link.href = image;
-  link.download = `${data.name}-${format}.png`;
-  link.click();
-};
-  void handleDownloadInstagramCard;
-
   return (
     <div className="admin-dashboard d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
       {/* Sidebar */}
