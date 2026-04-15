@@ -13,6 +13,7 @@ This folder explains how the website works in simple language so a new developer
 7. Read `compliance/privacy-checklist.md`
 8. Read `compliance/data-retention-policy.md`
 9. Read `compliance/incident-response.md`
+10. Read `seo-operations.md`
 
 ## What This Website Does
 
