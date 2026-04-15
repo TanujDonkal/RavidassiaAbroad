@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { API_BASE } from "../utils/api";
+import Seo from "../components/Seo";
+import { truncateText } from "../utils/seo";
 
 export default function DynamicPage() {
   const { pathname } = useLocation();
@@ -8,13 +10,11 @@ export default function DynamicPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Loading...";
     fetch(`${API_BASE}/menus`)
       .then((res) => res.json())
       .then((data) => {
         const found = data.find((m) => m.path === pathname);
         setMenu(found || null);
-        document.title = found ? found.label : "404 - Page Not Found";
       })
       .catch((err) => console.error("Menu fetch error:", err))
       .finally(() => setLoading(false));
@@ -46,6 +46,21 @@ export default function DynamicPage() {
   // ✅ Dynamic content page (simple placeholder for now)
   return (
     <div className="container py-5">
+      <Seo
+        title={`${menu.label} | Ravidassia Abroad`}
+        description={truncateText(
+          `Explore ${menu.label} on Ravidassia Abroad and discover more community information, resources, and updates.`,
+          160
+        )}
+        canonicalPath={pathname}
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: menu.label,
+          url: `https://www.ravidassiaabroad.com${pathname}`,
+          description: `Explore ${menu.label} on Ravidassia Abroad.`,
+        }}
+      />
       <h1 className="display-5 mb-3">{menu.label}</h1>
       <hr />
       <p className="lead">

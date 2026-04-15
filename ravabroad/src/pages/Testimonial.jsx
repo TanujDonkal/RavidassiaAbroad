@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function Testimonial() {
   useEffect(() => {
-    document.title = "Testimonials | Travisa - Visa & Immigration Website Template";
+    document.title = "Testimonials | Ravidassia Abroad";
     if (window.__initLegacy) window.__initLegacy(); // re-init owl/wow/counters after route change
   }, []);
 

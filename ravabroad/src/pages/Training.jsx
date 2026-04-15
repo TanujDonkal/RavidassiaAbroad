@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function Training() {
   useEffect(() => {
-    document.title = "Training | Travisa - Visa & Immigration Website Template";
+    document.title = "Programs and Learning | Ravidassia Abroad";
     if (window.__initLegacy) window.__initLegacy();
   }, []);
 
