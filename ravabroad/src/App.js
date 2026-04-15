@@ -12,6 +12,7 @@ import Seo from "./components/Seo";
 import { getMe } from "./utils/api";
 import { clearStoredAuth, getStoredUser, setStoredUser } from "./utils/auth";
 import {
+  buildBreadcrumbSchema,
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
   SITE_NAME,
@@ -66,6 +67,21 @@ function ScrollAndInit() {
 }
 
 function getStaticSeo(pathname) {
+  const withBreadcrumb = (config, label) => ({
+    ...config,
+    structuredData: [
+      ...(Array.isArray(config.structuredData)
+        ? config.structuredData
+        : config.structuredData
+        ? [config.structuredData]
+        : []),
+      buildBreadcrumbSchema([
+        { name: "Home", path: "/" },
+        ...(pathname === "/" ? [] : [{ name: label, path: pathname }]),
+      ]),
+    ],
+  });
+
   const publicRoutes = {
     "/": {
       title: `${SITE_NAME} | Global Ravidassia Community Platform`,
@@ -92,6 +108,36 @@ function getStaticSeo(pathname) {
           url: SITE_URL,
           description:
             "Global Ravidassia community platform for culture, teachings, history, and community support.",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "What is Ravidassia Abroad?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Ravidassia Abroad is a global community platform that shares history, teachings, temple directories, blogs, student resources, and cultural connections for the Ravidassia diaspora.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Can I find temples and community centers through this website?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. The website includes temple and community center discovery tools to help people connect with Sangat in different countries.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Does Ravidassia Abroad support students and families abroad?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. The platform includes student support, youth guidance, learning resources, and community information for families living abroad.",
+              },
+            },
+          ],
         },
       ],
     },
@@ -194,7 +240,11 @@ function getStaticSeo(pathname) {
   };
 
   if (publicRoutes[pathname]) {
-    return { canonicalPath: pathname, ...publicRoutes[pathname] };
+    const label = publicRoutes[pathname].title.split(" | ")[0];
+    return withBreadcrumb(
+      { canonicalPath: pathname, ...publicRoutes[pathname] },
+      label
+    );
   }
 
   if (
@@ -219,6 +269,10 @@ function getStaticSeo(pathname) {
         "Read the latest article from Ravidassia Abroad community news and updates.",
       canonicalPath: pathname,
       type: "article",
+      structuredData: buildBreadcrumbSchema([
+        { name: "Home", path: "/" },
+        { name: "Blogs", path: "/blogs" },
+      ]),
     };
   }
 
@@ -229,6 +283,10 @@ function getStaticSeo(pathname) {
         "Read teachings, history, and reference articles published on Ravidassia Abroad.",
       canonicalPath: pathname,
       type: "article",
+      structuredData: buildBreadcrumbSchema([
+        { name: "Home", path: "/" },
+        { name: "History", path: "/history" },
+      ]),
     };
   }
 

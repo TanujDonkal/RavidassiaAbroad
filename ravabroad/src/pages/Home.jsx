@@ -230,6 +230,56 @@ const offices = [
   },
 ];
 
+const popularLinks = [
+  {
+    title: "Ravidassia History and Teachings",
+    description:
+      "Read foundational history, teachings, and articles that help people understand Guru Ravidass Ji and the wider heritage.",
+    href: "/articles/guru-ravidass",
+  },
+  {
+    title: "Temples and Community Centers",
+    description:
+      "Discover Shri Guru Ravidass Sabhas, temples, and centers that help Sangat stay connected in different countries.",
+    href: "/temples-globally",
+  },
+  {
+    title: "Global Community News and Blogs",
+    description:
+      "Follow blogs, updates, and cultural stories from the global Ravidassia diaspora.",
+    href: "/blogs",
+  },
+  {
+    title: "Student and Youth Support",
+    description:
+      "Explore resources for students, youth, and families building life abroad while staying rooted in community.",
+    href: "/students",
+  },
+];
+
+const faqs = [
+  {
+    question: "What is Ravidassia Abroad?",
+    answer:
+      "Ravidassia Abroad is a global platform for the Ravidassia community, bringing together history, teachings, blogs, temple directories, student support, and cultural resources.",
+  },
+  {
+    question: "Can I find temples and Sabhas through this website?",
+    answer:
+      "Yes. The site helps people discover Shri Guru Ravidass Sabhas, temples, and community centers in different countries through the global directory.",
+  },
+  {
+    question: "Does the platform help students and families abroad?",
+    answer:
+      "Yes. Ravidassia Abroad includes resources, guidance, and useful community pathways for students, youth, and families living abroad.",
+  },
+  {
+    question: "How can I stay updated with community news and events?",
+    answer:
+      "You can follow the blogs and community news sections to stay informed about festivals, updates, teachings, and Sangat developments.",
+  },
+];
+
 export default function Home() {
   const carouselRef = useRef(null);
   const [carousel, setCarousel] = useState(null);
@@ -870,6 +920,76 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-fluid py-5 bg-light">
+        <div className="container py-5">
+          <div className="row g-4 align-items-start">
+            <div className="col-lg-5">
+              <div className="section-title mb-4 text-start">
+                <div className="sub-style">
+                  <h5 className="sub-title text-primary px-3">
+                    Explore the Website
+                  </h5>
+                </div>
+                <h2 className="display-6 mb-3">
+                  Popular Pages People Search For
+                </h2>
+                <p className="mb-0">
+                  Use these key sections to quickly explore Ravidassia history,
+                  teachings, community news, temple directories, and student
+                  support resources.
+                </p>
+              </div>
+            </div>
+            <div className="col-lg-7">
+              <div className="row g-3">
+                {popularLinks.map((item) => (
+                  <div className="col-md-6" key={item.title}>
+                    <div className="bg-white rounded-4 border h-100 p-4 shadow-sm">
+                      <h3 className="h5 mb-3">{item.title}</h3>
+                      <p className="text-muted mb-3">{item.description}</p>
+                      <Link className="btn btn-outline-dark rounded-pill px-4" to={item.href}>
+                        Visit Page
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-fluid py-5">
+        <div className="container py-5">
+          <div className="section-title text-center mb-5">
+            <div className="sub-style">
+              <h5 className="sub-title text-primary px-3">
+                Frequently Asked Questions
+              </h5>
+            </div>
+            <h2 className="display-6 mb-3">Common Questions About Ravidassia Abroad</h2>
+            <p className="mb-0">
+              These quick answers help visitors understand what the platform
+              offers and how to use it.
+            </p>
+          </div>
+
+          <div className="row g-4">
+            {faqs.map((item, index) => (
+              <div className="col-lg-6" key={item.question}>
+                <div
+                  className="bg-light rounded-4 border h-100 p-4 wow fadeInUp"
+                  data-wow-delay={`${0.1 + index * 0.1}s`}
+                >
+                  <h3 className="h5 mb-3">{item.question}</h3>
+                  <p className="text-muted mb-0">{item.answer}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
