@@ -21,5 +21,18 @@ export function stripHtml(value = "") {
 export function truncateText(value = "", maxLength = 160) {
   if (!value) return "";
   if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength - 1).trim()}…`;
+  return `${value.slice(0, maxLength - 3).trim()}...`;
+}
+
+export function buildBreadcrumbSchema(items = []) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: buildCanonicalUrl(item.path),
+    })),
+  };
 }
