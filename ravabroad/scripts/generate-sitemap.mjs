@@ -3,6 +3,7 @@ import path from "node:path";
 
 const SITE_URL = "https://www.ravidassiaabroad.com";
 const apiBase =
+  process.env.SITEMAP_API_BASE ||
   process.env.REACT_APP_API_URL_PROD ||
   process.env.REACT_APP_API_URL_LOCAL ||
   "http://localhost:5000";

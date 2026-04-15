@@ -1,0 +1,46 @@
+name: SEO Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  seo-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            ravabroad/package-lock.json
+            backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Validate backend syntax
+        run: node --check backend/index.js
+
+      - name: Install frontend dependencies
+        working-directory: ravabroad
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ravabroad
+        env:
+          CI: true
+          REACT_APP_API_URL_LOCAL: http://localhost:5000
+          REACT_APP_API_URL_PROD: https://api.ravidassiaabroad.com
+        run: npm run build
