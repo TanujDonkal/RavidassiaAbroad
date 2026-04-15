@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function NotFound() {
   useEffect(() => {
-    document.title = "404 | Travisa - Visa & Immigration Website Template";
+    document.title = "404 | Ravidassia Abroad";
     if (window.__initLegacy) window.__initLegacy();
   }, []);
 

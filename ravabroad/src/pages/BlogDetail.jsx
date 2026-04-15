@@ -4,6 +4,13 @@ import { useParams, Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Comments from "../components/Comments";
 import { API_BASE } from "../utils/api";
+import Seo from "../components/Seo";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+  stripHtml,
+  truncateText,
+} from "../utils/seo";
 
 const BegampuraHeading = () => (
   <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
@@ -107,6 +114,41 @@ export default function BlogDetail() {
 
   return (
     <div className="container py-5">
+      <Seo
+        title={`${post.title} | Ravidassia Abroad`}
+        description={truncateText(
+          stripHtml(post.excerpt || post.content || DEFAULT_DESCRIPTION),
+          160
+        )}
+        canonicalPath={`/blogs/${slug}`}
+        image={post.image_url || DEFAULT_OG_IMAGE}
+        type="article"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: post.title,
+          description: truncateText(
+            stripHtml(post.excerpt || post.content || DEFAULT_DESCRIPTION),
+            160
+          ),
+          image: post.image_url || DEFAULT_OG_IMAGE,
+          datePublished: post.created_at,
+          dateModified: post.updated_at || post.created_at,
+          author: {
+            "@type": "Person",
+            name: post.author_name || "Ravidassia Abroad",
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Ravidassia Abroad",
+            logo: {
+              "@type": "ImageObject",
+              url: DEFAULT_OG_IMAGE,
+            },
+          },
+          mainEntityOfPage: `https://www.ravidassiaabroad.com/blogs/${slug}`,
+        }}
+      />
       <div className="text-center mb-5">
         <BegampuraHeading />
       </div>

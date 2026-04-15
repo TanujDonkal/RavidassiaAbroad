@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function Service() {
   useEffect(() => {
-    document.title = "Services | Travisa - Visa & Immigration Website Template";
+    document.title = "Community Services | Ravidassia Abroad";
     if (window.__initLegacy) window.__initLegacy();
   }, []);
 

@@ -4,6 +4,13 @@ import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 import Comments from "../components/Comments";
 import "../css/ArticleDetail.css";
+import Seo from "../components/Seo";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+  truncateText,
+  stripHtml,
+} from "../utils/seo";
 
 export default function PostDetail() {
   const { slug } = useParams();
@@ -120,6 +127,40 @@ export default function PostDetail() {
 
   return (
     <>
+      <Seo
+        title={`${post.title} | Ravidassia Abroad`}
+        description={truncateText(stripHtml(post.excerpt || post.content || DEFAULT_DESCRIPTION), 160)}
+        canonicalPath={isBlog ? `/blogs/${slug}` : `/articles/${slug}`}
+        image={post.image_url || DEFAULT_OG_IMAGE}
+        type="article"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": isBlog ? "BlogPosting" : "Article",
+          headline: post.title,
+          description: truncateText(
+            stripHtml(post.excerpt || post.content || DEFAULT_DESCRIPTION),
+            160
+          ),
+          image: post.image_url || DEFAULT_OG_IMAGE,
+          datePublished: post.created_at,
+          dateModified: post.updated_at || post.created_at,
+          author: {
+            "@type": "Person",
+            name: post.author_name || "Ravidassia Abroad",
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Ravidassia Abroad",
+            logo: {
+              "@type": "ImageObject",
+              url: DEFAULT_OG_IMAGE,
+            },
+          },
+          mainEntityOfPage: `https://www.ravidassiaabroad.com${
+            isBlog ? `/blogs/${slug}` : `/articles/${slug}`
+          }`,
+        }}
+      />
       {/* Reading Progress Bar */}
       <div ref={progressRef} className="progress-bar-top"></div>
 
