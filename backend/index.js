@@ -5631,6 +5631,27 @@ app.get("/api/blogs", async (req, res) => {
   }
 });
 
+app.get("/api/articles", async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        id,
+        title,
+        slug,
+        image_url,
+        created_at,
+        updated_at
+      FROM static_articles
+      ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching articles:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // 🟢 Public: get single blog by slug (with category and author) + increment views
 app.get("/api/blogs/:slug", async (req, res) => {
   try {
@@ -6162,6 +6183,90 @@ app.get("/api/menus", async (req, res) => {
   } catch (err) {
     console.error("Error fetching menus:", err);
     res.status(500).json({ message: "Server error fetching menus" });
+  }
+});
+
+app.get("/api/seo/sitemap", async (_req, res) => {
+  try {
+    const [blogsResult, articlesResult, menusResult] = await Promise.all([
+      pool.query(`
+        SELECT
+          slug,
+          created_at,
+          updated_at
+        FROM blog_posts
+        WHERE status = 'published'
+        ORDER BY COALESCE(updated_at, created_at) DESC
+      `),
+      pool.query(`
+        SELECT
+          slug,
+          created_at,
+          updated_at
+        FROM static_articles
+        ORDER BY COALESCE(updated_at, created_at) DESC
+      `),
+      pool.query(`
+        SELECT
+          label,
+          path,
+          position
+        FROM site_menus
+        WHERE path IS NOT NULL
+          AND TRIM(path) <> ''
+        ORDER BY parent_id NULLS FIRST, position ASC
+      `),
+    ]);
+
+    res.json({
+      staticRoutes: [
+        "/",
+        "/about",
+        "/blogs",
+        "/connect-scst",
+        "/matrimony",
+        "/personalities",
+        "/temples-globally",
+        "/students",
+        "/countries",
+        "/feature",
+        "/service",
+        "/testimonial",
+        "/training",
+        "/contact",
+        "/privacy-policy",
+        "/terms-of-use",
+        "/community-guidelines",
+        "/privacy-data-request",
+      ],
+      menus: menusResult.rows
+        .map((menu) => ({
+          label: menu.label,
+          path: menu.path,
+        }))
+        .filter(
+          (menu) =>
+            menu.path.startsWith("/") &&
+            ![
+              "/",
+              "/auth",
+              "/admin",
+              "/profile",
+              "/forgot-password",
+            ].includes(menu.path)
+        ),
+      blogs: blogsResult.rows.map((row) => ({
+        path: `/blogs/${row.slug}`,
+        updatedAt: row.updated_at || row.created_at,
+      })),
+      articles: articlesResult.rows.map((row) => ({
+        path: `/articles/${row.slug}`,
+        updatedAt: row.updated_at || row.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error("Error building sitemap feed:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

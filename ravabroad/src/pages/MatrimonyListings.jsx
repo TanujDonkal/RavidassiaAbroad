@@ -7,6 +7,7 @@ import {
   getMatrimonyActionState,
   getProfilePhotoUrl,
 } from "../utils/matrimony";
+import Seo from "../components/Seo";
 import "../css/Matrimony.css";
 import { isAuthenticated } from "../utils/auth";
 
@@ -129,6 +130,12 @@ export default function MatrimonyListings() {
 
   return (
     <main className="matrimony-page py-5">
+      <Seo
+        title="Ravidassia Matrimony | Ravidassia Abroad"
+        description="Browse Ravidassia matrimony listings and community connections on Ravidassia Abroad."
+        canonicalPath="/matrimony"
+        robots="noindex,nofollow"
+      />
       <div className="container">
         <section className="matrimony-hero mb-4">
           <div className="matrimony-hero-copy">

@@ -9,6 +9,8 @@ import "../css/Blogs.css";
 import { Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
+import Seo from "../components/Seo";
+import { buildBreadcrumbSchema, stripHtml, truncateText } from "../utils/seo";
 
 const BegampuraHeading = () => (
   <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
@@ -82,6 +84,44 @@ const fetchCategories = async () => {
 
   return (
     <main className="gray-bg">
+      <Seo
+        title="Blogs and Community News | Ravidassia Abroad"
+        description="Read community blogs, news, cultural stories, and updates from Ravidassia Abroad."
+        canonicalPath="/blogs"
+        type="blog"
+        structuredData={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            name: "Ravidassia Abroad Blogs",
+            description:
+              "Community blogs, news, and updates from Ravidassia Abroad.",
+            url: "https://www.ravidassiaabroad.com/blogs",
+            blogPost: blogs.slice(0, 10).map((post) => ({
+              "@type": "BlogPosting",
+              headline: post.title,
+              url: `https://www.ravidassiaabroad.com/blogs/${post.slug}`,
+              datePublished: post.created_at,
+              image: post.image_url || "https://www.ravidassiaabroad.com/logo512.png",
+              description: truncateText(stripHtml(post.excerpt || ""), 160),
+            })),
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            itemListElement: blogs.slice(0, 10).map((post, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              url: `https://www.ravidassiaabroad.com/blogs/${post.slug}`,
+              name: post.title,
+            })),
+          },
+          buildBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Blogs", path: "/blogs" },
+          ]),
+        ]}
+      />
       {/* ===== Trending Section ===== */}
       <section className="trending-area pt-25 gray-bg">
         <div className="container">
