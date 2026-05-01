@@ -20,12 +20,14 @@ const ADMIN_TABS = new Set([
   "menus",
   "personalities",
   "temples",
+  "businesses",
   "articles",
 ]);
 
 const PersonalityFormModal = lazy(() => import("../components/PersonalityFormModal"));
 const ArticleManager = lazy(() => import("../components/ArticleManager"));
 const AdminBlogsSection = lazy(() => import("../components/admin/AdminBlogsSection"));
+const AdminBusinessesSection = lazy(() => import("../components/admin/AdminBusinessesSection"));
 const AdminCategoriesSection = lazy(() => import("../components/admin/AdminCategoriesSection"));
 const AdminContentRequestsSection = lazy(() =>
   import("../components/admin/AdminContentRequestsSection")
@@ -90,6 +92,7 @@ export default function AdminDashboard() {
   const [temples, setTemples] = useState([]);
   const [showTempleModal, setShowTempleModal] = useState(false);
   const [selectedTemple, setSelectedTemple] = useState(null);
+  const [businesses, setBusinesses] = useState([]);
 
   // 💬 Reply modal state (for SC/ST connect)
   const [replyTarget, setReplyTarget] = useState(null);
@@ -419,6 +422,11 @@ export default function AdminDashboard() {
           const data = await apiFetch("/admin/temples");
           setTemples(Array.isArray(data) ? data : []);
         }
+
+        if (activeTab === "businesses" || activeTab === "dashboard") {
+          const data = await apiFetch("/admin/businesses");
+          setBusinesses(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to fetch:", err);
       } finally {
@@ -575,6 +583,15 @@ export default function AdminDashboard() {
       setPrivacyRequests(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to refresh privacy requests:", err);
+    }
+  };
+
+  const fetchBusinesses = async () => {
+    try {
+      const data = await apiFetch("/admin/businesses");
+      setBusinesses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to refresh businesses:", err);
     }
   };
 
@@ -849,6 +866,8 @@ export default function AdminDashboard() {
         setMenus((prev) => prev.filter((m) => m.id !== id));
       } else if (type === "temples") {
         setTemples((prev) => prev.filter((temple) => temple.id !== id));
+      } else if (type === "businesses") {
+        setBusinesses((prev) => prev.filter((business) => business.id !== id));
       } else if (type === "privacy-requests") {
         setPrivacyRequests((prev) =>
           prev.filter((request) => request.id !== id)
@@ -979,6 +998,13 @@ export default function AdminDashboard() {
       color: "bg-dark",
       tab: "temples",
     },
+    {
+      label: "Businesses",
+      value: businesses.length || 0,
+      icon: "bi-shop",
+      color: "bg-warning",
+      tab: "businesses",
+    },
   ];
   const suspenseFallback = <div className="text-center py-4">Loading...</div>;
   return (
@@ -1017,6 +1043,7 @@ export default function AdminDashboard() {
                   label: "Famous Personalities",
                 },
                 { tab: "temples", icon: "bi-building", label: "Global Temples" },
+                { tab: "businesses", icon: "bi-shop", label: "Businesses" },
                 { tab: "articles", icon: "bi-journal-text", label: "Articles" },
               ].map((item) => (
                 <li className="nav-item" key={item.tab}>
@@ -1347,6 +1374,15 @@ export default function AdminDashboard() {
                         setShowTempleModal(true);
                       }}
                       onDelete={(templeId) => handleDelete("temples", templeId)}
+                    />
+                  </Suspense>
+                )}
+                {activeTab === "businesses" && (
+                  <Suspense fallback={suspenseFallback}>
+                    <AdminBusinessesSection
+                      businesses={businesses}
+                      onRefresh={fetchBusinesses}
+                      onDelete={handleDelete}
                     />
                   </Suspense>
                 )}

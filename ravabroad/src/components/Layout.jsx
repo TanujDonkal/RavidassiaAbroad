@@ -1,4 +1,3 @@
-// src/components/Layout.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
@@ -71,13 +70,10 @@ export default function Layout() {
       window.location.href = "/auth";
     }
   };
-  // const { open: openPopup } = require("./PopupProvider").usePopup();
-  // ...existing logic and effects...
 
   return (
     <>
       <ScrollAndInit />
-      {/* Topbar Start */}
       <div className="site-topbar container-fluid bg-primary px-5 d-none d-lg-block">
         <div className="row gx-0 align-items-center">
           <div className="col-lg-5 text-center text-lg-start mb-lg-0">
@@ -116,9 +112,7 @@ export default function Layout() {
           </div>
         </div>
       </div>
-      {/* Topbar End */}
 
-      {/* Navbar Start */}
       <div className="container-fluid nav-bar p-0">
         <nav ref={navbarRef} className="site-navbar navbar navbar-expand-lg navbar-light bg-white px-3 px-sm-4 px-lg-5 py-3 py-lg-0">
           <div className="site-navbar-main d-flex align-items-center">
@@ -162,11 +156,13 @@ export default function Layout() {
                 <div className="site-dropdown-menu dropdown-menu m-0">
                   <NavLink to="/feature" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Ravidassia Religion</NavLink>
                   <NavLink to="/countries" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Countries</NavLink>
+                  <NavLink to="/business-directory" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Business Directory</NavLink>
                   <NavLink to="/testimonial" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Testimonial</NavLink>
                   <NavLink to="/training" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>Training</NavLink>
                   <NavLink to="/not-found" className="dropdown-item" onClick={() => setIsMobileNavOpen(false)}>404 Page</NavLink>
                 </div>
               </div>
+              <NavLink to="/support-us" className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>Support Us</NavLink>
               <NavLink to="/contact" className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>Contact</NavLink>
             </div>
             <button className="site-navbar-action btn btn-primary btn-md-square border-secondary mb-3 mb-md-3 mb-lg-0 me-lg-3 d-none d-lg-inline-flex" data-bs-toggle="modal" data-bs-target="#searchModal">
@@ -200,15 +196,11 @@ export default function Layout() {
           </div>
         </nav>
       </div>
-      {/* Navbar End */}
 
       <SiteSearchModal />
       <ContentRequestModal />
-
-      {/* Page content */}
       <Outlet />
 
-      {/* Footer Start */}
       <div className="site-footer container-fluid footer py-5 wow fadeIn" data-wow-delay="0.2s">
         <div className="container py-5">
           <div className="row g-5">
@@ -218,21 +210,21 @@ export default function Layout() {
                 <span className="d-block"><i className="fa fa-map-marker-alt me-2"></i> Halifax, Nova Scotia, Canada</span>
                 <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}><i className="fas fa-envelope me-2"></i> {SUPPORT_CONTACT_EMAIL}</a>
                 <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="mt-2"><i className="fas fa-shield-alt me-2"></i> {PRIVACY_CONTACT_EMAIL}</a>
-                <span className="d-block"><i className="fas fa-phone me-2"></i> — </span>
-                <span className="d-block mb-3"><i className="fas fa-print me-2"></i> — </span>
+                <span className="d-block"><i className="fas fa-phone me-2"></i> - </span>
+                <span className="d-block mb-3"><i className="fas fa-print me-2"></i> - </span>
                 <div className="site-footer-social d-flex align-items-center">
                   <i className="fas fa-share fa-2x text-secondary me-2"></i>
                   <a className="btn mx-1" href="https://www.facebook.com/RavidassiaAbroad" target="_blank" rel="noreferrer"><i className="fab fa-facebook-f"></i></a>
                   <a className="btn mx-1" href="https://x.com/ravidassiabroad" target="_blank" rel="noreferrer"><i className="fab fa-twitter"></i></a>
                   <a className="btn mx-1" href="https://www.instagram.com/ravidassiaabroad/" target="_blank" rel="noreferrer"><i className="fab fa-instagram"></i></a>
-                  <a className="btn mx-1" href="https://www.youtube.com/c/TheAmbedkarBrand" target="_blank" rel="noreferrer"><i className="fab fa-linkedin-in"></i></a>
+                  <a className="btn mx-1" href="https://www.youtube.com/c/TheAmbedkarBrand" target="_blank" rel="noreferrer"><i className="fab fa-youtube"></i></a>
                 </div>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item d-flex flex-column">
                 <h4 className="text-secondary mb-4">Contact Hours</h4>
-                <div className="mb-3"><h6 className="text-muted mb-0">Mon – Fri:</h6><p className="text-white mb-0">10:00 am – 6:00 pm (AST)</p></div>
+                <div className="mb-3"><h6 className="text-muted mb-0">Mon - Fri:</h6><p className="text-white mb-0">10:00 am - 6:00 pm (AST)</p></div>
                 <div className="mb-3"><h6 className="text-muted mb-0">Saturday:</h6><p className="text-white mb-0">Community Events</p></div>
                 <div className="mb-3"><h6 className="text-muted mb-0">Sunday:</h6><p className="text-white mb-0">Closed</p></div>
               </div>
@@ -244,25 +236,25 @@ export default function Layout() {
                 <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.terms}><i className="fas fa-angle-right me-2"></i> Terms of Use</Link>
                 <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.guidelines}><i className="fas fa-angle-right me-2"></i> Community Guidelines</Link>
                 <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to={LEGAL_PATHS.dataRequest}><i className="fas fa-angle-right me-2"></i> Privacy / Data Request</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to="/affiliate-disclosure"><i className="fas fa-angle-right me-2"></i> Affiliate Disclosure</Link>
+                <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to="/sponsor-advertise"><i className="fas fa-angle-right me-2"></i> Sponsor / Advertise</Link>
                 <Link className="text-white" style={{ display: "block", marginBottom: "0.5rem" }} to="/contact"><i className="fas fa-angle-right me-2"></i> Contact</Link>
               </div>
             </div>
             <div className="col-md-6 col-lg-6 col-xl-3">
               <div className="footer-item">
-                <h4 className="text-secondary mb-4">Newsletter</h4>
-                <p className="text-white mb-3">Get monthly updates on Guru Ravidass Ji’s teachings, global Sangat news, festivals, and new community resources.</p>
-                <div className="site-newsletter position-relative mx-auto rounded-pill">
-                  <input className="form-control border-0 rounded-pill w-100 py-3 ps-4 pe-5" type="text" placeholder="Enter your email" />
-                  <button type="button" className="site-newsletter-btn btn btn-primary rounded-pill position-absolute top-0 end-0 py-2 mt-2 me-2">SignUp</button>
-                </div>
+                <h4 className="text-secondary mb-4">Community Growth</h4>
+                <p className="text-white mb-3">Support documentation, discover trusted services, and help the platform keep serving global sangat.</p>
+                <Link className="text-white d-block mb-2" to="/business-directory"><i className="fas fa-angle-right me-2"></i> Business Directory</Link>
+                <Link className="text-white d-block mb-2" to="/submit-business"><i className="fas fa-angle-right me-2"></i> Submit Business</Link>
+                <Link className="text-white d-block mb-2" to="/support-us"><i className="fas fa-angle-right me-2"></i> Support Us</Link>
+                <Link className="text-white d-block" to="/sponsor-advertise"><i className="fas fa-angle-right me-2"></i> Sponsor / Advertise</Link>
               </div>
             </div>
           </div>
         </div>
       </div>
-      {/* Footer End */}
 
-      {/* Copyright Start */}
       <div className="container-fluid copyright py-4">
         <div className="container">
           <div className="row g-4 align-items-center">
@@ -277,9 +269,7 @@ export default function Layout() {
           </div>
         </div>
       </div>
-      {/* Copyright End */}
 
-      {/* Back to Top */}
       <button type="button" className="btn btn-primary btn-lg-square back-to-top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Back to top">
         <i className="fa fa-arrow-up"></i>
       </button>

@@ -108,6 +108,7 @@ const ADMIN_COLLECTION_PATHS = {
   menus: "menus",
   personalities: "personalities",
   temples: "temples",
+  businesses: "businesses",
 };
 
 function resolveAdminCollectionPath(type) {
@@ -174,6 +175,39 @@ export function createUser(data) {
 
 export function getStudentOverview() {
   return apiFetch("/students/overview");
+}
+
+export function getBusinessDirectory(params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      searchParams.set(key, String(value).trim());
+    }
+  });
+
+  const query = searchParams.toString();
+  return apiFetch(`/businesses${query ? `?${query}` : ""}`);
+}
+
+export function getBusinessBySlug(slug) {
+  return apiFetch(`/businesses/${slug}`);
+}
+
+export function submitBusinessListing(payload) {
+  return apiFetch("/businesses/submit", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function uploadBusinessImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  return apiFetch("/businesses/upload", {
+    method: "POST",
+    body: formData,
+  });
 }
 
 export function getStudentCatalog() {

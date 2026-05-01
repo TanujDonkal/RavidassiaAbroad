@@ -14,6 +14,7 @@ This folder explains how the website works in simple language so a new developer
 8. Read `compliance/data-retention-policy.md`
 9. Read `compliance/incident-response.md`
 10. Read `seo-operations.md`
+11. Read `business-directory-monetization.md`
 
 ## What This Website Does
 
@@ -25,10 +26,12 @@ Ravidassia Abroad is a community website with two big sides:
 ## Main Feature Areas
 
 - Public pages: home, about, contact, blogs, temple directory, personalities, static pages
+- Growth pages: support us, sponsor / advertise, affiliate disclosure, business directory
 - User auth: sign up, sign in, Google login, forgot password, profile page
 - Community forms: Connect SC/ST by country, matrimonial biodata, content request form
 - Engagement: comments on blogs and articles, site-wide search
 - Admin tools: users, blogs, categories, menus, personalities, temples, articles, recipients, SC/ST submissions, matrimonial submissions, content requests
+- Business moderation: pending business submissions, approvals, featured listings, and verification
 
 ## Tech Stack At A Glance
 
