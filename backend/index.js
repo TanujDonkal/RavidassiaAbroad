@@ -38,6 +38,8 @@ const IMAGE_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const BUSINESS_STATUSES = new Set(["pending", "approved", "rejected", "hidden"]);
+const BUSINESS_LISTING_TYPES = new Set(["free", "premium", "featured"]);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ra_session";
@@ -288,6 +290,277 @@ function decodeUserIfAny(req) {
   }
 }
 
+function slugifyText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 110);
+}
+
+async function buildUniqueBusinessSlug(name, excludeId = null) {
+  const baseSlug = slugifyText(name) || `business-${Date.now()}`;
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    const params = [candidate];
+    let query = "SELECT id FROM businesses WHERE slug = $1";
+
+    if (excludeId) {
+      params.push(excludeId);
+      query += " AND id <> $2";
+    }
+
+    const existing = await pool.query(query, params);
+    if (existing.rowCount === 0) {
+      return candidate;
+    }
+
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+}
+
+function normalizeBusinessJsonField(value) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof value === "object" ? value : null;
+}
+
+function sanitizeBusinessContactLinks(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const allowedKeys = [
+    "facebook",
+    "instagram",
+    "youtube",
+    "linkedin",
+    "x",
+    "twitter",
+    "tiktok",
+  ];
+  const result = {};
+
+  for (const key of allowedKeys) {
+    const safeValue = sanitizeUrl(value[key]);
+    if (safeValue) {
+      result[key] = safeValue;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+function sanitizeBusinessHours(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = {};
+
+  for (const [key, hourValue] of Object.entries(value)) {
+    const normalizedKey = normalizeRequiredText(key, 30);
+    const normalizedValue = normalizeOptionalText(hourValue, 120);
+    if (normalizedKey && normalizedValue) {
+      result[normalizedKey] = normalizedValue;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+function sanitizeBusinessPayload(payload = {}, { allowAdminFields = false } = {}) {
+  const normalizedStatus = normalizeRequiredText(payload.status, 30).toLowerCase();
+  const normalizedListingType = normalizeRequiredText(payload.listing_type, 30).toLowerCase();
+
+  return {
+    name: normalizeRequiredText(payload.name, 160),
+    category: normalizeRequiredText(payload.category, 120),
+    country: normalizeRequiredText(payload.country, 120),
+    city: normalizeRequiredText(payload.city, 120),
+    address: normalizeOptionalText(payload.address, 255),
+    description: sanitizeRichText(normalizeRequiredText(payload.description, 12000)),
+    short_description: sanitizeRichText(
+      normalizeOptionalText(payload.short_description, 320) ||
+        normalizeOptionalText(payload.description, 320) ||
+        ""
+    ),
+    phone: normalizeOptionalText(payload.phone, 50),
+    whatsapp: normalizeOptionalText(payload.whatsapp, 50),
+    email: normalizeEmail(payload.email || ""),
+    website: sanitizeUrl(payload.website),
+    logo_url: sanitizeUrl(payload.logo_url),
+    image_url: sanitizeUrl(payload.image_url),
+    social_links: sanitizeBusinessContactLinks(
+      normalizeBusinessJsonField(payload.social_links)
+    ),
+    business_hours: sanitizeBusinessHours(
+      normalizeBusinessJsonField(payload.business_hours)
+    ),
+    contact_person_name: normalizeRequiredText(payload.contact_person_name, 160),
+    contact_person_email: normalizeEmail(payload.contact_person_email || ""),
+    notes_for_admin: normalizeOptionalText(payload.notes_for_admin, 4000),
+    status:
+      allowAdminFields && BUSINESS_STATUSES.has(normalizedStatus)
+        ? normalizedStatus
+        : "pending",
+    listing_type:
+      allowAdminFields && BUSINESS_LISTING_TYPES.has(normalizedListingType)
+        ? normalizedListingType
+        : "free",
+    is_featured:
+      allowAdminFields && normalizeBooleanInput(payload.is_featured),
+    is_verified:
+      allowAdminFields && normalizeBooleanInput(payload.is_verified),
+    admin_notes: allowAdminFields
+      ? normalizeOptionalText(payload.admin_notes, 4000)
+      : null,
+  };
+}
+
+function isBusinessSubmissionValid(payload) {
+  return Boolean(
+    payload.name &&
+      payload.category &&
+      payload.country &&
+      payload.city &&
+      payload.contact_person_name &&
+      payload.contact_person_email &&
+      isValidEmail(payload.contact_person_email) &&
+      payload.description
+  );
+}
+
+function mapPublicBusiness(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: row.category,
+    country: row.country,
+    city: row.city,
+    address: row.address,
+    description: row.description,
+    short_description: row.short_description,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
+    email: row.email,
+    website: row.website,
+    logo_url: row.logo_url,
+    image_url: row.image_url,
+    social_links: row.social_links,
+    business_hours: row.business_hours,
+    listing_type: row.listing_type,
+    is_featured: Boolean(row.is_featured),
+    is_verified: Boolean(row.is_verified),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+async function seedCommunityArticles() {
+  const seeds = [
+    {
+      title:
+        "The Global Ravidassia Diaspora: Preserving Faith, Identity, and Community Abroad",
+      slug: "global-ravidassia-diaspora-faith-identity-community-abroad",
+      image_url:
+        "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=1200&q=80",
+      content: `
+        <p>Across many countries, Ravidassia families continue to carry teachings, language, music, seva, and community memory into new homes. That work is not always dramatic. Often it happens in small, steady ways: through family gatherings, visits to sangat spaces, youth conversations, and the effort to stay rooted while adapting to life abroad.</p>
+        <h2>Identity grows through community</h2>
+        <p>For many people in the diaspora, identity is strengthened when faith and community remain visible in everyday life. Shared prayers, kirtan, respectful discussion, and community service all help younger generations understand that heritage is something lived, not only remembered.</p>
+        <h2>Why documentation matters</h2>
+        <p>When temples, community histories, and local stories are documented carefully, future generations gain a stronger connection to where they came from. Reliable documentation also helps people newly arriving in a city find sangat, guidance, and support more quickly.</p>
+        <h2>How digital platforms can help</h2>
+        <p>Ravidassia Abroad aims to bring together temple listings, educational articles, diaspora stories, and practical resources in one place. The goal is not to replace local sangat. It is to make local community life easier to discover, understand, and support.</p>
+        <p>If you know of a temple, community center, history source, or local initiative that should be included, please <a href="/contact">contact us</a>, <a href="/support-us">support this work</a>, or <a href="/submit-business">share a community business</a> that helps families stay connected.</p>
+        <p><em>If any section of this article needs correction or additional verified context, we welcome respectful updates from temple committees, elders, and community members.</em></p>
+      `,
+    },
+    {
+      title: "Why Guru Ravidass Temples Abroad Matter for Future Generations",
+      slug: "why-guru-ravidass-temples-abroad-matter-for-future-generations",
+      image_url:
+        "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=80",
+      content: `
+        <p>Guru Ravidass temples abroad often serve many roles at once. They are places of prayer, gathering, cultural continuity, and support. For younger generations growing up outside South Asia, these spaces can become one of the most direct ways to experience sangat and shared heritage in person.</p>
+        <h2>More than a building</h2>
+        <p>A temple is not only a location on a map. It is also a place where values are practiced through seva, respect, remembrance, and togetherness. Community events, language learning, youth participation, and volunteer service all help keep those values visible.</p>
+        <h2>Support for new families and newcomers</h2>
+        <p>Families arriving in a new city often look for trusted spaces where they can connect, ask questions, and feel less isolated. A temple directory can make that first connection easier and help community members discover local sangat in unfamiliar places.</p>
+        <h2>Passing heritage forward</h2>
+        <p>Future generations benefit when community institutions are documented respectfully and kept accessible. That is one reason Ravidassia Abroad continues building its <a href="/temples-globally">temple directory</a> and encouraging people to <a href="/support-us">support documentation work</a>.</p>
+        <p><em>If your temple or committee would like to add details or correct anything, please reach out through our <a href="/contact">contact page</a>.</em></p>
+      `,
+    },
+    {
+      title: "Understanding Seva, Sangat, and Langar in Ravidassia Community Life",
+      slug: "understanding-seva-sangat-and-langar-in-ravidassia-community-life",
+      image_url:
+        "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80",
+      content: `
+        <p>Three ideas often help people understand the heart of community life: seva, sangat, and langar. These are not abstract words alone. They are lived practices that shape relationships, responsibility, and care within community spaces.</p>
+        <h2>Seva</h2>
+        <p>Seva can include visible work such as organizing events, preparing spaces, helping with documentation, or supporting elders and visitors. It can also be quieter work carried out with humility and consistency. What matters most is the spirit of service.</p>
+        <h2>Sangat</h2>
+        <p>Sangat reminds people that growth often happens together. Learning, reflection, and support become stronger in community. For diaspora families, this shared belonging can be especially meaningful.</p>
+        <h2>Langar</h2>
+        <p>Langar reflects hospitality, dignity, and collective participation. It offers a practical example of community values in action and often becomes one of the first experiences that visitors remember.</p>
+        <p>Ravidassia Abroad shares articles, directories, and resources to help more people understand these values. You can explore our <a href="/business-directory">community business directory</a>, browse the <a href="/temples-globally">temple section</a>, or <a href="/contact">send us verified community information</a>.</p>
+      `,
+    },
+    {
+      title: "How Ravidassia Abroad Documents Temples, History, and Community Stories",
+      slug: "how-ravidassia-abroad-documents-temples-history-and-community-stories",
+      image_url:
+        "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80",
+      content: `
+        <p>Ravidassia Abroad is building a public resource that helps people find temples, read educational content, follow community updates, and submit corrections or additions. The work involves collecting details carefully, checking what can be verified, and presenting community information respectfully.</p>
+        <h2>Why careful wording matters</h2>
+        <p>Not every local history is fully documented online. When specific records are not available, articles should avoid overstating facts. Respectful, accurate phrasing helps preserve trust and encourages more committees and community members to share reliable information.</p>
+        <h2>Community contributions are important</h2>
+        <p>Many of the most valuable updates come from people directly connected to local sangat spaces. Photos, addresses, corrected names, event information, and historical notes can all help improve the public record when submitted responsibly.</p>
+        <h2>How you can help</h2>
+        <p>You can <a href="/support-us">support the mission</a>, <a href="/contact">share verified details</a>, suggest a temple, or use the <a href="/business-directory">business directory</a> to highlight services that help the community abroad.</p>
+      `,
+    },
+    {
+      title: "A Beginner's Guide to Visiting a Guru Ravidass Temple Abroad",
+      slug: "beginners-guide-to-visiting-a-guru-ravidass-temple-abroad",
+      image_url:
+        "https://images.unsplash.com/photo-1509099836639-18ba1795216d?auto=format&fit=crop&w=1200&q=80",
+      content: `
+        <p>Visiting a Guru Ravidass temple abroad for the first time can feel meaningful, especially for someone who is new to a city, a student away from home, or a family reconnecting with local sangat. A little preparation can make the experience more comfortable.</p>
+        <h2>Before you go</h2>
+        <p>Check whether the temple has public contact details, event notices, or location notes through the <a href="/temples-globally">temple directory</a>. If information seems outdated, contact the local committee where possible.</p>
+        <h2>What to expect</h2>
+        <p>Every community space has its own rhythm, but visitors can generally expect a respectful environment centered on prayer, sangat, and service. It is a good idea to dress modestly, arrive with a respectful attitude, and follow local guidance if any customs or event arrangements are explained on site.</p>
+        <h2>Stay connected after the visit</h2>
+        <p>Many people first discover broader community life through one visit. Afterward, you may want to explore local resources, read more history, support the project through <a href="/support-us">Support Us</a>, or share accurate updates through our <a href="/contact">contact page</a>.</p>
+        <p><em>If this guide should include more verified practical advice from temple committees, please let us know.</em></p>
+      `,
+    },
+  ];
+
+  for (const article of seeds) {
+    await pool.query(
+      `
+        INSERT INTO static_articles (title, slug, content, image_url, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (slug) DO NOTHING
+      `,
+      [article.title, article.slug, article.content, article.image_url]
+    );
+  }
+}
+
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -301,6 +574,7 @@ cloudinary.config({
 // Dedicated uploaders for each feature
 const uploadProfile = makeUploader("ravidassia_profile_dp");
 const uploadMatrimonial = makeUploader("ravidassia_matrimonials");
+const uploadBusiness = makeUploader("ravidassia_businesses");
 
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -617,6 +891,39 @@ async function initDB() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS businesses (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      category TEXT NOT NULL,
+      country TEXT NOT NULL,
+      city TEXT NOT NULL,
+      address TEXT,
+      description TEXT NOT NULL,
+      short_description TEXT,
+      phone TEXT,
+      whatsapp TEXT,
+      email TEXT,
+      website TEXT,
+      logo_url TEXT,
+      image_url TEXT,
+      social_links JSONB,
+      business_hours JSONB,
+      contact_person_name TEXT,
+      contact_person_email TEXT,
+      submitted_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      listing_type TEXT DEFAULT 'free',
+      status TEXT DEFAULT 'pending',
+      is_featured BOOLEAN DEFAULT FALSE,
+      is_verified BOOLEAN DEFAULT FALSE,
+      admin_notes TEXT,
+      notes_for_admin TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS exam_types (
       id SERIAL PRIMARY KEY,
       slug VARCHAR(80) NOT NULL UNIQUE,
@@ -814,9 +1121,32 @@ async function initDB() {
     `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_version TEXT`,
     `ALTER TABLE article_comments ADD COLUMN IF NOT EXISTS consent_given_at TIMESTAMP`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS short_description TEXT`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS social_links JSONB`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS business_hours JSONB`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS listing_type TEXT DEFAULT 'free'`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS admin_notes TEXT`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS notes_for_admin TEXT`,
+    `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS submitted_by_user_id INT REFERENCES users(id) ON DELETE SET NULL`,
   ];
 
   for (const query of schemaPatches) {
+    await pool.query(query);
+  }
+
+  const businessIndexes = [
+    `CREATE INDEX IF NOT EXISTS idx_businesses_status ON businesses(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_businesses_category ON businesses(category)`,
+    `CREATE INDEX IF NOT EXISTS idx_businesses_country ON businesses(country)`,
+    `CREATE INDEX IF NOT EXISTS idx_businesses_city ON businesses(city)`,
+    `CREATE INDEX IF NOT EXISTS idx_businesses_slug ON businesses(slug)`,
+    `CREATE INDEX IF NOT EXISTS idx_businesses_featured ON businesses(is_featured)`,
+  ];
+
+  for (const query of businessIndexes) {
     await pool.query(query);
   }
 
@@ -912,6 +1242,8 @@ async function initDB() {
       ]
     );
   }
+
+  await seedCommunityArticles();
 
   await pool.query(
     `
@@ -2925,6 +3257,7 @@ app.get("/api/search", async (req, res) => {
       personalityResults,
       menuResults,
       templeResults,
+      businessResults,
     ] =
       await Promise.all([
         pool.query(
@@ -3045,6 +3378,35 @@ app.get("/api/search", async (req, res) => {
           `,
           [pattern, limit]
         ),
+        pool.query(
+          `
+            SELECT
+              'business' AS type,
+              id::text AS entity_id,
+              name AS title,
+              '/business-directory/' || slug AS path,
+              COALESCE(short_description, LEFT(COALESCE(description, ''), 220)) AS summary,
+              category AS meta,
+              ARRAY_REMOVE(ARRAY[
+                COALESCE(country, NULL),
+                COALESCE(city, NULL),
+                COALESCE(category, NULL)
+              ], NULL) AS keywords
+            FROM businesses
+            WHERE status = 'approved'
+              AND (
+                name ILIKE $1
+                OR category ILIKE $1
+                OR country ILIKE $1
+                OR city ILIKE $1
+                OR COALESCE(short_description, '') ILIKE $1
+                OR COALESCE(description, '') ILIKE $1
+              )
+            ORDER BY is_featured DESC, is_verified DESC, updated_at DESC
+            LIMIT $2
+          `,
+          [pattern, limit]
+        ),
       ]);
 
     const staticResults = buildStaticSearchResults(query, limit);
@@ -3054,6 +3416,7 @@ app.get("/api/search", async (req, res) => {
       ...personalityResults.rows,
       ...menuResults.rows,
       ...templeResults.rows,
+      ...businessResults.rows,
       ...staticResults,
     ]
       .map((result) => ({
@@ -5652,6 +6015,239 @@ app.get("/api/articles", async (_req, res) => {
   }
 });
 
+app.get("/api/businesses", async (req, res) => {
+  try {
+    const search = normalizeRequiredText(req.query.search, 120);
+    const category = normalizeRequiredText(req.query.category, 120);
+    const country = normalizeRequiredText(req.query.country, 120);
+    const city = normalizeRequiredText(req.query.city, 120);
+    const featuredOnly = normalizeBooleanInput(req.query.featured);
+    const params = ["approved"];
+    let query = `
+      SELECT
+        id,
+        name,
+        slug,
+        category,
+        country,
+        city,
+        short_description,
+        description,
+        logo_url,
+        image_url,
+        phone,
+        whatsapp,
+        email,
+        website,
+        listing_type,
+        is_featured,
+        is_verified,
+        created_at,
+        updated_at
+      FROM businesses
+      WHERE status = $1
+    `;
+
+    if (search) {
+      params.push(`%${search}%`);
+      query += `
+        AND (
+          name ILIKE $${params.length}
+          OR category ILIKE $${params.length}
+          OR country ILIKE $${params.length}
+          OR city ILIKE $${params.length}
+          OR COALESCE(short_description, '') ILIKE $${params.length}
+          OR COALESCE(description, '') ILIKE $${params.length}
+        )
+      `;
+    }
+
+    if (category) {
+      params.push(category);
+      query += ` AND category = $${params.length}`;
+    }
+
+    if (country) {
+      params.push(country);
+      query += ` AND country = $${params.length}`;
+    }
+
+    if (city) {
+      params.push(city);
+      query += ` AND city = $${params.length}`;
+    }
+
+    if (featuredOnly) {
+      query += ` AND is_featured = TRUE`;
+    }
+
+    query += `
+      ORDER BY is_featured DESC, is_verified DESC, updated_at DESC, name ASC
+    `;
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      businesses: result.rows.map(mapPublicBusiness),
+      filters: {
+        categories: [...new Set(result.rows.map((row) => row.category).filter(Boolean))],
+        countries: [...new Set(result.rows.map((row) => row.country).filter(Boolean))],
+        cities: [...new Set(result.rows.map((row) => row.city).filter(Boolean))],
+      },
+    });
+  } catch (err) {
+    console.error("Businesses fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/businesses/:slug", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          id,
+          name,
+          slug,
+          category,
+          country,
+          city,
+          address,
+          description,
+          short_description,
+          phone,
+          whatsapp,
+          email,
+          website,
+          logo_url,
+          image_url,
+          social_links,
+          business_hours,
+          listing_type,
+          is_featured,
+          is_verified,
+          created_at,
+          updated_at
+        FROM businesses
+        WHERE slug = $1
+          AND status = 'approved'
+        LIMIT 1
+      `,
+      [req.params.slug]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
+    res.json(mapPublicBusiness(result.rows[0]));
+  } catch (err) {
+    console.error("Business detail fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post(
+  "/api/businesses/upload",
+  formRateLimit,
+  uploadBusiness.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file?.path) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+
+      res.json({ image_url: req.file.path });
+    } catch (err) {
+      console.error("Business image upload error:", err);
+      res.status(500).json({ message: "Image upload failed" });
+    }
+  }
+);
+
+app.post("/api/businesses/submit", formRateLimit, async (req, res) => {
+  try {
+    const viewer = decodeUserIfAny(req);
+    const payload = sanitizeBusinessPayload(req.body || {});
+
+    if (!isBusinessSubmissionValid(payload)) {
+      return res.status(400).json({
+        message:
+          "Business name, category, country, city, contact person, contact email, and description are required.",
+      });
+    }
+
+    const slug = await buildUniqueBusinessSlug(payload.name);
+    const result = await pool.query(
+      `
+        INSERT INTO businesses
+          (
+            name,
+            slug,
+            category,
+            country,
+            city,
+            address,
+            description,
+            short_description,
+            phone,
+            whatsapp,
+            email,
+            website,
+            logo_url,
+            image_url,
+            social_links,
+            business_hours,
+            contact_person_name,
+            contact_person_email,
+            submitted_by_user_id,
+            listing_type,
+            status,
+            notes_for_admin,
+            updated_at
+          )
+        VALUES
+          (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'free','pending',$20,NOW()
+          )
+        RETURNING id, slug
+      `,
+      [
+        payload.name,
+        slug,
+        payload.category,
+        payload.country,
+        payload.city,
+        payload.address,
+        payload.description,
+        payload.short_description,
+        payload.phone,
+        payload.whatsapp,
+        payload.email || payload.contact_person_email,
+        payload.website,
+        payload.logo_url,
+        payload.image_url,
+        payload.social_links,
+        payload.business_hours,
+        payload.contact_person_name,
+        payload.contact_person_email,
+        viewer?.id || null,
+        payload.notes_for_admin,
+      ]
+    );
+
+    res.status(201).json({
+      message:
+        "Your business listing has been submitted for review. Our team will approve it before it appears publicly.",
+      businessId: result.rows[0]?.id,
+      slug: result.rows[0]?.slug,
+    });
+  } catch (err) {
+    console.error("Business submission error:", err);
+    res.status(500).json({ message: "Failed to submit business listing" });
+  }
+});
+
 // 🟢 Public: get single blog by slug (with category and author) + increment views
 app.get("/api/blogs/:slug", async (req, res) => {
   try {
@@ -6188,7 +6784,7 @@ app.get("/api/menus", async (req, res) => {
 
 app.get("/api/seo/sitemap", async (_req, res) => {
   try {
-    const [blogsResult, articlesResult, menusResult] = await Promise.all([
+    const [blogsResult, articlesResult, menusResult, businessesResult] = await Promise.all([
       pool.query(`
         SELECT
           slug,
@@ -6216,6 +6812,15 @@ app.get("/api/seo/sitemap", async (_req, res) => {
           AND TRIM(path) <> ''
         ORDER BY parent_id NULLS FIRST, position ASC
       `),
+      pool.query(`
+        SELECT
+          slug,
+          created_at,
+          updated_at
+        FROM businesses
+        WHERE status = 'approved'
+        ORDER BY is_featured DESC, COALESCE(updated_at, created_at) DESC
+      `),
     ]);
 
     res.json({
@@ -6238,6 +6843,11 @@ app.get("/api/seo/sitemap", async (_req, res) => {
         "/terms-of-use",
         "/community-guidelines",
         "/privacy-data-request",
+        "/support-us",
+        "/sponsor-advertise",
+        "/business-directory",
+        "/submit-business",
+        "/affiliate-disclosure",
       ],
       menus: menusResult.rows
         .map((menu) => ({
@@ -6261,6 +6871,10 @@ app.get("/api/seo/sitemap", async (_req, res) => {
       })),
       articles: articlesResult.rows.map((row) => ({
         path: `/articles/${row.slug}`,
+        updatedAt: row.updated_at || row.created_at,
+      })),
+      businesses: businessesResult.rows.map((row) => ({
+        path: `/business-directory/${row.slug}`,
         updatedAt: row.updated_at || row.created_at,
       })),
     });
@@ -6360,6 +6974,211 @@ app.post(
       res.json({ message: `Deleted ${ids.length} temples successfully` });
     } catch (err) {
       console.error("Bulk delete temples error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.get("/api/admin/businesses", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const status = normalizeRequiredText(req.query.status, 30).toLowerCase();
+    const search = normalizeRequiredText(req.query.search, 120);
+    const params = [];
+    let query = `
+      SELECT *
+      FROM businesses
+      WHERE 1=1
+    `;
+
+    if (BUSINESS_STATUSES.has(status)) {
+      params.push(status);
+      query += ` AND status = $${params.length}`;
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      query += `
+        AND (
+          name ILIKE $${params.length}
+          OR category ILIKE $${params.length}
+          OR city ILIKE $${params.length}
+          OR country ILIKE $${params.length}
+        )
+      `;
+    }
+
+    query += `
+      ORDER BY
+        CASE status
+          WHEN 'pending' THEN 0
+          WHEN 'approved' THEN 1
+          WHEN 'hidden' THEN 2
+          WHEN 'rejected' THEN 3
+          ELSE 4
+        END,
+        is_featured DESC,
+        created_at DESC
+    `;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Admin businesses fetch error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/admin/businesses/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM businesses WHERE id = $1 LIMIT 1", [
+      req.params.id,
+    ]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Admin business detail error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.patch("/api/admin/businesses/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const existing = await pool.query("SELECT * FROM businesses WHERE id = $1 LIMIT 1", [
+      req.params.id,
+    ]);
+
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
+    const payload = sanitizeBusinessPayload(req.body || {}, { allowAdminFields: true });
+
+    if (!isBusinessSubmissionValid(payload)) {
+      return res.status(400).json({
+        message:
+          "Business name, category, country, city, contact person, contact email, and description are required.",
+      });
+    }
+
+    const slug = await buildUniqueBusinessSlug(payload.name, req.params.id);
+    const result = await pool.query(
+      `
+        UPDATE businesses
+        SET
+          name = $1,
+          slug = $2,
+          category = $3,
+          country = $4,
+          city = $5,
+          address = $6,
+          description = $7,
+          short_description = $8,
+          phone = $9,
+          whatsapp = $10,
+          email = $11,
+          website = $12,
+          logo_url = $13,
+          image_url = $14,
+          social_links = $15,
+          business_hours = $16,
+          contact_person_name = $17,
+          contact_person_email = $18,
+          listing_type = $19,
+          status = $20,
+          is_featured = $21,
+          is_verified = $22,
+          admin_notes = $23,
+          notes_for_admin = $24,
+          updated_at = NOW()
+        WHERE id = $25
+        RETURNING *
+      `,
+      [
+        payload.name,
+        slug,
+        payload.category,
+        payload.country,
+        payload.city,
+        payload.address,
+        payload.description,
+        payload.short_description,
+        payload.phone,
+        payload.whatsapp,
+        payload.email || payload.contact_person_email,
+        payload.website,
+        payload.logo_url,
+        payload.image_url,
+        payload.social_links,
+        payload.business_hours,
+        payload.contact_person_name,
+        payload.contact_person_email,
+        payload.listing_type,
+        payload.status,
+        payload.is_featured,
+        payload.is_verified,
+        payload.admin_notes,
+        payload.notes_for_admin,
+        req.params.id,
+      ]
+    );
+
+    res.json({ message: "Business updated successfully", business: result.rows[0] });
+  } catch (err) {
+    console.error("Admin business update error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.patch(
+  "/api/admin/businesses/:id/status",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const status = normalizeRequiredText(req.body?.status, 30).toLowerCase();
+      if (!BUSINESS_STATUSES.has(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const result = await pool.query(
+        `
+          UPDATE businesses
+          SET
+            status = $1,
+            admin_notes = COALESCE($2, admin_notes),
+            updated_at = NOW()
+          WHERE id = $3
+          RETURNING *
+        `,
+        [status, normalizeOptionalText(req.body?.admin_notes, 4000), req.params.id]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Business not found" });
+      }
+
+      res.json({ message: "Business status updated", business: result.rows[0] });
+    } catch (err) {
+      console.error("Admin business status error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/businesses/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      await pool.query("DELETE FROM businesses WHERE id = $1", [req.params.id]);
+      res.json({ message: "Business deleted successfully" });
+    } catch (err) {
+      console.error("Admin business delete error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }

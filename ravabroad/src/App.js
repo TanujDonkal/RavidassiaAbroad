@@ -40,6 +40,12 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const DynamicPage = lazy(() => import("./pages/DynamicPage"));
 const FamousPersonalities = lazy(() => import("./pages/FamousPersonalities"));
 const PostDetail = lazy(() => import("./pages/PostDetail"));
+const SupportUs = lazy(() => import("./pages/SupportUs"));
+const SponsorAdvertise = lazy(() => import("./pages/SponsorAdvertise"));
+const BusinessDirectory = lazy(() => import("./pages/BusinessDirectory"));
+const BusinessDetail = lazy(() => import("./pages/BusinessDetail"));
+const SubmitBusiness = lazy(() => import("./pages/SubmitBusiness"));
+const AffiliateDisclosure = lazy(() => import("./pages/AffiliateDisclosure"));
 const TemplesGlobally = lazy(() => import("./pages/temples-globally"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
@@ -177,6 +183,31 @@ function getStaticSeo(pathname) {
       description:
         "Find Shri Guru Ravidass Sabhas, temples, and community centers across countries through the global directory.",
     },
+    "/support-us": {
+      title: `Support Us | ${SITE_NAME}`,
+      description:
+        "Support Ravidassia Abroad as we document temples, teachings, history, and community stories worldwide.",
+    },
+    "/sponsor-advertise": {
+      title: `Sponsor and Advertise | ${SITE_NAME}`,
+      description:
+        "Learn how businesses and community partners can sponsor or advertise with Ravidassia Abroad.",
+    },
+    "/business-directory": {
+      title: `Community Business Directory | ${SITE_NAME}`,
+      description:
+        "Browse approved community businesses, services, and featured listings through Ravidassia Abroad.",
+    },
+    "/submit-business": {
+      title: `Submit a Business | ${SITE_NAME}`,
+      description:
+        "Submit a business listing for review and possible inclusion in the Ravidassia Abroad directory.",
+    },
+    "/affiliate-disclosure": {
+      title: `Affiliate Disclosure | ${SITE_NAME}`,
+      description:
+        "Read the affiliate disclosure and transparency notice for Ravidassia Abroad.",
+    },
     "/students": {
       title: `Students Hub | ${SITE_NAME}`,
       description:
@@ -290,6 +321,19 @@ function getStaticSeo(pathname) {
     };
   }
 
+  if (pathname.startsWith("/business-directory/")) {
+    return {
+      title: `Business Listing | ${SITE_NAME}`,
+      description:
+        "View an approved community business listing from the Ravidassia Abroad directory.",
+      canonicalPath: pathname,
+      structuredData: buildBreadcrumbSchema([
+        { name: "Home", path: "/" },
+        { name: "Business Directory", path: "/business-directory" },
+      ]),
+    };
+  }
+
   return {
     title: SITE_NAME,
     description: DEFAULT_DESCRIPTION,
@@ -389,6 +433,12 @@ export default function App() {
             <Route path="/blogs/:slug" element={<BlogDetail />} />
             <Route path="/personalities" element={<FamousPersonalities />} />
             <Route path="/temples-globally" element={<TemplesGlobally />} />
+            <Route path="/support-us" element={<SupportUs />} />
+            <Route path="/sponsor-advertise" element={<SponsorAdvertise />} />
+            <Route path="/business-directory" element={<BusinessDirectory />} />
+            <Route path="/business-directory/:slug" element={<BusinessDetail />} />
+            <Route path="/submit-business" element={<SubmitBusiness />} />
+            <Route path="/affiliate-disclosure" element={<AffiliateDisclosure />} />
             <Route path="/articles/:slug" element={<PostDetail />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-use" element={<TermsOfUse />} />
