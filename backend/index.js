@@ -561,6 +561,65 @@ async function seedCommunityArticles() {
   }
 }
 
+function quoteIdentifier(identifier) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(String(identifier || ""))) {
+    throw new Error(`Invalid SQL identifier: ${identifier}`);
+  }
+  return `"${identifier}"`;
+}
+
+async function ensureIdSequenceDefault(tableName, columnName = "id") {
+  const columnResult = await pool.query(
+    `
+      SELECT
+        data_type,
+        column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName]
+  );
+
+  if (columnResult.rowCount === 0) {
+    return;
+  }
+
+  const column = columnResult.rows[0];
+  if (String(column.column_default || "").includes("nextval(")) {
+    return;
+  }
+
+  const safeTableName = quoteIdentifier(tableName);
+  const safeColumnName = quoteIdentifier(columnName);
+  const sequenceName = `${tableName}_${columnName}_seq`;
+  const safeSequenceName = quoteIdentifier(sequenceName);
+
+  await pool.query(
+    `CREATE SEQUENCE IF NOT EXISTS public.${safeSequenceName} START WITH 1`
+  );
+  await pool.query(
+    `ALTER SEQUENCE public.${safeSequenceName} OWNED BY public.${safeTableName}.${safeColumnName}`
+  );
+  await pool.query(
+    `
+      ALTER TABLE public.${safeTableName}
+      ALTER COLUMN ${safeColumnName}
+      SET DEFAULT nextval('public.${sequenceName}'::regclass)
+    `
+  );
+  await pool.query(
+    `
+      SELECT setval(
+        'public.${sequenceName}',
+        COALESCE((SELECT MAX(${safeColumnName}) FROM public.${safeTableName}), 0) + 1,
+        false
+      )
+    `
+  );
+}
 // increase default size limits for text fields
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -1148,6 +1207,44 @@ async function initDB() {
 
   for (const query of businessIndexes) {
     await pool.query(query);
+  }
+
+  const idSequenceTables = [
+    "users",
+    "scst_submissions",
+    "matrimonial_submissions",
+    "content_requests",
+    "blog_categories",
+    "blog_posts",
+    "blog_comments",
+    "static_articles",
+    "article_comments",
+    "site_menus",
+    "famous_personalities",
+    "privacy_requests",
+    "admin_audit_logs",
+    "global_temples",
+    "exam_types",
+    "exam_variants",
+    "exam_sections",
+    "exam_tests",
+    "exam_test_parts",
+    "exam_questions",
+    "exam_question_options",
+    "exam_attempts",
+    "exam_attempt_answers",
+    "exam_attempt_section_states",
+    "homepage_carousel",
+    "matrimonial_interests",
+    "matrimonial_contact_requests",
+    "notify_recipients",
+    "recipients",
+  ];
+
+  for (const tableName of idSequenceTables) {
+    await ensureIdSequenceDefault(tableName).catch((error) => {
+      console.warn(`Failed to ensure id sequence for ${tableName}:`, error.message);
+    });
   }
 
   const templeCountResult = await pool.query(
