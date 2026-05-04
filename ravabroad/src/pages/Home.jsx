@@ -150,21 +150,21 @@ const testimonials = [
     quote:
       "This platform keeps me connected with my roots while studying in Canada.",
     name: "Gurpreet K.",
-    meta: "Student · Canada",
+    meta: "Student - Canada",
   },
   {
     image: "testimonial-2.jpg",
     quote:
       "The teachings section helped my kids understand Guru Ravidass Ji's message clearly.",
     name: "Simran D.",
-    meta: "Parent · United Kingdom",
+    meta: "Parent - United Kingdom",
   },
   {
     image: "testimonial-3.jpg",
     quote:
       "I found nearby temples and events right after moving, which made settling in much easier.",
     name: "Harjit S.",
-    meta: "Community Volunteer · USA",
+    meta: "Community Volunteer - USA",
   },
 ];
 
@@ -351,18 +351,19 @@ export default function Home() {
 
   return (
     <>
-      <div
-        id="spinner"
-        className="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center"
-      >
+      <div className="home-page">
         <div
-          className="spinner-border text-secondary"
-          style={{ width: "3rem", height: "3rem" }}
-          role="status"
+          id="spinner"
+          className="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center"
         >
-          <span className="sr-only">Loading...</span>
+          <div
+            className="spinner-border text-secondary"
+            style={{ width: "3rem", height: "3rem" }}
+            role="status"
+          >
+            <span className="sr-only">Loading...</span>
+          </div>
         </div>
-      </div>
 
       <div className="home-hero-carousel carousel-header">
         <div
@@ -924,7 +925,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="container-fluid py-5 bg-light">
+      <div className="container-fluid py-5 bg-light home-secondary-section">
         <div className="container py-5">
           <div className="row g-4 align-items-start">
             <div className="col-lg-5">
@@ -945,10 +946,11 @@ export default function Home() {
               </div>
             </div>
             <div className="col-lg-7">
-              <div className="row g-3">
+              <div className="home-swipe-hint d-md-none">Swipe to explore</div>
+              <div className="row g-3 home-mini-grid">
                 {popularLinks.map((item) => (
-                  <div className="col-md-6" key={item.title}>
-                    <div className="bg-white rounded-4 border h-100 p-4 shadow-sm">
+                  <div className="col-md-6 home-mini-grid-item" key={item.title}>
+                    <div className="bg-white rounded-4 border h-100 p-4 shadow-sm home-mini-card">
                       <h3 className="h5 mb-3">{item.title}</h3>
                       <p className="text-muted mb-3">{item.description}</p>
                       <Link className="btn btn-outline-dark rounded-pill px-4" to={item.href}>
@@ -963,7 +965,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="container-fluid py-5">
+      <div className="container-fluid py-5 home-secondary-section">
         <div className="container py-5">
           <div className="section-title text-center mb-5">
             <div className="sub-style">
@@ -978,11 +980,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="row g-4">
+          <div className="home-swipe-hint d-md-none">Swipe to explore</div>
+          <div className="row g-4 home-mini-grid">
             {faqs.map((item, index) => (
-              <div className="col-lg-6" key={item.question}>
+              <div className="col-lg-6 home-mini-grid-item" key={item.question}>
                 <div
-                  className="bg-light rounded-4 border h-100 p-4 wow fadeInUp"
+                  className="bg-light rounded-4 border h-100 p-4 wow fadeInUp home-mini-card"
                   data-wow-delay={`${0.1 + index * 0.1}s`}
                 >
                   <h3 className="h5 mb-3">{item.question}</h3>
@@ -1002,6 +1005,7 @@ export default function Home() {
       >
         <i className="fa fa-arrow-up"></i>
       </button>
+      </div>
     </>
   );
 }
