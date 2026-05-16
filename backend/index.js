@@ -6361,6 +6361,7 @@ app.get("/api/blogs/:slug", async (req, res) => {
       LEFT JOIN blog_categories c ON b.category_id = c.id
       LEFT JOIN users u ON b.author_id = u.id
       WHERE b.slug = $1
+        AND b.status = 'published'
       LIMIT 1
     `;
     const result = await pool.query(query, [slug]);

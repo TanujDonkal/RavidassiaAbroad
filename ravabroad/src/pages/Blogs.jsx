@@ -1,16 +1,21 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Pagination, Navigation } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import '../index.css';
+import "../index.css";
 import "../css/Blogs.css";
 import { Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 import Seo from "../components/Seo";
 import { buildBreadcrumbSchema, stripHtml, truncateText } from "../utils/seo";
+
+const FALLBACK_ARTICLE_SUMMARY =
+  "Explore heritage, teachings, and community stories curated by Ravidassia Abroad.";
+
+const FEATURED_VIDEO_URL = "https://www.youtube.com/embed/6GrG6IOJRLs?autoplay=1&mute=1";
 
 const BegampuraHeading = () => (
   <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
@@ -44,19 +49,70 @@ const BegampuraHeading = () => (
   </div>
 );
 
-const Blogs = () => {
+function normalizeFeedItem(post, fallbackToArticles = false) {
+  const isFallbackArticle = fallbackToArticles || !Object.prototype.hasOwnProperty.call(post, "status");
+  const createdAt = post.updated_at || post.created_at || new Date().toISOString();
+
+  return {
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    excerpt: post.excerpt || FALLBACK_ARTICLE_SUMMARY,
+    image_url:
+      post.image_url ||
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
+    created_at: createdAt,
+    views: typeof post.views === "number" ? post.views : null,
+    author_name: post.author_name || "Ravidassia Abroad",
+    category_name: post.category_name || (isFallbackArticle ? "Featured Article" : "General"),
+    href: isFallbackArticle ? `/articles/${post.slug}` : `/blogs/${post.slug}`,
+    isFallbackArticle,
+  };
+}
+
+export default function Blogs() {
   const [blogs, setBlogs] = useState([]);
+  const [fallbackArticles, setFallbackArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [showFallbackMessage, setShowFallbackMessage] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    fetchBlogs();
     fetchCategories();
+    fetchBlogs();
+    // The page intentionally loads its initial feed once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/categories`);
+      const data = await res.json();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
+    }
+  };
+
+  const fetchFallbackArticles = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/articles`);
+      const data = await res.json();
+      setFallbackArticles(
+        Array.isArray(data) ? data.map((item) => normalizeFeedItem(item, true)) : []
+      );
+    } catch (err) {
+      console.error("Failed to load article fallback:", err);
+      setFallbackArticles([]);
+    }
+  };
+
   const fetchBlogs = async (category = "") => {
+    setLoading(true);
+    setShowFallbackMessage(false);
+
     try {
       const url = category
         ? `${API_BASE}/blogs?category=${category}`
@@ -64,29 +120,46 @@ const Blogs = () => {
 
       const res = await fetch(url);
       const data = await res.json();
-      setBlogs(data || []);
+      const normalizedBlogs = Array.isArray(data)
+        ? data.map((item) => normalizeFeedItem(item))
+        : [];
+
+      setBlogs(normalizedBlogs);
+
+      if (!category && normalizedBlogs.length === 0) {
+        await fetchFallbackArticles();
+        setShowFallbackMessage(true);
+      } else {
+        setFallbackArticles([]);
+      }
     } catch (err) {
-      console.error("❌ Failed to fetch blogs:", err);
+      console.error("Failed to fetch blogs:", err);
+      setBlogs([]);
+      if (!category) {
+        await fetchFallbackArticles();
+        setShowFallbackMessage(true);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-const fetchCategories = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/categories`);
-    const data = await res.json();
-    setCategories(Array.isArray(data) ? data : []);
-  } catch (err) {
-    console.error("❌ Failed to load categories:", err);
-  }
-};
+  const contentItems = useMemo(() => {
+    if (blogs.length > 0) return blogs;
+    if (!selectedCategory && fallbackArticles.length > 0) return fallbackArticles;
+    return [];
+  }, [blogs, fallbackArticles, selectedCategory]);
+
+  const isUsingFallbackArticles =
+    !loading && blogs.length === 0 && !selectedCategory && fallbackArticles.length > 0;
+
+  const seoItems = contentItems.slice(0, 10);
 
   return (
     <main className="gray-bg">
       <Seo
         title="Blogs and Community News | Ravidassia Abroad"
-        description="Read community blogs, news, cultural stories, and updates from Ravidassia Abroad."
+        description="Read community blogs, news, cultural stories, and featured articles from Ravidassia Abroad."
         canonicalPath="/blogs"
         type="blog"
         structuredData={[
@@ -95,12 +168,12 @@ const fetchCategories = async () => {
             "@type": "Blog",
             name: "Ravidassia Abroad Blogs",
             description:
-              "Community blogs, news, and updates from Ravidassia Abroad.",
+              "Community blogs, news, and featured articles from Ravidassia Abroad.",
             url: "https://www.ravidassiaabroad.com/blogs",
-            blogPost: blogs.slice(0, 10).map((post) => ({
+            blogPost: seoItems.map((post) => ({
               "@type": "BlogPosting",
               headline: post.title,
-              url: `https://www.ravidassiaabroad.com/blogs/${post.slug}`,
+              url: `https://www.ravidassiaabroad.com${post.href}`,
               datePublished: post.created_at,
               image: post.image_url || "https://www.ravidassiaabroad.com/logo512.png",
               description: truncateText(stripHtml(post.excerpt || ""), 160),
@@ -109,10 +182,10 @@ const fetchCategories = async () => {
           {
             "@context": "https://schema.org",
             "@type": "ItemList",
-            itemListElement: blogs.slice(0, 10).map((post, index) => ({
+            itemListElement: seoItems.map((post, index) => ({
               "@type": "ListItem",
               position: index + 1,
-              url: `https://www.ravidassiaabroad.com/blogs/${post.slug}`,
+              url: `https://www.ravidassiaabroad.com${post.href}`,
               name: post.title,
             })),
           },
@@ -122,20 +195,18 @@ const fetchCategories = async () => {
           ]),
         ]}
       />
-      {/* ===== Trending Section ===== */}
+
       <section className="trending-area pt-25 gray-bg">
         <div className="container">
           <div className="section-tittle mb-4 text-center">
             <BegampuraHeading />
           </div>
-          {/* 🏷 Category Filter Bar */}
+
           <div className="text-center my-4">
             <div className="d-inline-flex flex-wrap justify-content-center gap-2">
               <button
                 className={`btn btn-sm ${
-                  selectedCategory === ""
-                    ? "btn-primary"
-                    : "btn-outline-primary"
+                  selectedCategory === "" ? "btn-primary" : "btn-outline-primary"
                 }`}
                 onClick={() => {
                   setSelectedCategory("");
@@ -148,9 +219,7 @@ const fetchCategories = async () => {
                 <button
                   key={cat.id}
                   className={`btn btn-sm ${
-                    selectedCategory === cat.id
-                      ? "btn-primary"
-                      : "btn-outline-primary"
+                    selectedCategory === cat.id ? "btn-primary" : "btn-outline-primary"
                   }`}
                   onClick={() => {
                     setSelectedCategory(cat.id);
@@ -163,15 +232,38 @@ const fetchCategories = async () => {
             </div>
           </div>
 
+          {showFallbackMessage && isUsingFallbackArticles && (
+            <div className="alert alert-warning border-0 rounded-4 shadow-sm mb-4">
+              Community blog posts are being refreshed. In the meantime, here are featured
+              articles from our history and teachings library.
+            </div>
+          )}
+
           {loading ? (
             <p className="text-center text-muted">Loading latest posts...</p>
-          ) : blogs.length === 0 ? (
-            <p className="text-center text-muted">No blog posts yet.</p>
+          ) : contentItems.length === 0 ? (
+            <div className="text-center text-muted bg-white rounded-4 shadow-sm p-4">
+              <p className="mb-2 fw-semibold">No published posts are available right now.</p>
+              <p className="mb-3">
+                Please check back soon, or explore the history and article sections instead.
+              </p>
+              <div className="d-flex flex-wrap justify-content-center gap-2">
+                <Link to="/history" className="btn btn-outline-dark rounded-pill px-4">
+                  Explore History
+                </Link>
+                <Link
+                  to="/articles/guru-ravidass"
+                  className="btn btn-primary rounded-pill px-4"
+                >
+                  Read Featured Article
+                </Link>
+              </div>
+            </div>
           ) : (
             <Swiper
               spaceBetween={30}
               slidesPerView={2}
-              loop={blogs.length > 2}
+              loop={contentItems.length > 2}
               autoplay={{
                 delay: 3000,
                 disableOnInteraction: false,
@@ -186,12 +278,9 @@ const fetchCategories = async () => {
                 1200: { slidesPerView: 3 },
               }}
             >
-              {blogs.map((post) => (
-                <SwiperSlide key={post.id}>
-                  <Link
-                    to={`/blogs/${post.slug}`}
-                    className="text-decoration-none text-dark"
-                  >
+              {contentItems.map((post) => (
+                <SwiperSlide key={`${post.isFallbackArticle ? "article" : "blog"}-${post.id}`}>
+                  <Link to={post.href} className="text-decoration-none text-dark">
                     <div className="blog-card">
                       <div className="card-banner">
                         <p
@@ -201,14 +290,7 @@ const fetchCategories = async () => {
                         >
                           {post.category_name || "General"}
                         </p>
-                        <img
-                          className="banner-img"
-                          src={
-                            post.image_url ||
-                            "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80"
-                          }
-                          alt={post.title}
-                        />
+                        <img className="banner-img" src={post.image_url} alt={post.title} />
                       </div>
                       <div className="card-body">
                         <h5 className="blog-title">{post.title}</h5>
@@ -225,11 +307,10 @@ const fetchCategories = async () => {
                             alt={post.author_name || "Admin"}
                           />
                           <div className="card-profile-info">
-                            <h6 className="profile-name mb-0">
-                              {post.author_name || "Admin"}
-                            </h6>
+                            <h6 className="profile-name mb-0">{post.author_name}</h6>
                             <p className="profile-followers mb-0 small text-muted">
-  {new Date(post.created_at).toLocaleDateString()} • 👁 {post.views || 0}
+                              {new Date(post.created_at).toLocaleDateString()}
+                              {typeof post.views === "number" ? ` • Views ${post.views}` : ""}
                             </p>
                           </div>
                         </div>
@@ -243,32 +324,27 @@ const fetchCategories = async () => {
         </div>
       </section>
 
-      {/* ===== What's New Section ===== */}
       <section className="whats-news-area pt-50 pb-20 gray-bg">
         <div className="container">
           <div className="whats-news-wrapper">
             <div className="section-tittle mb-30">
-              <h3>🆕 What's New</h3>
+              <h3>Latest Highlights</h3>
             </div>
             <div className="row">
               {loading ? (
                 <p className="text-center text-muted">Loading...</p>
-              ) : blogs.length === 0 ? (
-                <p className="text-center text-muted">No recent posts found.</p>
+              ) : contentItems.length === 0 ? (
+                <p className="text-center text-muted">
+                  No published updates are available right now.
+                </p>
               ) : (
-                blogs.slice(0, 2).map((post) => (
-                  <div className="col-lg-6 col-md-6" key={post.id}>
-                    <Link
-                      to={`/blogs/${post.slug}`}
-                      className="text-decoration-none text-dark"
-                    >
+                contentItems.slice(0, 2).map((post) => (
+                  <div className="col-lg-6 col-md-6" key={`latest-${post.id}`}>
+                    <Link to={post.href} className="text-decoration-none text-dark">
                       <div className="whats-news-single mb-40">
                         <div className="whates-img">
                           <img
-                            src={
-                              post.image_url ||
-                              "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=900&q=80"
-                            }
+                            src={post.image_url}
                             alt={post.title}
                             className="img-fluid rounded shadow-sm"
                           />
@@ -276,8 +352,7 @@ const fetchCategories = async () => {
                         <div className="whates-caption">
                           <h4>{post.title}</h4>
                           <span>
-                            {post.author_name || "Admin"} –{" "}
-                            {new Date(post.created_at).toLocaleDateString()}
+                            {post.author_name} - {new Date(post.created_at).toLocaleDateString()}
                           </span>
                           <p
                             dangerouslySetInnerHTML={{
@@ -295,16 +370,15 @@ const fetchCategories = async () => {
         </div>
       </section>
 
-      {/* ===== Video Section ===== */}
       <section className="youtube-area video-padding bg-light py-5">
         <div className="container text-center">
-          <h3 className="mb-4">🎥 Featured Video</h3>
+          <h3 className="mb-4">Featured Video</h3>
           <div className="row justify-content-center">
             <div className="col-md-8">
               <iframe
                 width="100%"
                 height="420"
-                src="https://www.youtube.com/embed/6GrG6IOJRLs?autoplay=1&mute=1"
+                src={FEATURED_VIDEO_URL}
                 title="Ravidassia Abroad Overview"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -312,83 +386,12 @@ const fetchCategories = async () => {
                 className="rounded shadow"
               ></iframe>
               <p className="mt-2 text-muted">
-                Insight into Ravidassia Abroad community development – 2025
+                Insight into Ravidassia Abroad community development and outreach.
               </p>
             </div>
           </div>
         </div>
       </section>
-
-      {/* ===== Weekly News Slider ===== */}
-      <section className="weekly-news py-5 gray-bg">
-        <div className="container">
-          <div className="section-tittle mb-4 text-center">
-            <h3>🗞️ Weekly Highlights</h3>
-          </div>
-          <Swiper
-            spaceBetween={15}
-            slidesPerView={3}
-            loop={true}
-            autoplay={{ delay: 3500, disableOnInteraction: false }}
-            modules={[Autoplay]}
-            breakpoints={{
-              0: { slidesPerView: 1 },
-              768: { slidesPerView: 2 },
-              1200: { slidesPerView: 3 },
-            }}
-          >
-            {[
-              {
-                img: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
-                title: "Tech Expo Halifax 2025",
-                desc: "Youth innovators showcase AI-powered tools.",
-              },
-              {
-                img: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=900&q=80",
-                title: "Community Gathering in Toronto",
-                desc: "Hundreds unite to celebrate cultural heritage.",
-              },
-              {
-                img: "https://images.unsplash.com/photo-1504805572947-34fad45aed93?auto=format&fit=crop&w=900&q=80",
-                title: "Ravidassia Abroad Volunteers Program",
-                desc: "Join seva teams helping newcomers across Canada.",
-              },
-            ].map((item, i) => (
-              <SwiperSlide key={i}>
-                <div className="blog-card small">
-                  <div className="card-banner">
-                    <img
-                      className="banner-img"
-                      src={item.img}
-                      alt={item.title}
-                    />
-                  </div>
-                  <div className="card-body">
-                    <h6 className="blog-title mb-1">{item.title}</h6>
-                    <p className="small text-muted mb-0">{item.desc}</p>
-                  </div>
-                </div>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        </div>
-      </section>
-
-      {/* ===== Banner Section ===== */}
-      <div className="banner-area gray-bg pt-90 pb-90">
-        <div className="container text-center">
-          <img
-            src=""
-            alt="Banner"
-            className="img-fluid rounded shadow"
-          />
-          <h4 className="mt-3 fw-bold">
-            Empowering Global Ravidassia Community
-          </h4>
-        </div>
-      </div>
     </main>
   );
-};
-
-export default Blogs;
+}

@@ -55,6 +55,10 @@ export default function BusinessDirectory() {
     [data.filters]
   );
 
+  const hasActiveFilters = Boolean(
+    filters.search.trim() || filters.category || filters.country || filters.city
+  );
+
   return (
     <main className="business-shell py-5">
       <Seo
@@ -149,9 +153,15 @@ export default function BusinessDirectory() {
           <div className="business-panel p-5 text-center text-danger">{error}</div>
         ) : data.businesses.length === 0 ? (
           <div className="business-empty p-5 text-center">
-            <h2 className="h4 fw-bold mb-2">No businesses match your filters</h2>
+            <h2 className="h4 fw-bold mb-2">
+              {hasActiveFilters
+                ? "No businesses match your filters"
+                : "Business listings are being reviewed"}
+            </h2>
             <p className="text-muted mb-4">
-              Try clearing a filter or submit a new listing for review.
+              {hasActiveFilters
+                ? "Try clearing a filter or submit a new listing for review."
+                : "The directory is live, but approved community listings have not been published yet. You can submit a business for review now."}
             </p>
             <Link to="/submit-business" className="btn btn-primary rounded-pill px-4">
               Submit a Business
