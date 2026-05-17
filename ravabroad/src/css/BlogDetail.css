@@ -252,6 +252,80 @@
   font-weight: 600;
 }
 
+.blog-detail-language-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.blog-detail-language-btn {
+  min-height: 46px;
+  border-radius: 16px;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  background: #fff;
+  color: var(--blog-text);
+  font-weight: 700;
+  padding: 0.75rem 0.9rem;
+  transition: 0.2s ease;
+}
+
+.blog-detail-language-btn:hover,
+.blog-detail-language-btn:focus-visible {
+  background: #fff8e1;
+  border-color: rgba(241, 193, 58, 0.45);
+  color: var(--blog-dark);
+  outline: none;
+}
+
+.blog-detail-language-btn.original {
+  background: var(--blog-dark);
+  color: #fff;
+}
+
+.blog-detail-language-btn.original:hover,
+.blog-detail-language-btn.original:focus-visible {
+  background: #000;
+  color: #fff;
+}
+
+.blog-detail-translate-widget-wrap {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.blog-detail-translate-widget .goog-te-gadget {
+  color: var(--blog-muted) !important;
+  font-family: inherit !important;
+  font-size: 0.95rem !important;
+}
+
+.blog-detail-translate-widget .goog-te-gadget-simple {
+  border: 1px solid rgba(17, 17, 17, 0.1) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  padding: 0.55rem 0.8rem !important;
+}
+
+.blog-detail-translate-note,
+.blog-detail-translate-status {
+  margin: 0.85rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.blog-detail-translate-note {
+  color: var(--blog-muted);
+}
+
+.blog-detail-translate-status {
+  color: #7c5b00;
+  font-weight: 600;
+}
+
 .blog-detail-share-inline {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -562,6 +636,7 @@
   }
 
   .blog-detail-share-inline,
+  .blog-detail-language-grid,
   .blog-detail-share-grid {
     grid-template-columns: 1fr;
   }

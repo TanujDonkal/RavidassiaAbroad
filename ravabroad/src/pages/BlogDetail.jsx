@@ -12,6 +12,17 @@ import {
   truncateText,
 } from "../utils/seo";
 
+const TRANSLATION_LANGUAGES = [
+  { code: "hi", label: "Hindi" },
+  { code: "pa", label: "Punjabi" },
+  { code: "fr", label: "French" },
+  { code: "es", label: "Spanish" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ur", label: "Urdu" },
+];
+
 function slugifyHeading(text, index) {
   const base = String(text || "")
     .toLowerCase()
@@ -82,6 +93,61 @@ export default function BlogDetail() {
   const [renderedContent, setRenderedContent] = useState("");
   const [tableOfContents, setTableOfContents] = useState([]);
   const [copyState, setCopyState] = useState("Copy link");
+  const [translateReady, setTranslateReady] = useState(false);
+  const [translateStatus, setTranslateStatus] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const widgetId = "blog-translate-element";
+
+    const initTranslator = () => {
+      const host = document.getElementById(widgetId);
+      if (!host || !window.google?.translate?.TranslateElement) {
+        return;
+      }
+
+      if (!host.dataset.initialized) {
+        host.innerHTML = "";
+        new window.google.translate.TranslateElement(
+          {
+            pageLanguage: "en",
+            includedLanguages: TRANSLATION_LANGUAGES.map((item) => item.code).join(","),
+            autoDisplay: false,
+            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+          },
+          widgetId
+        );
+        host.dataset.initialized = "true";
+      }
+
+      setTranslateReady(true);
+    };
+
+    window.googleTranslateElementInit = initTranslator;
+
+    if (window.google?.translate?.TranslateElement) {
+      initTranslator();
+      return undefined;
+    }
+
+    const existingScript = document.querySelector(
+      'script[data-ra-google-translate="true"]'
+    );
+
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src =
+        "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+      script.async = true;
+      script.defer = true;
+      script.dataset.raGoogleTranslate = "true";
+      document.body.appendChild(script);
+    }
+
+  }, []);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -229,6 +295,43 @@ export default function BlogDetail() {
     }
   };
 
+  const resetTranslation = () => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const expireCookie = (name) => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
+    };
+
+    expireCookie("googtrans");
+    window.location.reload();
+  };
+
+  const handleTranslateLanguage = (languageCode) => {
+    if (languageCode === "en") {
+      resetTranslation();
+      return;
+    }
+
+    const combo = document.querySelector(".goog-te-combo");
+    if (!combo) {
+      setTranslateStatus("Translator is still loading. Please try again in a moment.");
+      return;
+    }
+
+    combo.value = languageCode;
+    combo.dispatchEvent(new Event("change"));
+    setTranslateStatus(
+      `Translating to ${
+        TRANSLATION_LANGUAGES.find((item) => item.code === languageCode)?.label ||
+        "selected language"
+      }.`
+    );
+  };
+
   return (
     <main className="blog-detail-page">
       <Seo
@@ -298,6 +401,10 @@ export default function BlogDetail() {
                     Jump to topics
                   </a>
                 )}
+                <a href="#blog-translate" className="btn btn-outline-light rounded-pill px-4">
+                  <i className="bi bi-globe2 me-2" aria-hidden="true"></i>
+                  Translate
+                </a>
                 <a href="#comments" className="btn btn-warning rounded-pill px-4">
                   Join comments
                 </a>
@@ -364,6 +471,51 @@ export default function BlogDetail() {
                         </span>
                       </li>
                     </ul>
+                  </div>
+
+                  <div className="blog-detail-sidecard" id="blog-translate">
+                    <span className="blog-detail-sidekicker">Reader Language</span>
+                    <h3>
+                      <i className="bi bi-globe2 me-2" aria-hidden="true"></i>
+                      Read in another language
+                    </h3>
+                    <p className="blog-detail-sidecopy">
+                      Switch this article into Hindi or another supported language for easier
+                      reading.
+                    </p>
+
+                    <div className="blog-detail-language-grid">
+                      <button
+                        type="button"
+                        className="blog-detail-language-btn original"
+                        onClick={() => handleTranslateLanguage("en")}
+                      >
+                        English
+                      </button>
+                      {TRANSLATION_LANGUAGES.map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          className="blog-detail-language-btn"
+                          onClick={() => handleTranslateLanguage(item.code)}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="blog-detail-translate-widget-wrap">
+                      <div id="blog-translate-element" className="blog-detail-translate-widget" />
+                    </div>
+
+                    <p className="blog-detail-translate-note">
+                      {translateReady
+                        ? "Machine translation may not be perfect, but it can help readers understand long articles more easily."
+                        : "Loading translator..."}
+                    </p>
+                    {translateStatus ? (
+                      <p className="blog-detail-translate-status">{translateStatus}</p>
+                    ) : null}
                   </div>
 
                   <div className="blog-detail-sidecard">
