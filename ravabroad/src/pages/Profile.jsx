@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
+import { clearStoredAuth } from "../utils/auth";
 import "../css/profile.css";
 import { MARKETING_OPT_IN_LABEL } from "../utils/compliance";
 
@@ -15,12 +16,26 @@ function buildInitials(name) {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const popup = usePopup();
   const fileInputRef = useRef(null);
   const [user, setUser] = useState({});
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReasonCategory, setDeleteReasonCategory] = useState("");
+  const [deleteReasonText, setDeleteReasonText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const deleteReasonOptions = [
+    "Privacy concerns",
+    "No longer using the platform",
+    "Created a duplicate account",
+    "Too many emails or notifications",
+    "Found what I needed",
+    "Other",
+  ];
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -98,6 +113,38 @@ export default function Profile() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      const response = await apiFetch("/user/delete-account", {
+        method: "POST",
+        body: JSON.stringify({
+          reason_category: deleteReasonCategory,
+          reason_text: deleteReasonText,
+        }),
+      });
+
+      clearStoredAuth();
+      setShowDeleteModal(false);
+      popup.open({
+        type: "success",
+        title: "Account Deactivated",
+        message:
+          response.message ||
+          "Your account has been deactivated and you have been logged out.",
+      });
+      navigate("/auth", { replace: true });
+    } catch (err) {
+      popup.open({
+        type: "error",
+        title: "Could Not Delete Account",
+        message: err.message || "Something went wrong while deleting your account.",
+      });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -287,10 +334,103 @@ export default function Profile() {
                   </span>
                 </div>
               </form>
+
+              <div className="profile-danger-zone">
+                <div>
+                  <span className="profile-section-kicker profile-danger-kicker">Danger Zone</span>
+                  <h4>Delete account</h4>
+                  <p>
+                    Deleting your account will deactivate your login and hide active personal
+                    listings, but your records will stay stored securely in our database for
+                    compliance, support, and admin history.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger rounded-pill px-4"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  Delete My Account
+                </button>
+              </div>
             </div>
           </div>
         </section>
       </div>
+
+      {showDeleteModal && (
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0, 0, 0, 0.55)", zIndex: 2000 }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 rounded-4 shadow-lg">
+              <div className="modal-header bg-dark text-white">
+                <h5 className="modal-title">Delete your account?</h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => !deletingAccount && setShowDeleteModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-3">
+                  Are you sure you want to delete your account? This will deactivate your
+                  access immediately. Your records will remain stored securely and are not
+                  permanently erased from the database.
+                </p>
+
+                <div className="mb-3">
+                  <label className="form-label">Reason for leaving (optional)</label>
+                  <select
+                    className="form-select"
+                    value={deleteReasonCategory}
+                    onChange={(event) => setDeleteReasonCategory(event.target.value)}
+                    disabled={deletingAccount}
+                  >
+                    <option value="">Select a reason</option>
+                    {deleteReasonOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">Additional details (optional)</label>
+                  <textarea
+                    className="form-control"
+                    rows="4"
+                    value={deleteReasonText}
+                    onChange={(event) => setDeleteReasonText(event.target.value)}
+                    placeholder="Share anything you want us to know before your account is deactivated."
+                    disabled={deletingAccount}
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary rounded-pill"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deletingAccount}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger rounded-pill"
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount}
+                >
+                  {deletingAccount ? "Deleting..." : "Yes, Delete My Account"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

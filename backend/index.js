@@ -1129,7 +1129,11 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS policy_ack_version TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS policy_ack_at TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) DEFAULT 'active'`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_reason_category VARCHAR(100)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_reason TEXT`,
     `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS replied BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP`,
     `ALTER TABLE scst_submissions ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE`,
@@ -2625,13 +2629,41 @@ function buildRelatedKeywords(query, results) {
   return keywords;
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = getAuthToken(req);
   if (!token) return res.status(401).json({ message: "Unauthorized" });
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const result = await pool.query(
+      `SELECT
+         id,
+         name,
+         email,
+         role,
+         COALESCE(account_status, 'active') AS account_status
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [decoded.id]
+    );
+
+    if (!result.rows.length) {
+      clearAuthCookie(res);
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = result.rows[0];
+    if (user.account_status === "deleted") {
+      clearAuthCookie(res);
+      return res
+        .status(403)
+        .json({ message: "This account has been deleted. Contact support if you need help." });
+    }
+
+    req.user = user;
     next();
   } catch {
+    clearAuthCookie(res);
     return res.status(401).json({ message: "Unauthorized" });
   }
 }
@@ -3596,11 +3628,21 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
         "You must agree to the Terms of Use and Privacy Policy"
       );
     }
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
+    const existing = await pool.query(
+      "SELECT id, COALESCE(account_status, 'active') AS account_status FROM users WHERE email=$1",
+      [
       email,
-    ]);
-    if (existing.rows.length)
+      ]
+    );
+    if (existing.rows.length) {
+      if (existing.rows[0].account_status === "deleted") {
+        return res.status(403).json({
+          message:
+            "This email belongs to a deleted account. Please contact support if you need help restoring it.",
+        });
+      }
       return res.status(409).json({ message: "Email already registered" });
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const insertUser = () =>
@@ -3660,7 +3702,7 @@ app.post("/api/auth/login", authRateLimit, async (req, res) => {
 
     // ✅ Now fetch photo_url, phone, and city as well
     const result = await pool.query(
-      "SELECT id, name, email, role, password_hash, photo_url, phone, city, marketing_opt_in FROM users WHERE email=$1",
+      "SELECT id, name, email, role, password_hash, photo_url, phone, city, marketing_opt_in, COALESCE(account_status, 'active') AS account_status FROM users WHERE email=$1",
       [email]
     );
 
@@ -3668,6 +3710,12 @@ app.post("/api/auth/login", authRateLimit, async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
 
     const user = result.rows[0];
+    if (user.account_status === "deleted") {
+      return res.status(403).json({
+        message:
+          "This account has been deleted. Contact support if you need help restoring it.",
+      });
+    }
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
@@ -3679,6 +3727,7 @@ app.post("/api/auth/login", authRateLimit, async (req, res) => {
     );
 
     delete user.password_hash;
+    delete user.account_status;
     setAuthCookie(res, token);
     res.json({ user });
   } catch (err) {
@@ -3715,7 +3764,15 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
         [name, email.toLowerCase(), hash, picture, false, CURRENT_POLICY_VERSION]
       );
       user = insert.rows[0];
-    } else user = userRes.rows[0];
+    } else {
+      user = userRes.rows[0];
+      if ((user.account_status || "active") === "deleted") {
+        return res.status(403).json({
+          message:
+            "This account has been deleted. Contact support if you need help restoring it.",
+        });
+      }
+    }
 
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name, email: user.email },
@@ -4320,7 +4377,19 @@ app.get("/api/students/attempts/:attemptId/result", requireAuth, async (req, res
 app.get("/api/auth/me", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, role, photo_url, phone, city, created_at, marketing_opt_in FROM users WHERE id=$1",
+      `SELECT
+         id,
+         name,
+         email,
+         role,
+         photo_url,
+         phone,
+         city,
+         created_at,
+         marketing_opt_in,
+         COALESCE(account_status, 'active') AS account_status
+       FROM users
+       WHERE id=$1`,
       [req.user.id]
     );
 
@@ -5553,7 +5622,18 @@ app.delete(
 app.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, role, created_at FROM users ORDER BY id ASC"
+      `SELECT
+         id,
+         name,
+         email,
+         role,
+         created_at,
+         COALESCE(account_status, 'active') AS account_status,
+         deletion_requested_at,
+         deleted_at,
+         deletion_reason_category
+       FROM users
+       ORDER BY id ASC`
     );
     res.json(result.rows);
   } catch (err) {
@@ -5753,6 +5833,65 @@ app.post(
     }
   }
 );
+
+app.post("/api/user/delete-account", requireAuth, async (req, res) => {
+  try {
+    const reasonCategory = normalizeOptionalText(req.body?.reason_category, 100);
+    const reasonText = normalizeOptionalText(
+      sanitizeRichText(req.body?.reason_text),
+      4000
+    );
+
+    await pool.query(
+      `UPDATE users
+         SET account_status = 'deleted',
+             deletion_requested_at = COALESCE(deletion_requested_at, NOW()),
+             deleted_at = COALESCE(deleted_at, NOW()),
+             deletion_reason_category = $1,
+             deletion_reason = $2
+       WHERE id = $3`,
+      [reasonCategory || null, reasonText || null, req.user.id]
+    );
+
+    await pool.query(
+      `UPDATE matrimonial_submissions
+         SET is_public_listing = FALSE,
+             moderation_status = 'paused',
+             moderation_notes = COALESCE(moderation_notes || E'\n', '') || 'Account deleted by user on ' || TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+       WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    const privacyMessageParts = [
+      "User requested account deletion from profile page.",
+      reasonCategory ? `Reason category: ${reasonCategory}` : "",
+      reasonText ? `Additional details: ${reasonText}` : "",
+    ].filter(Boolean);
+
+    await pool.query(
+      `INSERT INTO privacy_requests
+        (request_type, name, email, user_id, message, status)
+       VALUES ($1, $2, $3, $4, $5, 'open')`,
+      [
+        "account_deletion",
+        req.user.name || "Account user",
+        req.user.email || null,
+        req.user.id,
+        privacyMessageParts.join("\n"),
+      ]
+    );
+
+    clearAuthCookie(res);
+    res.json({
+      message:
+        "Your account has been deactivated. Your records remain stored securely for compliance and support purposes.",
+      privacy_contact_email: PRIVACY_CONTACT_EMAIL,
+    });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // ---- CONTENT REQUEST ----
 // Public submission
