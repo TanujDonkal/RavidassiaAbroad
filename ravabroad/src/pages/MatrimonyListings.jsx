@@ -9,7 +9,7 @@ import {
 } from "../utils/matrimony";
 import Seo from "../components/Seo";
 import "../css/Matrimony.css";
-import { isAuthenticated } from "../utils/auth";
+import { getStoredUser } from "../utils/auth";
 
 function promptAuth(popup, navigate, redirectTo) {
   popup.open({
@@ -28,6 +28,7 @@ export default function MatrimonyListings() {
   const popup = usePopup();
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState([]);
+  const [authUser, setAuthUser] = useState(() => getStoredUser());
   const [sortBy, setSortBy] = useState("newest");
   const [filters, setFilters] = useState({
     gender: "",
@@ -36,7 +37,17 @@ export default function MatrimonyListings() {
     ageMax: "",
   });
 
-  const isLoggedIn = isAuthenticated();
+  const isLoggedIn = Boolean(authUser?.id);
+
+  useEffect(() => {
+    const syncAuth = () => setAuthUser(getStoredUser());
+    window.addEventListener("auth-updated", syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener("auth-updated", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
 
   const loadProfiles = async (activeFilters = filters) => {
     setLoading(true);
