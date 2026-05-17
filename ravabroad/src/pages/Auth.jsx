@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import "../css/auth.css";
-import { login, register, API_BASE } from "../utils/api";
+import { login, register, verifyRegistrationOtp, API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { clearPostAuthRedirect, getPostAuthRedirect } from "../utils/formDrafts";
 import { setStoredAuth } from "../utils/auth";
@@ -29,15 +29,47 @@ export default function Auth() {
     policyAccepted: false,
     marketingOptIn: false,
   });
+  const [signUpStep, setSignUpStep] = useState("form");
+  const [signUpOtp, setSignUpOtp] = useState("");
+  const [signUpCooldown, setSignUpCooldown] = useState(0);
 
   useEffect(() => {
     const mode = (searchParams.get("mode") || "").toLowerCase();
     setPanelRight(mode === "signup");
   }, [searchParams]);
 
+  useEffect(() => {
+    if (signUpCooldown <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setSignUpCooldown((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [signUpCooldown]);
+
   const handleChange = (setFn) => (e) => {
     const { name, value } = e.target;
     setFn((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSignUpFieldChange = (e) => {
+    const { name, value } = e.target;
+    setSignUp((prev) => ({ ...prev, [name]: value }));
+    if (signUpStep === "verify") {
+      setSignUpStep("form");
+      setSignUpOtp("");
+      setSignUpCooldown(0);
+      setMsg("Details changed. Send a new verification code.");
+    }
+  };
+
+  const handleSignUpCheckboxChange = (name) => (e) => {
+    setSignUp((prev) => ({ ...prev, [name]: e.target.checked }));
+    if (signUpStep === "verify") {
+      setSignUpStep("form");
+      setSignUpOtp("");
+      setSignUpCooldown(0);
+      setMsg("Details changed. Send a new verification code.");
+    }
   };
 
   const getAuthRedirectPath = () => {
@@ -66,11 +98,53 @@ export default function Auth() {
         policyAccepted: signUp.policyAccepted,
         marketingOptIn: signUp.marketingOptIn,
       });
-      setMsg(data.message || "User created successfully.");
-      finishAuth(data, "Account created successfully!");
+      setSignUpStep("verify");
+      setSignUpOtp("");
+      setSignUpCooldown(Number(data.resend_after_seconds) || 60);
+      setMsg(data.message || "A verification code has been sent to your email.");
     } catch (err) {
       popup.open({
         title: "Registration Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
+  const handleVerifySignUp = async (e) => {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      const data = await verifyRegistrationOtp({
+        email: signUp.email,
+        otp: signUpOtp,
+      });
+      finishAuth(data, "Account created successfully!");
+    } catch (err) {
+      popup.open({
+        title: "Verification Error",
+        message: err.message,
+        type: "error",
+      });
+    }
+  };
+
+  const handleResendSignUpOtp = async () => {
+    if (signUpCooldown > 0) return;
+    setMsg(null);
+    try {
+      const data = await register({
+        name: signUp.name,
+        email: signUp.email,
+        password: signUp.password,
+        policyAccepted: signUp.policyAccepted,
+        marketingOptIn: signUp.marketingOptIn,
+      });
+      setSignUpCooldown(Number(data.resend_after_seconds) || 60);
+      setMsg(data.message || "A fresh verification code has been sent.");
+    } catch (err) {
+      popup.open({
+        title: "Could Not Resend Code",
         message: err.message,
         type: "error",
       });
@@ -198,40 +272,51 @@ export default function Auth() {
         id="container"
       >
         <div className="form-container sign-up-container">
-          <form onSubmit={handleSignUp}>
-            <h1>Create Account</h1>
-            <div id="googleSignUpBtn"></div>
-            <p className="small text-muted mt-2 mb-3">
-              By continuing with Google, you agree to the{" "}
-              <Link to={LEGAL_PATHS.terms}>Terms of Use</Link> and acknowledge the{" "}
-              <Link to={LEGAL_PATHS.privacy}>Privacy Policy</Link>.
-            </p>
+          <form onSubmit={signUpStep === "verify" ? handleVerifySignUp : handleSignUp}>
+            <h1>{signUpStep === "verify" ? "Verify Email" : "Create Account"}</h1>
+            {signUpStep !== "verify" && (
+              <>
+                <div id="googleSignUpBtn"></div>
+                <p className="small text-muted mt-2 mb-3">
+                  By continuing with Google, you agree to the{" "}
+                  <Link to={LEGAL_PATHS.terms}>Terms of Use</Link> and acknowledge the{" "}
+                  <Link to={LEGAL_PATHS.privacy}>Privacy Policy</Link>.
+                </p>
+              </>
+            )}
 
-            <span>or use your email for registration</span>
+            <span>
+              {signUpStep === "verify"
+                ? "Enter the 6-digit code sent to your email"
+                : "or use your email for registration"}
+            </span>
             <input
               type="text"
               name="name"
               placeholder="Name"
               value={signUp.name}
-              onChange={handleChange(setSignUp)}
+              onChange={handleSignUpFieldChange}
               required
+              disabled={signUpStep === "verify"}
             />
             <input
               type="email"
               name="email"
               placeholder="Email"
               value={signUp.email}
-              onChange={handleChange(setSignUp)}
+              onChange={handleSignUpFieldChange}
               required
+              disabled={signUpStep === "verify"}
             />
             <input
               type="password"
               name="password"
               placeholder="Password (min 6 chars)"
               value={signUp.password}
-              onChange={handleChange(setSignUp)}
+              onChange={handleSignUpFieldChange}
               required
               minLength={6}
+              disabled={signUpStep === "verify"}
             />
             <div className="auth-checkbox-group">
               <label className="auth-checkbox">
@@ -239,13 +324,9 @@ export default function Auth() {
                   type="checkbox"
                   name="policyAccepted"
                   checked={signUp.policyAccepted}
-                  onChange={(e) =>
-                    setSignUp((prev) => ({
-                      ...prev,
-                      policyAccepted: e.target.checked,
-                    }))
-                  }
+                  onChange={handleSignUpCheckboxChange("policyAccepted")}
                   required
+                  disabled={signUpStep === "verify"}
                 />
                 <span>{SIGNUP_ACKNOWLEDGMENT}</span>
               </label>
@@ -254,17 +335,59 @@ export default function Auth() {
                   type="checkbox"
                   name="marketingOptIn"
                   checked={signUp.marketingOptIn}
-                  onChange={(e) =>
-                    setSignUp((prev) => ({
-                      ...prev,
-                      marketingOptIn: e.target.checked,
-                    }))
-                  }
+                  onChange={handleSignUpCheckboxChange("marketingOptIn")}
+                  disabled={signUpStep === "verify"}
                 />
                 <span>{MARKETING_OPT_IN_LABEL}</span>
               </label>
             </div>
-            <button type="submit" className="auth-submit-btn">Sign Up</button>
+
+            {signUpStep === "verify" && (
+              <div className="auth-verify-box">
+                <p className="auth-verify-note">
+                  We sent a verification code to <strong>{signUp.email}</strong>.
+                </p>
+                <input
+                  type="text"
+                  name="signupOtp"
+                  placeholder="Enter verification code"
+                  value={signUpOtp}
+                  onChange={(e) => setSignUpOtp(e.target.value)}
+                  required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                />
+                <div className="auth-secondary-actions">
+                  <button
+                    type="button"
+                    className="auth-secondary-btn"
+                    onClick={handleResendSignUpOtp}
+                    disabled={signUpCooldown > 0}
+                  >
+                    {signUpCooldown > 0
+                      ? `Resend in ${signUpCooldown}s`
+                      : "Resend code"}
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-secondary-btn"
+                    onClick={() => {
+                      setSignUpStep("form");
+                      setSignUpOtp("");
+                      setSignUpCooldown(0);
+                      setMsg(null);
+                    }}
+                  >
+                    Edit details
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button type="submit" className="auth-submit-btn">
+              {signUpStep === "verify" ? "Verify and Create Account" : "Send Verification Code"}
+            </button>
 
             <p className="auth-mobile-only">
               Already have an account?{" "}

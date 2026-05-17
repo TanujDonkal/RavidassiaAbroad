@@ -44,7 +44,7 @@ export default function ForgotPassword() {
         type: "success",
       });
       setStep(2);
-      setTimer(30); // start countdown
+      setTimer(Number(data.resend_after_seconds) || 60);
     } catch (err) {
       popup.open({ title: "Error", message: err.message, type: "error" });
     } finally {
@@ -69,7 +69,7 @@ export default function ForgotPassword() {
         message: "Check your inbox again!",
         type: "success",
       });
-      setTimer(30);
+      setTimer(Number(data.resend_after_seconds) || 60);
     } catch (err) {
       popup.open({ title: "Error", message: err.message, type: "error" });
     }

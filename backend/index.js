@@ -5,7 +5,6 @@ import pkg from "pg";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import helmet from "helmet";
-import nodemailer from "nodemailer";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -31,7 +30,6 @@ const { Pool } = pkg;
 const app = express();
 app.set("trust proxy", 1);
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const otpStore = new Map();
 const rateLimitStore = new Map();
 const IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -49,6 +47,12 @@ const AUTH_COOKIE_SECURE =
 const AUTH_COOKIE_SAME_SITE =
   process.env.AUTH_COOKIE_SAME_SITE || (IS_PRODUCTION ? "None" : "Lax");
 const AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const OTP_EXPIRY_MS = 5 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const FRONTEND_URL = (process.env.FRONTEND_URL || "https://www.ravidassiaabroad.com")
+  .trim()
+  .replace(/\/+$/, "");
 const serverState = {
   dbReady: false,
   lastDbError: null,
@@ -105,17 +109,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-
-function cleanupExpiredOtps() {
-  const now = Date.now();
-  for (const [email, record] of otpStore.entries()) {
-    if (!record?.expiresAt || now > record.expiresAt) {
-      otpStore.delete(email);
-    }
-  }
-}
-
-setInterval(cleanupExpiredOtps, 60 * 1000).unref?.();
 
 function cleanupExpiredRateLimits() {
   const now = Date.now();
@@ -663,8 +656,6 @@ const {
   PGUSER,
   PGPASSWORD,
   JWT_SECRET,
-  SMTP_USER,
-  SMTP_PASS,
   ADMIN_NOTIFY_TO,
 } = process.env;
 
@@ -683,16 +674,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// ---- EMAIL TRANSPORTER ----
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS, // App password
-  },
-});
-
-
 // ---- DB INIT ----
 async function initDB() {
   await pool.query(`
@@ -703,6 +684,35 @@ async function initDB() {
       password_hash VARCHAR(255) NOT NULL,
       role VARCHAR(20) DEFAULT 'user',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pending_user_signups (
+      id BIGSERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      marketing_opt_in BOOLEAN DEFAULT FALSE,
+      policy_ack_version TEXT,
+      otp_hash VARCHAR(255) NOT NULL,
+      otp_expires_at TIMESTAMP NOT NULL,
+      resend_available_at TIMESTAMP NOT NULL,
+      verification_attempts INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_otps (
+      email VARCHAR(255) PRIMARY KEY,
+      otp_hash VARCHAR(255) NOT NULL,
+      otp_expires_at TIMESTAMP NOT NULL,
+      resend_available_at TIMESTAMP NOT NULL,
+      verification_attempts INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
@@ -2416,6 +2426,151 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+function getSiteUrl(path = "") {
+  if (!path) return FRONTEND_URL;
+  return `${FRONTEND_URL}${String(path).startsWith("/") ? path : `/${path}`}`;
+}
+
+function getConfiguredEmailFrom() {
+  const from = String(process.env.EMAIL_FROM || "").trim();
+  if (!from) {
+    throw new Error("EMAIL_FROM is not configured");
+  }
+  return from;
+}
+
+function generateOtpCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function getSecondsRemaining(targetDate) {
+  if (!targetDate) return 0;
+  const ms = new Date(targetDate).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 1000));
+}
+
+function formatEnumLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+async function cleanupExpiredVerificationRows() {
+  await Promise.all([
+    pool.query(
+      `DELETE FROM pending_user_signups
+        WHERE otp_expires_at < NOW() - INTERVAL '1 day'`
+    ),
+    pool.query(
+      `DELETE FROM password_reset_otps
+        WHERE otp_expires_at < NOW() - INTERVAL '1 day'`
+    ),
+  ]);
+}
+
+function buildTransactionalEmail({
+  title,
+  intro,
+  bodyHtml = "",
+  ctaLabel = "",
+  ctaUrl = "",
+  footerNote = "",
+}) {
+  const safeTitle = escapeHtml(title);
+  const safeIntro = escapeHtml(intro);
+  const safeFooter = footerNote ? `<p style="margin:24px 0 0;color:#666;font-size:13px;line-height:1.6;">${escapeHtml(footerNote)}</p>` : "";
+  const ctaMarkup =
+    ctaLabel && ctaUrl
+      ? `<p style="margin:28px 0 0;">
+           <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:#f5c242;color:#111;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px;">
+             ${escapeHtml(ctaLabel)}
+           </a>
+         </p>`
+      : "";
+
+  return `
+    <div style="margin:0;padding:32px 16px;background:#f7f1df;font-family:Arial,sans-serif;color:#171717;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid rgba(23,23,23,0.08);box-shadow:0 18px 45px rgba(0,0,0,0.08);">
+        <div style="background:#111111;color:#ffffff;padding:22px 28px;border-bottom:4px solid #f5c242;">
+          <div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase;opacity:0.8;">Ravidassia Abroad</div>
+          <h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">${safeTitle}</h1>
+        </div>
+        <div style="padding:28px;">
+          <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#343434;">${safeIntro}</p>
+          ${bodyHtml}
+          ${ctaMarkup}
+          ${safeFooter}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildOtpEmail({ title, intro, otp, footerNote }) {
+  return buildTransactionalEmail({
+    title,
+    intro,
+    bodyHtml: `
+      <div style="margin:22px 0;padding:18px 20px;border-radius:16px;background:#fff6cf;border:1px solid rgba(245,194,66,0.4);">
+        <div style="font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:#7d6200;font-weight:700;">One-time code</div>
+        <div style="margin-top:8px;font-size:34px;font-weight:800;letter-spacing:8px;color:#151515;">${escapeHtml(otp)}</div>
+      </div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#5f5f5f;">
+        This code expires in 5 minutes. If you did not request it, you can safely ignore this email.
+      </p>
+    `,
+    footerNote,
+  });
+}
+
+async function sendTransactionalEmail({ to, subject, html }) {
+  return resend.emails.send({
+    from: getConfiguredEmailFrom(),
+    to,
+    subject,
+    html,
+  });
+}
+
+async function createUserAccount({
+  name,
+  email,
+  passwordHash,
+  marketingOptIn = false,
+  policyAckVersion = CURRENT_POLICY_VERSION,
+}) {
+  const insertUser = () =>
+    pool.query(
+      `INSERT INTO users
+        (name, email, password_hash, role, marketing_opt_in, policy_ack_version, policy_ack_at)
+       VALUES ($1,$2,$3,'user',$4,$5,NOW())
+       RETURNING id, name, email, role, photo_url, phone, city, marketing_opt_in`,
+      [name, email, passwordHash, normalizeBooleanInput(marketingOptIn), policyAckVersion]
+    );
+
+  try {
+    const inserted = await insertUser();
+    return inserted.rows[0];
+  } catch (dbErr) {
+    if (dbErr.code === "23502" && dbErr.column === "id") {
+      await ensureIdSequenceDefault("users");
+      const inserted = await insertUser();
+      return inserted.rows[0];
+    }
+    throw dbErr;
+  }
+}
+
+function buildAuthResponse(user) {
+  const token = jwt.sign(
+    { id: user.id, role: user.role, name: user.name, email: user.email },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  return { user, token };
+}
+
 const SEARCHABLE_STATIC_PAGES = [
   {
     type: "page",
@@ -3237,7 +3392,7 @@ async function getProfileInterestRelation(profileId, viewerUserId) {
 // 🟢 Step 1: Request password reset (send OTP)
 app.post("/api/auth/request-reset", authRateLimit, async (req, res) => {
   try {
-    cleanupExpiredOtps();
+    await cleanupExpiredVerificationRows();
     const email = normalizeEmail(req.body?.email);
     if (!email || !isValidEmail(email)) {
       return sendValidationError(res, "Valid email required");
@@ -3251,27 +3406,61 @@ app.post("/api/auth/request-reset", authRateLimit, async (req, res) => {
     if (user.rows.length === 0)
       return res.status(404).json({ message: "No account with that email" });
 
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    otpStore.set(email, { otp, expiresAt });
+    const existingOtp = await pool.query(
+      `SELECT resend_available_at
+         FROM password_reset_otps
+        WHERE email = $1`,
+      [email]
+    );
+    if (
+      existingOtp.rows.length &&
+      getSecondsRemaining(existingOtp.rows[0].resend_available_at) > 0
+    ) {
+      return res.status(429).json({
+        message: "Please wait before requesting another reset code.",
+        resend_after_seconds: getSecondsRemaining(
+          existingOtp.rows[0].resend_available_at
+        ),
+      });
+    }
 
-    // Send Email via Resend (CORRECT)
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM,
+    const otp = generateOtpCode();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+    const resendAvailableAt = new Date(Date.now() + OTP_RESEND_COOLDOWN_MS);
+
+    await pool.query(
+      `INSERT INTO password_reset_otps
+        (email, otp_hash, otp_expires_at, resend_available_at, verification_attempts, updated_at)
+       VALUES ($1, $2, $3, $4, 0, NOW())
+       ON CONFLICT (email)
+       DO UPDATE SET
+         otp_hash = EXCLUDED.otp_hash,
+         otp_expires_at = EXCLUDED.otp_expires_at,
+         resend_available_at = EXCLUDED.resend_available_at,
+         verification_attempts = 0,
+         updated_at = NOW()`,
+      [email, otpHash, expiresAt, resendAvailableAt]
+    );
+
+    await sendTransactionalEmail({
       to: email,
-      subject: "🔐 Ravidassia Abroad Password Reset",
-      html: `
-        <div style="font-family: Arial; padding: 20px;">
-          <h2 style="color:#fecf2f;">Ravidassia Abroad</h2>
-          <p>Your OTP is:</p>
-          <h1>${otp}</h1>
-          <p>This OTP expires in 5 minutes.</p>
-        </div>
-      `,
+      subject: "Ravidassia Abroad password reset code",
+      html: buildOtpEmail({
+        title: "Reset your password",
+        intro:
+          "Use the verification code below to reset the password for your Ravidassia Abroad account.",
+        otp,
+        footerNote:
+          "If you did not request a password reset, no changes have been made to your account.",
+      }),
     });
 
-    res.json({ message: "OTP sent to your email" });
+    res.json({
+      message: "A verification code has been sent to your email.",
+      resend_after_seconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000),
+      expires_in_seconds: Math.ceil(OTP_EXPIRY_MS / 1000),
+    });
   } catch (err) {
     console.error("❌ Reset request error:", err);
     res.status(500).json({ message: "Server error" });
@@ -3283,7 +3472,7 @@ app.post("/api/auth/request-reset", authRateLimit, async (req, res) => {
 // 🟢 Step 2: Verify OTP and reset password
 app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
   try {
-    cleanupExpiredOtps();
+    await cleanupExpiredVerificationRows();
     const email = normalizeEmail(req.body?.email);
     const otp = normalizeRequiredText(req.body?.otp, 12);
     const newPassword = String(req.body?.newPassword || "");
@@ -3296,23 +3485,73 @@ app.post("/api/auth/reset-password", authRateLimit, async (req, res) => {
       );
     }
 
-    const record = otpStore.get(email);
-    if (!record)
+    const otpResult = await pool.query(
+      `SELECT otp_hash, otp_expires_at, verification_attempts
+         FROM password_reset_otps
+        WHERE email = $1
+        LIMIT 1`,
+      [email]
+    );
+    if (!otpResult.rows.length)
       return res.status(400).json({ message: "OTP expired or invalid" });
 
-    if (record.otp !== otp)
-      return res.status(400).json({ message: "Incorrect OTP" });
-    if (Date.now() > record.expiresAt)
+    const record = otpResult.rows[0];
+    if (getSecondsRemaining(record.otp_expires_at) <= 0) {
+      await pool.query("DELETE FROM password_reset_otps WHERE email = $1", [email]);
       return res.status(400).json({ message: "OTP expired" });
+    }
+    if ((record.verification_attempts || 0) >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        message: "Too many incorrect attempts. Please request a new reset code.",
+      });
+    }
+
+    const otpMatches = await bcrypt.compare(otp, record.otp_hash);
+    if (!otpMatches) {
+      await pool.query(
+        `UPDATE password_reset_otps
+            SET verification_attempts = verification_attempts + 1,
+                updated_at = NOW()
+          WHERE email = $1`,
+        [email]
+      );
+      return res.status(400).json({ message: "Incorrect OTP" });
+    }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.query("UPDATE users SET password_hash=$1 WHERE email=$2", [
-      passwordHash,
-      email,
-    ]);
+    const updatedUser = await pool.query(
+      "UPDATE users SET password_hash=$1 WHERE email=$2 RETURNING name, email",
+      [passwordHash, email]
+    );
+    if (!updatedUser.rows.length) {
+      await pool.query("DELETE FROM password_reset_otps WHERE email = $1", [email]);
+      return res.status(404).json({ message: "No account with that email" });
+    }
 
-    otpStore.delete(email);
+    await pool.query("DELETE FROM password_reset_otps WHERE email = $1", [email]);
     clearAuthCookie(res);
+
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Your Ravidassia Abroad password was changed",
+      html: buildTransactionalEmail({
+        title: "Password updated",
+        intro: `Hi ${
+          updatedUser.rows[0]?.name || "there"
+        }, your password was changed successfully.`,
+        bodyHtml: `
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+            If you made this change, there is nothing else you need to do. If you did not make this change, reset your password again immediately and contact our support team.
+          </p>
+        `,
+        ctaLabel: "Sign in again",
+        ctaUrl: getSiteUrl("/auth"),
+        footerNote: `Support email: ${PRIVACY_CONTACT_EMAIL}`,
+      }),
+    }).catch((emailErr) =>
+      console.error("Password reset confirmation email failed:", emailErr)
+    );
+
     res.json({ message: "Password reset successful" });
   } catch (err) {
     console.error("❌ Reset password error:", err);
@@ -3328,9 +3567,8 @@ async function sendNotificationEmail(subject, html) {
     if (toList.length === 0 && ADMIN_NOTIFY_TO) toList = [ADMIN_NOTIFY_TO];
     if (toList.length === 0) return;
 
-    await transporter.sendMail({
-      from: `"Ravidassia Abroad" <${SMTP_USER}>`,
-      to: toList.join(","),
+    await sendTransactionalEmail({
+      to: toList.length === 1 ? toList[0] : toList,
       subject,
       html,
     });
@@ -3644,49 +3882,190 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
       return res.status(409).json({ message: "Email already registered" });
     }
 
-    const hash = await bcrypt.hash(password, 10);
-    const insertUser = () =>
-      pool.query(
-        `INSERT INTO users
-          (name, email, password_hash, role, marketing_opt_in, policy_ack_version, policy_ack_at)
-         VALUES ($1,$2,$3,'user',$4,$5,NOW())
-         RETURNING id, name, email, role, photo_url, phone, city, marketing_opt_in`,
-        [
-          name,
-          email,
-          hash,
-          normalizeBooleanInput(marketingOptIn),
-          CURRENT_POLICY_VERSION,
-        ]
-      );
+    await cleanupExpiredVerificationRows();
 
-    let inserted;
-
-    try {
-      inserted = await insertUser();
-    } catch (dbErr) {
-      if (dbErr.code === "23502" && dbErr.column === "id") {
-        await ensureIdSequenceDefault("users");
-        inserted = await insertUser();
-      } else {
-        throw dbErr;
-      }
+    const existingPending = await pool.query(
+      `SELECT resend_available_at
+         FROM pending_user_signups
+        WHERE email = $1`,
+      [email]
+    );
+    if (
+      existingPending.rows.length &&
+      getSecondsRemaining(existingPending.rows[0].resend_available_at) > 0
+    ) {
+      return res.status(429).json({
+        message: "Please wait before requesting another verification code.",
+        resend_after_seconds: getSecondsRemaining(
+          existingPending.rows[0].resend_available_at
+        ),
+      });
     }
 
-    const user = inserted.rows[0];
-    const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name, email: user.email },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const otp = generateOtpCode();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+    const resendAvailableAt = new Date(Date.now() + OTP_RESEND_COOLDOWN_MS);
+
+    await pool.query(
+      `INSERT INTO pending_user_signups
+        (name, email, password_hash, marketing_opt_in, policy_ack_version, otp_hash, otp_expires_at, resend_available_at, verification_attempts, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW())
+       ON CONFLICT (email)
+       DO UPDATE SET
+         name = EXCLUDED.name,
+         password_hash = EXCLUDED.password_hash,
+         marketing_opt_in = EXCLUDED.marketing_opt_in,
+         policy_ack_version = EXCLUDED.policy_ack_version,
+         otp_hash = EXCLUDED.otp_hash,
+         otp_expires_at = EXCLUDED.otp_expires_at,
+         resend_available_at = EXCLUDED.resend_available_at,
+         verification_attempts = 0,
+         updated_at = NOW()`,
+      [
+        name,
+        email,
+        passwordHash,
+        normalizeBooleanInput(marketingOptIn),
+        CURRENT_POLICY_VERSION,
+        otpHash,
+        expiresAt,
+        resendAvailableAt,
+      ]
     );
 
-    setAuthCookie(res, token);
-    res.status(201).json({ message: "User created successfully", user, token });
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Verify your Ravidassia Abroad account",
+      html: buildOtpEmail({
+        title: "Verify your email",
+        intro:
+          "Use the verification code below to complete your Ravidassia Abroad account setup.",
+        otp,
+        footerNote:
+          "Your account will only be created after you verify this code.",
+      }),
+    });
+
+    res.status(202).json({
+      message: "A verification code has been sent to your email.",
+      verification_required: true,
+      email,
+      resend_after_seconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000),
+      expires_in_seconds: Math.ceil(OTP_EXPIRY_MS / 1000),
+    });
   } catch (err) {
     console.error("Register error:", err);
     if (err.code === "23505") {
       return res.status(409).json({ message: "Email already registered" });
     }
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/auth/register/verify", authRateLimit, async (req, res) => {
+  try {
+    await cleanupExpiredVerificationRows();
+    const email = normalizeEmail(req.body?.email);
+    const otp = normalizeRequiredText(req.body?.otp, 12);
+
+    if (!email || !otp) {
+      return sendValidationError(res, "Email and verification code are required");
+    }
+
+    const pendingResult = await pool.query(
+      `SELECT *
+         FROM pending_user_signups
+        WHERE email = $1
+        LIMIT 1`,
+      [email]
+    );
+    if (!pendingResult.rows.length) {
+      return res.status(404).json({
+        message: "No pending signup found. Please request a new verification code.",
+      });
+    }
+
+    const pending = pendingResult.rows[0];
+    if (getSecondsRemaining(pending.otp_expires_at) <= 0) {
+      await pool.query("DELETE FROM pending_user_signups WHERE email = $1", [email]);
+      return res.status(400).json({
+        message: "Verification code expired. Please request a new one.",
+      });
+    }
+    if ((pending.verification_attempts || 0) >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        message: "Too many incorrect attempts. Please request a new verification code.",
+      });
+    }
+
+    const otpMatches = await bcrypt.compare(otp, pending.otp_hash);
+    if (!otpMatches) {
+      await pool.query(
+        `UPDATE pending_user_signups
+            SET verification_attempts = verification_attempts + 1,
+                updated_at = NOW()
+          WHERE email = $1`,
+        [email]
+      );
+      return res.status(400).json({ message: "Incorrect verification code" });
+    }
+
+    const existing = await pool.query(
+      "SELECT id, COALESCE(account_status, 'active') AS account_status FROM users WHERE email = $1",
+      [email]
+    );
+    if (existing.rows.length) {
+      await pool.query("DELETE FROM pending_user_signups WHERE email = $1", [email]);
+      if (existing.rows[0].account_status === "deleted") {
+        return res.status(403).json({
+          message:
+            "This email belongs to a deleted account. Please contact support if you need help restoring it.",
+        });
+      }
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const user = await createUserAccount({
+      name: pending.name,
+      email: pending.email,
+      passwordHash: pending.password_hash,
+      marketingOptIn: pending.marketing_opt_in,
+      policyAckVersion: pending.policy_ack_version || CURRENT_POLICY_VERSION,
+    });
+
+    await pool.query("DELETE FROM pending_user_signups WHERE email = $1", [email]);
+
+    const authPayload = buildAuthResponse(user);
+    setAuthCookie(res, authPayload.token);
+
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Welcome to Ravidassia Abroad",
+      html: buildTransactionalEmail({
+        title: "Your account is ready",
+        intro: `Hi ${
+          user.name || "there"
+        }, your email has been verified and your account is now active.`,
+        bodyHtml: `
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+            You can now sign in, complete your profile, and use community features across the website.
+          </p>
+        `,
+        ctaLabel: "Open my account",
+        ctaUrl: getSiteUrl("/profile"),
+      }),
+    }).catch((emailErr) =>
+      console.error("Signup confirmation email failed:", emailErr)
+    );
+
+    res.status(201).json({
+      message: "Email verified. Account created successfully.",
+      ...authPayload,
+    });
+  } catch (err) {
+    console.error("Register verify error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -3753,6 +4132,7 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
       email.toLowerCase(),
     ]);
     let user;
+    let createdNewUser = false;
 
     if (userRes.rows.length === 0) {
       const hash = await bcrypt.hash(jwt.sign({ email }, JWT_SECRET), 10);
@@ -3764,6 +4144,7 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
         [name, email.toLowerCase(), hash, picture, false, CURRENT_POLICY_VERSION]
       );
       user = insert.rows[0];
+      createdNewUser = true;
     } else {
       user = userRes.rows[0];
       if ((user.account_status || "active") === "deleted") {
@@ -3782,6 +4163,27 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
 
     delete user.password_hash;
     setAuthCookie(res, token);
+
+    if (createdNewUser && user.email && isValidEmail(user.email)) {
+      await sendTransactionalEmail({
+        to: user.email,
+        subject: "Welcome to Ravidassia Abroad",
+        html: buildTransactionalEmail({
+          title: "Your account is ready",
+          intro: `Hi ${user.name || "there"}, your Google sign-in is connected and your Ravidassia Abroad account is now active.`,
+          bodyHtml: `
+            <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+              You can now complete your profile and start using the community features across the website.
+            </p>
+          `,
+          ctaLabel: "Open my account",
+          ctaUrl: getSiteUrl("/profile"),
+        }),
+      }).catch((emailErr) =>
+        console.error("Google signup confirmation email failed:", emailErr)
+      );
+    }
+
     res.json({ user, token });
   } catch (err) {
     console.error("❌ Google auth error:", err);
@@ -4476,6 +4878,23 @@ app.post("/api/scst-submissions", requireAuth, formRateLimit, async (req, res) =
         [userId, existingId]
       );
 
+      await sendTransactionalEmail({
+        to: email,
+        subject: "Your SC/ST Connect submission was updated",
+        html: buildTransactionalEmail({
+          title: "Submission updated",
+          intro: `Hi ${name || "there"}, your SC/ST Connect submission for ${country} was updated successfully.`,
+          bodyHtml: `
+            <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+              We saved your latest information and moved the submission back into review so our team can follow up with the newest details.
+            </p>
+          `,
+          footerNote: `Questions? Contact us at ${PRIVACY_CONTACT_EMAIL}.`,
+        }),
+      }).catch((emailErr) =>
+        console.error("SC/ST submission update email failed:", emailErr)
+      );
+
       return res.json({ message: "Submission updated successfully" });
     }
 
@@ -4518,6 +4937,23 @@ app.post("/api/scst-submissions", requireAuth, formRateLimit, async (req, res) =
         <p>Log in to your admin dashboard to review it.</p>
       `
     ).catch((err) => console.error("⚠️ Email send async error:", err.message));
+
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Your SC/ST Connect submission was received",
+      html: buildTransactionalEmail({
+        title: "Submission received",
+        intro: `Hi ${name || "there"}, we received your SC/ST Connect submission for ${country}.`,
+        bodyHtml: `
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+            Our team will review your details and reach out if anything else is needed. If your request is matched with a community group or follow-up, we will contact you at this email.
+          </p>
+        `,
+        footerNote: `Questions? Contact us at ${PRIVACY_CONTACT_EMAIL}.`,
+      }),
+    }).catch((emailErr) =>
+      console.error("SC/ST submission confirmation email failed:", emailErr)
+    );
 
     res.json({ message: "Submission received" });
   } catch (err) {
@@ -4602,6 +5038,7 @@ app.post(
 
       const dobValue = d.dob?.trim() ? d.dob : null;
       const photoUrl = req.file?.path || d.photo_url || null;
+      const submissionEmail = normalizeEmail(d.email) || req.user.email || null;
 
       // Check if this user already has a submission
       const existing = await pool.query(
@@ -4681,6 +5118,28 @@ app.post(
           "DELETE FROM matrimonial_submissions WHERE user_id=$1 AND id <> $2",
           [userId, id]
         );
+
+        if (submissionEmail && isValidEmail(submissionEmail)) {
+          await sendTransactionalEmail({
+            to: submissionEmail,
+            subject: "Your Ravidassia Abroad matrimony profile was updated",
+            html: buildTransactionalEmail({
+              title: "Profile updated",
+              intro: `Hi ${
+                d.name || req.user.name || "there"
+              }, your matrimony profile has been updated successfully.`,
+              bodyHtml: `
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                  We saved your latest details and moved the profile back into review so the listing stays accurate and safe for the community.
+                </p>
+              `,
+              ctaLabel: "Open matrimony dashboard",
+              ctaUrl: getSiteUrl("/matrimony/my-profile"),
+            }),
+          }).catch((emailErr) =>
+            console.error("Matrimony update confirmation email failed:", emailErr)
+          );
+        }
 
         return res.json({ message: "✅ Biodata updated successfully!" });
       }
@@ -4778,6 +5237,30 @@ app.post(
       );
 
       res.json({ message: "✅ Biodata submitted successfully!" });
+      if (submissionEmail && isValidEmail(submissionEmail)) {
+        await sendTransactionalEmail({
+          to: submissionEmail,
+          subject: "Your Ravidassia Abroad matrimony profile was submitted",
+          html: buildTransactionalEmail({
+            title: "Profile submitted",
+            intro: `Hi ${
+              d.name || req.user.name || "there"
+            }, we received your matrimony profile successfully.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                Our team will review it before public visibility is updated. You can track the latest status at any time from your matrimony dashboard.
+              </p>
+            `,
+            ctaLabel: "Open matrimony dashboard",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error(
+            "Matrimony submission confirmation email failed:",
+            emailErr
+          )
+        );
+      }
     } catch (err) {
       console.error("❌ Matrimonial submit error:", err);
       res.status(500).json({ message: "Server error" });
@@ -5004,7 +5487,19 @@ app.post(
       }
 
       const receiverProfileResult = await pool.query(
-        `SELECT id, user_id FROM matrimonial_submissions WHERE id = $1 LIMIT 1`,
+        `SELECT
+            mp.id,
+            mp.user_id,
+            mp.name,
+            mp.city_living,
+            mp.country_living,
+            mp.email AS profile_email,
+            u.email AS user_email
+           FROM matrimonial_submissions mp
+           LEFT JOIN users u
+             ON u.id = mp.user_id
+          WHERE mp.id = $1
+          LIMIT 1`,
         [receiverProfileId]
       );
       if (!receiverProfileResult.rows.length) {
@@ -5054,6 +5549,43 @@ app.post(
          RETURNING *`,
         [req.user.id, senderProfile?.id || null, receiverProfileId]
       );
+
+      const interestRecipientEmail =
+        normalizeEmail(receiverProfile.user_email) ||
+        normalizeEmail(receiverProfile.profile_email);
+      if (interestRecipientEmail && isValidEmail(interestRecipientEmail)) {
+        await sendTransactionalEmail({
+          to: interestRecipientEmail,
+          subject: "Someone sent you an interest on Ravidassia Abroad Matrimony",
+          html: buildTransactionalEmail({
+            title: "New matrimony interest",
+            intro: `Hi ${
+              receiverProfile.name || "there"
+            }, someone just sent you an interest through Ravidassia Abroad Matrimony.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                <strong>${escapeHtml(
+                  senderProfile?.name || req.user.name || "A member"
+                )}</strong>
+                ${
+                  senderProfile?.city_living || senderProfile?.country_living
+                    ? ` from ${escapeHtml(
+                        [senderProfile?.city_living, senderProfile?.country_living]
+                          .filter(Boolean)
+                          .join(", ")
+                      )}`
+                    : ""
+                }
+                has expressed interest in your profile. Review it from your matrimony dashboard when you are ready.
+              </p>
+            `,
+            ctaLabel: "Review interest",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Matrimony interest notification email failed:", emailErr)
+        );
+      }
 
       res.status(201).json({
         message: "Interest sent successfully",
@@ -5207,6 +5739,54 @@ app.patch(
         return res.status(404).json({ message: "Interest not found" });
       }
 
+      const interestEmailContext = await pool.query(
+        `SELECT
+            u.email AS sender_email,
+            u.name AS sender_name
+           FROM matrimonial_interests mi
+           LEFT JOIN users u
+             ON u.id = mi.sender_user_id
+          WHERE mi.id = $1
+          LIMIT 1`,
+        [updateResult.rows[0].id]
+      );
+      const interestSenderEmail = normalizeEmail(
+        interestEmailContext.rows[0]?.sender_email
+      );
+      if (interestSenderEmail && isValidEmail(interestSenderEmail)) {
+        const statusLabel =
+          nextStatus === "accepted"
+            ? "accepted"
+            : nextStatus === "rejected"
+              ? "declined"
+              : "blocked";
+        await sendTransactionalEmail({
+          to: interestSenderEmail,
+          subject: "Your matrimony interest was updated",
+          html: buildTransactionalEmail({
+            title: "Interest status updated",
+            intro: `Hi ${
+              interestEmailContext.rows[0]?.sender_name || "there"
+            }, your matrimony interest was ${statusLabel}.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                ${
+                  nextStatus === "accepted"
+                    ? "Good news - the profile owner accepted your interest. You can now request contact details from your dashboard if the profile allows it."
+                    : nextStatus === "rejected"
+                      ? "The profile owner declined your interest request."
+                      : "The profile owner blocked further interest requests on this profile."
+                }
+              </p>
+            `,
+            ctaLabel: "Open matrimony dashboard",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Matrimony interest status email failed:", emailErr)
+        );
+      }
+
       res.json({
         message: "Interest updated successfully",
         interest: updateResult.rows[0],
@@ -5230,10 +5810,17 @@ app.post(
       }
 
       const interestResult = await pool.query(
-        `SELECT mi.*, mp.contact_visibility
+        `SELECT
+            mi.*,
+            mp.contact_visibility,
+            mp.name AS owner_name,
+            mp.email AS owner_profile_email,
+            u.email AS owner_user_email
            FROM matrimonial_interests mi
            JOIN matrimonial_submissions mp
              ON mp.id = mi.receiver_profile_id
+           LEFT JOIN users u
+             ON u.id = mp.user_id
           WHERE mi.id = $1
             AND mi.sender_user_id = $2
           LIMIT 1`,
@@ -5283,6 +5870,33 @@ app.post(
          RETURNING *`,
         [interestId, req.user.id, interest.receiver_profile_id]
       );
+
+      const ownerNotificationEmail =
+        normalizeEmail(interest.owner_user_email) ||
+        normalizeEmail(interest.owner_profile_email);
+      if (ownerNotificationEmail && isValidEmail(ownerNotificationEmail)) {
+        await sendTransactionalEmail({
+          to: ownerNotificationEmail,
+          subject: "A contact request was sent for your matrimony profile",
+          html: buildTransactionalEmail({
+            title: "New contact request",
+            intro: `Hi ${
+              interest.owner_name || "there"
+            }, someone requested your contact details through Ravidassia Abroad Matrimony.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                <strong>${escapeHtml(
+                  senderProfile?.name || req.user.name || "A member"
+                )}</strong> is requesting access to your contact details after an accepted interest.
+              </p>
+            `,
+            ctaLabel: "Review request",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Matrimony contact request email failed:", emailErr)
+        );
+      }
 
       res.status(201).json({
         message: "Contact request sent successfully",
@@ -5405,6 +6019,48 @@ app.patch(
         return res.status(404).json({ message: "Contact request not found" });
       }
 
+      const contactEmailContext = await pool.query(
+        `SELECT
+            u.email AS requester_email,
+            u.name AS requester_name
+           FROM matrimonial_contact_requests mcr
+           LEFT JOIN users u
+             ON u.id = mcr.requester_user_id
+          WHERE mcr.id = $1
+          LIMIT 1`,
+        [updateResult.rows[0].id]
+      );
+      const requesterEmail = normalizeEmail(
+        contactEmailContext.rows[0]?.requester_email
+      );
+      if (requesterEmail && isValidEmail(requesterEmail)) {
+        await sendTransactionalEmail({
+          to: requesterEmail,
+          subject: "Your matrimony contact request was updated",
+          html: buildTransactionalEmail({
+            title: "Contact request updated",
+            intro: `Hi ${
+              contactEmailContext.rows[0]?.requester_name || "there"
+            }, your contact request was ${
+              nextStatus === "approved" ? "approved" : "declined"
+            }.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                ${
+                  nextStatus === "approved"
+                    ? "You can now return to your matrimony dashboard to view the shared contact details."
+                    : "The profile owner declined your request for contact details."
+                }
+              </p>
+            `,
+            ctaLabel: "Open matrimony dashboard",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Matrimony contact request status email failed:", emailErr)
+        );
+      }
+
       res.json({
         message: "Contact request updated successfully",
         contact_request: updateResult.rows[0],
@@ -5507,9 +6163,57 @@ app.patch(
         moderation_status: moderationStatus,
       });
 
+      const submission = result.rows[0];
+      const moderationEmail =
+        normalizeEmail(submission.email) ||
+        (
+          await pool.query(
+            "SELECT email FROM users WHERE id = $1 LIMIT 1",
+            [submission.user_id]
+          )
+        ).rows[0]?.email ||
+        null;
+      const normalizedModerationEmail = normalizeEmail(moderationEmail);
+      if (normalizedModerationEmail && isValidEmail(normalizedModerationEmail)) {
+        await sendTransactionalEmail({
+          to: normalizedModerationEmail,
+          subject: "Your matrimony profile status was updated",
+          html: buildTransactionalEmail({
+            title: "Profile status updated",
+            intro: `Hi ${
+              submission.name || "there"
+            }, your matrimony profile status is now ${moderationStatus}.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                ${
+                  moderationStatus === "approved"
+                    ? "Your profile has been approved and is ready for public visibility based on your privacy settings."
+                    : moderationStatus === "pending"
+                      ? "Your profile is currently back in review."
+                      : moderationStatus === "paused"
+                        ? "Your profile has been paused for now."
+                        : "Please review the latest moderation notes in your dashboard."
+                }
+              </p>
+              ${
+                moderationNotes
+                  ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:#4b4b4b;"><strong>Admin note:</strong> ${escapeHtml(
+                      moderationNotes
+                    )}</p>`
+                  : ""
+              }
+            `,
+            ctaLabel: "Open matrimony dashboard",
+            ctaUrl: getSiteUrl("/matrimony/my-profile"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Matrimony moderation status email failed:", emailErr)
+        );
+      }
+
       res.json({
         message: "Matrimonial status updated successfully",
-        submission: result.rows[0],
+        submission,
       });
     } catch (err) {
       console.error("Matrimonial moderation update error:", err);
@@ -5881,6 +6585,28 @@ app.post("/api/user/delete-account", requireAuth, async (req, res) => {
       ]
     );
 
+    if (req.user.email && isValidEmail(req.user.email)) {
+      await sendTransactionalEmail({
+        to: req.user.email,
+        subject: "Your Ravidassia Abroad account was deactivated",
+        html: buildTransactionalEmail({
+          title: "Account deactivated",
+          intro: `Hi ${
+            req.user.name || "there"
+          }, your account has been deactivated as requested.`,
+          bodyHtml: `
+            <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+              Your records remain stored securely for compliance, support, and restoration requests. If you need help later, contact us at ${escapeHtml(
+                PRIVACY_CONTACT_EMAIL
+              )}.
+            </p>
+          `,
+        }),
+      }).catch((emailErr) =>
+        console.error("Account deactivation confirmation email failed:", emailErr)
+      );
+    }
+
     clearAuthCookie(res);
     res.json({
       message:
@@ -5933,6 +6659,44 @@ app.post("/api/content-requests", formRateLimit, async (req, res) => {
         CURRENT_POLICY_VERSION,
         marketingOptIn,
       ]
+    );
+
+    sendNotificationEmail(
+      "New content moderation request",
+      `
+        <h3>New Content Request</h3>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Request type:</strong> ${escapeHtml(formatEnumLabel(requestType))}</p>
+        <p><strong>Content URL:</strong> <a href="${escapeHtml(contentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(contentUrl)}</a></p>
+        ${details ? `<p><strong>Details:</strong><br>${escapeHtml(details)}</p>` : ""}
+      `
+    ).catch((emailErr) =>
+      console.error("Content request admin notification email failed:", emailErr)
+    );
+
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Your Ravidassia Abroad content request was received",
+      html: buildTransactionalEmail({
+        title: "Content request received",
+        intro: `Hi ${name || "there"}, we received your ${formatEnumLabel(
+          requestType
+        ).toLowerCase()} request for the content you reported.`,
+        bodyHtml: `
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#3a3a3a;">
+            Our team will review the content details you shared and take any action required under our community policies.
+          </p>
+          <p style="margin:0;font-size:14px;line-height:1.6;color:#5f5f5f;">
+            Reported link: <a href="${escapeHtml(contentUrl)}" style="color:#111;">${escapeHtml(
+              contentUrl
+            )}</a>
+          </p>
+        `,
+        footerNote: `If you need to add more detail, contact us at ${PRIVACY_CONTACT_EMAIL}.`,
+      }),
+    }).catch((emailErr) =>
+      console.error("Content request confirmation email failed:", emailErr)
     );
 
     res.json({
@@ -6046,6 +6810,40 @@ app.post("/api/privacy-requests", formRateLimit, async (req, res) => {
       );
     }
 
+    sendNotificationEmail(
+      "New privacy / data request",
+      `
+        <h3>New Privacy Request</h3>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Request type:</strong> ${escapeHtml(formatEnumLabel(requestType))}</p>
+        <p><strong>Message:</strong><br>${escapeHtml(message)}</p>
+      `
+    ).catch((emailErr) =>
+      console.error("Privacy request admin notification email failed:", emailErr)
+    );
+
+    await sendTransactionalEmail({
+      to: email,
+      subject: "Your Ravidassia Abroad privacy request was received",
+      html: buildTransactionalEmail({
+        title: "Privacy request received",
+        intro: `Hi ${name || "there"}, we received your ${formatEnumLabel(
+          requestType
+        ).toLowerCase()} request.`,
+        bodyHtml: `
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+            Our team will review your request and contact you if we need any clarification. We will update you again once the status changes.
+          </p>
+        `,
+        ctaLabel: "Review privacy request page",
+        ctaUrl: getSiteUrl("/privacy-data-request"),
+        footerNote: `Privacy contact: ${PRIVACY_CONTACT_EMAIL}`,
+      }),
+    }).catch((emailErr) =>
+      console.error("Privacy request confirmation email failed:", emailErr)
+    );
+
     res.status(201).json({
       message: "Privacy request submitted successfully",
       request: insert.rows[0],
@@ -6101,6 +6899,34 @@ app.patch(
       await logAdminAction(req, "resolve", "privacy_request", req.params.id, {
         status,
       });
+
+      const request = result.rows[0];
+      if (request.email && isValidEmail(request.email)) {
+        await sendTransactionalEmail({
+          to: request.email,
+          subject: "Your Ravidassia Abroad privacy request was updated",
+          html: buildTransactionalEmail({
+            title: "Privacy request updated",
+            intro: `Hi ${request.name || "there"}, your privacy request is now marked as ${formatEnumLabel(
+              status
+            ).toLowerCase()}.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                ${
+                  adminNotes
+                    ? `Admin note: ${escapeHtml(adminNotes)}`
+                    : "Our team recorded an update on your request. If we need anything else, we will reach out to you."
+                }
+              </p>
+            `,
+            ctaLabel: "Open privacy request page",
+            ctaUrl: getSiteUrl("/privacy-data-request"),
+            footerNote: `Privacy contact: ${PRIVACY_CONTACT_EMAIL}`,
+          }),
+        }).catch((emailErr) =>
+          console.error("Privacy request status email failed:", emailErr)
+        );
+      }
 
       res.json({
         message: "Privacy request updated successfully",
@@ -6488,6 +7314,51 @@ app.post("/api/businesses/submit", formRateLimit, async (req, res) => {
         payload.notes_for_admin,
       ]
     );
+
+    const businessContactEmail =
+      normalizeEmail(payload.contact_person_email) || normalizeEmail(payload.email);
+
+    sendNotificationEmail(
+      "New business directory submission",
+      `
+        <h3>New Business Submission</h3>
+        <p><strong>Business:</strong> ${escapeHtml(payload.name)}</p>
+        <p><strong>Category:</strong> ${escapeHtml(payload.category)}</p>
+        <p><strong>Location:</strong> ${escapeHtml(
+          [payload.city, payload.country].filter(Boolean).join(", ")
+        )}</p>
+        <p><strong>Contact person:</strong> ${escapeHtml(
+          payload.contact_person_name
+        )}</p>
+        <p><strong>Contact email:</strong> ${escapeHtml(
+          businessContactEmail || ""
+        )}</p>
+      `
+    ).catch((emailErr) =>
+      console.error("Business submission admin notification email failed:", emailErr)
+    );
+
+    if (businessContactEmail && isValidEmail(businessContactEmail)) {
+      await sendTransactionalEmail({
+        to: businessContactEmail,
+        subject: "Your Ravidassia Abroad business listing was submitted",
+        html: buildTransactionalEmail({
+          title: "Business listing submitted",
+          intro: `Hi ${
+            payload.contact_person_name || "there"
+          }, we received your business listing for ${payload.name}.`,
+          bodyHtml: `
+            <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+              Our team will review the listing before it appears publicly in the business directory. We will email you again when the status changes.
+            </p>
+          `,
+          ctaLabel: "Visit the business directory",
+          ctaUrl: getSiteUrl("/business-directory"),
+        }),
+      }).catch((emailErr) =>
+        console.error("Business submission confirmation email failed:", emailErr)
+      );
+    }
 
     res.status(201).json({
       message:
@@ -7415,6 +8286,45 @@ app.patch(
         return res.status(404).json({ message: "Business not found" });
       }
 
+      const business = result.rows[0];
+      const businessOwnerEmail =
+        normalizeEmail(business.contact_person_email) ||
+        normalizeEmail(business.email);
+      if (businessOwnerEmail && isValidEmail(businessOwnerEmail)) {
+        await sendTransactionalEmail({
+          to: businessOwnerEmail,
+          subject: "Your business listing status was updated",
+          html: buildTransactionalEmail({
+            title: "Business listing updated",
+            intro: `Hi ${
+              business.contact_person_name || "there"
+            }, the status of ${business.name} is now ${formatEnumLabel(status).toLowerCase()}.`,
+            bodyHtml: `
+              <p style="margin:0;font-size:15px;line-height:1.7;color:#3a3a3a;">
+                ${
+                  status === "approved"
+                    ? "Your listing is ready to appear publicly in the business directory."
+                    : status === "rejected"
+                      ? "Your listing could not be approved at this time."
+                      : "Your listing was updated by the moderation team."
+                }
+                ${
+                  req.body?.admin_notes
+                    ? `<br/><br/><strong>Admin note:</strong> ${escapeHtml(
+                        req.body.admin_notes
+                      )}`
+                    : ""
+                }
+              </p>
+            `,
+            ctaLabel: "Open the business directory",
+            ctaUrl: getSiteUrl("/business-directory"),
+          }),
+        }).catch((emailErr) =>
+          console.error("Business status update email failed:", emailErr)
+        );
+      }
+
       res.json({ message: "Business status updated", business: result.rows[0] });
     } catch (err) {
       console.error("Admin business status error:", err);
@@ -7909,8 +8819,7 @@ Together, we can ensure that our community thrives and that every member feels s
     `;
 
       try {
-        const sent = await resend.emails.send({
-          from: "Ravidassia Abroad <onboarding@resend.dev>",
+        const sent = await sendTransactionalEmail({
           to: email,
           subject: `Welcome to Ravidassia Abroad ${country} WhatsApp Group`,
           html,
