@@ -81,8 +81,11 @@ export function sanitizeUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;
 
+  const normalized =
+    /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
   try {
-    const parsed = new URL(raw);
+    const parsed = new URL(normalized);
     if (!["http:", "https:"].includes(parsed.protocol)) return null;
     return parsed.toString();
   } catch {

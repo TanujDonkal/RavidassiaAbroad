@@ -233,36 +233,38 @@ export default function Auth() {
               required
               minLength={6}
             />
-            <label className="d-block text-start small mt-2">
-              <input
-                type="checkbox"
-                className="me-2"
-                checked={signUp.policyAccepted}
-                onChange={(e) =>
-                  setSignUp((prev) => ({
-                    ...prev,
-                    policyAccepted: e.target.checked,
-                  }))
-                }
-                required
-              />
-              {SIGNUP_ACKNOWLEDGMENT}
-            </label>
-            <label className="d-block text-start small mt-2">
-              <input
-                type="checkbox"
-                className="me-2"
-                checked={signUp.marketingOptIn}
-                onChange={(e) =>
-                  setSignUp((prev) => ({
-                    ...prev,
-                    marketingOptIn: e.target.checked,
-                  }))
-                }
-              />
-              {MARKETING_OPT_IN_LABEL}
-            </label>
-            <button type="submit">Sign Up</button>
+            <div className="auth-checkbox-group">
+              <label className="auth-checkbox">
+                <input
+                  type="checkbox"
+                  name="policyAccepted"
+                  checked={signUp.policyAccepted}
+                  onChange={(e) =>
+                    setSignUp((prev) => ({
+                      ...prev,
+                      policyAccepted: e.target.checked,
+                    }))
+                  }
+                  required
+                />
+                <span>{SIGNUP_ACKNOWLEDGMENT}</span>
+              </label>
+              <label className="auth-checkbox">
+                <input
+                  type="checkbox"
+                  name="marketingOptIn"
+                  checked={signUp.marketingOptIn}
+                  onChange={(e) =>
+                    setSignUp((prev) => ({
+                      ...prev,
+                      marketingOptIn: e.target.checked,
+                    }))
+                  }
+                />
+                <span>{MARKETING_OPT_IN_LABEL}</span>
+              </label>
+            </div>
+            <button type="submit" className="auth-submit-btn">Sign Up</button>
 
             <p className="auth-mobile-only">
               Already have an account?{" "}
@@ -310,7 +312,7 @@ export default function Auth() {
             >
               Forgot your password?
             </Link>
-            <button type="submit">Sign In</button>
+            <button type="submit" className="auth-submit-btn">Sign In</button>
 
             <p className="auth-mobile-only">
               New here?{" "}

@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
 import SiteSearchModal from "./SiteSearchModal";
 import ContentRequestModal from "./ContentRequestModal";
+import { usePopup } from "./PopupProvider";
 import {
   LEGAL_PATHS,
   PRIVACY_CONTACT_EMAIL,
@@ -22,6 +23,7 @@ function ScrollAndInit() {
 
 export default function Layout() {
   const { pathname } = useLocation();
+  const popup = usePopup();
   const [user, setUser] = useState(() => getStoredUser());
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const navbarRef = useRef(null);
@@ -71,6 +73,16 @@ export default function Layout() {
     }
   };
 
+  const handleDonateClick = () => {
+    popup.open({
+      type: "info",
+      title: "Donations Coming Soon",
+      message:
+        "We are working on secure donations and Stripe support. For now, please use the Support Us or Contact page if you would like to help.",
+    });
+    setIsMobileNavOpen(false);
+  };
+
   return (
     <>
       <ScrollAndInit />
@@ -114,7 +126,7 @@ export default function Layout() {
       </div>
 
       <div className="container-fluid nav-bar p-0">
-        <nav ref={navbarRef} className="site-navbar navbar navbar-expand-lg navbar-light bg-white px-3 px-sm-4 px-lg-5 py-3 py-lg-0">
+        <nav ref={navbarRef} className="site-navbar navbar navbar-expand-lg navbar-light bg-white px-3 px-sm-4 px-lg-5 py-2 py-lg-0">
           <div className="site-navbar-main d-flex align-items-center">
             <Link to="/" className="site-navbar-brand navbar-brand d-flex align-items-center gap-2 p-0">
               <img src="/template/img/brand-logo.png" className="img-fluid" alt="Ravidassia Community" />
@@ -123,7 +135,11 @@ export default function Layout() {
               <button className="site-navbar-mobile-icon site-navbar-action btn btn-primary btn-md-square border-secondary d-lg-none" data-bs-toggle="modal" data-bs-target="#searchModal" aria-label="Search">
                 <i className="fas fa-search"></i>
               </button>
-              <button className="site-navbar-mobile-donate site-navbar-action site-donate-btn btn btn-primary border-secondary rounded-pill d-lg-none" data-bs-toggle="modal" data-bs-target="#donateModal">
+              <button
+                className="site-navbar-mobile-donate site-navbar-action site-donate-btn btn btn-primary border-secondary rounded-pill d-lg-none"
+                type="button"
+                onClick={handleDonateClick}
+              >
                 <i className="fas fa-hand-holding-heart me-2"></i>
                 Donate
               </button>
@@ -168,7 +184,11 @@ export default function Layout() {
             <button className="site-navbar-action btn btn-primary btn-md-square border-secondary mb-3 mb-md-3 mb-lg-0 me-lg-3 d-none d-lg-inline-flex" data-bs-toggle="modal" data-bs-target="#searchModal">
               <i className="fas fa-search"></i>
             </button>
-            <button className="site-navbar-action site-donate-btn btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0 d-none d-lg-inline-flex" data-bs-toggle="modal" data-bs-target="#donateModal">
+            <button
+              className="site-navbar-action site-donate-btn btn btn-primary border-secondary rounded-pill py-2 px-4 px-lg-3 mb-3 mb-md-3 mb-lg-0 d-none d-lg-inline-flex"
+              type="button"
+              onClick={handleDonateClick}
+            >
               Donate Us
             </button>
             <div className="site-mobile-auth d-lg-none mt-4 border-top pt-3">

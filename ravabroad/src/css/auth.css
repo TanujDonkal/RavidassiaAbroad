@@ -64,12 +64,13 @@
 .auth-root form {
   background-color: #ffffff;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   flex-direction: column;
-  padding: 0 50px;
+  padding: 2.25rem 2.75rem;
   height: 100%;
   text-align: center;
+  overflow-y: auto;
 }
 .auth-root input {
   background-color: #eee;
@@ -88,12 +89,13 @@
   overflow: hidden;
   width: 768px;
   max-width: 100%;
-  min-height: 480px;
+  min-height: 620px;
 }
 .auth-root .form-container {
   position: absolute;
   top: 0;
   height: 100%;
+  overflow: hidden;
   transition: all 0.6s ease-in-out;
 }
 
@@ -178,6 +180,48 @@
   transform: translateX(0);
   transition: transform 0.6s ease-in-out;
 }
+
+.auth-root .small.text-muted {
+  margin: 0.65rem 0 1rem;
+  line-height: 1.45;
+}
+
+.auth-root .auth-checkbox-group {
+  width: 100%;
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0.35rem;
+}
+
+.auth-root .auth-checkbox {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  text-align: left;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #333;
+  margin: 0;
+}
+
+.auth-root .auth-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0.08rem 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--brand-gold);
+}
+
+.auth-root .auth-checkbox span {
+  flex: 1 1 auto;
+  font-size: 0.82rem;
+}
+
+.auth-root .auth-submit-btn {
+  width: 100%;
+  margin-top: 1rem;
+}
 .auth-root .overlay-left {
   transform: translateX(-20%);
 }
@@ -232,10 +276,10 @@
 @media (max-width: 992px) {
   .auth-root .container {
     width: 720px;
-    min-height: 520px;
+    min-height: 660px;
   }
   .auth-root form {
-    padding: 0 36px;
+    padding: 2rem 2.25rem;
   }
 }
 
@@ -314,6 +358,10 @@
   }
   .auth-root h2 {
     font-size: 1.25rem;
+  }
+
+  .auth-root .auth-checkbox {
+    gap: 0.6rem;
   }
 }
 
