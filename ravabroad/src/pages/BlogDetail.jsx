@@ -1,10 +1,10 @@
-// C:\My Data\Ravidassia Abroad\ravabroad\src\pages\BlogDetail.jsx
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Comments from "../components/Comments";
 import { API_BASE } from "../utils/api";
 import Seo from "../components/Seo";
+import "../css/BlogDetail.css";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
@@ -12,35 +12,65 @@ import {
   truncateText,
 } from "../utils/seo";
 
+function slugifyHeading(text, index) {
+  const base = String(text || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return base ? `${base}-${index + 1}` : `section-${index + 1}`;
+}
+
+function buildReadableContent(html) {
+  const sanitized = DOMPurify.sanitize(html || "");
+
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return { html: sanitized, toc: [] };
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div>${sanitized}</div>`, "text/html");
+  const wrapper = doc.body.firstElementChild || doc.body;
+  const headings = Array.from(wrapper.querySelectorAll("h2, h3, h4"));
+
+  const toc = headings.map((heading, index) => {
+    const text = heading.textContent?.trim() || `Section ${index + 1}`;
+    const id = slugifyHeading(text, index);
+    heading.setAttribute("id", id);
+    return {
+      id,
+      text,
+      level: Number(heading.tagName.replace("H", "")),
+    };
+  });
+
+  wrapper.querySelectorAll("a").forEach((anchor) => {
+    const href = anchor.getAttribute("href") || "";
+    if (/^(https?:)?\/\//i.test(href)) {
+      anchor.setAttribute("rel", "noopener noreferrer");
+      anchor.setAttribute("target", "_blank");
+    }
+  });
+
+  return {
+    html: wrapper.innerHTML,
+    toc,
+  };
+}
+
 const BegampuraHeading = () => (
-  <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
-    <div
-      style={{
-        flex: 1,
-        height: "2px",
-        background:
-          "linear-gradient(to right, transparent, #e63946, transparent)",
-      }}
-    ></div>
+  <div className="blog-detail-brand">
+    <div className="blog-detail-brand-line"></div>
     <img
       src="/template/img/6Qt0bpw3_400x400-removebg-preview.png"
-      alt="Begampura Logo"
-      style={{
-        width: "55px",
-        height: "55px",
-        borderRadius: "50%",
-        objectFit: "cover",
-      }}
+      alt="Begampura"
+      className="blog-detail-brand-logo"
     />
-    <h3 className="fw-bold text-uppercase mb-0">The Begampura News</h3>
-    <div
-      style={{
-        flex: 1,
-        height: "2px",
-        background:
-          "linear-gradient(to right, transparent, #e63946, transparent)",
-      }}
-    ></div>
+    <span>The Begampura News</span>
+    <div className="blog-detail-brand-line"></div>
   </div>
 );
 
@@ -49,71 +79,158 @@ export default function BlogDetail() {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState([]);
+  const [renderedContent, setRenderedContent] = useState("");
+  const [tableOfContents, setTableOfContents] = useState([]);
+  const [copyState, setCopyState] = useState("Copy link");
 
-
-
-  // 🧠 Fetch single post
   useEffect(() => {
     const fetchPost = async () => {
-
+      setLoading(true);
       try {
         const res = await fetch(`${API_BASE}/blogs/${slug}`);
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.message || "Blog not found");
+        if (!res.ok) {
+          throw new Error(data.message || "Blog not found");
+        }
+
         setPost(data);
 
-        // 🟢 Fetch related posts from same category
         if (data.category_id) {
-          fetchRelated(data.category_id, data.id);
+          const relatedRes = await fetch(`${API_BASE}/blogs?category=${data.category_id}`);
+          const relatedData = await relatedRes.json();
+          const filtered = (Array.isArray(relatedData) ? relatedData : []).filter(
+            (item) => item.id !== data.id
+          );
+          setRelated(filtered.slice(0, 4));
+        } else {
+          setRelated([]);
         }
       } catch (err) {
-        console.error("❌ Error fetching blog:", err);
+        console.error("Error fetching blog:", err);
+        setPost(null);
+        setRelated([]);
       } finally {
         setLoading(false);
       }
     };
+
     fetchPost();
   }, [slug]);
 
-  // 📰 Fetch related posts
-  const fetchRelated = async (categoryId, excludeId) => {
-    try {
-      const res = await fetch(`${API_BASE}/blogs?category=${categoryId}`);
-      const data = await res.json();
-      
-      const filtered = (data || []).filter((p) => p.id !== excludeId);
-      
-      setRelated(filtered.slice(0, 4)); // show up to 4
-    } catch (err) {
-      console.error("❌ Failed to load related posts:", err);
+  useEffect(() => {
+    if (!post?.content) {
+      setRenderedContent("");
+      setTableOfContents([]);
+      return;
     }
-  };
 
-  if (loading)
+    const processed = buildReadableContent(post.content);
+    setRenderedContent(processed.html);
+    setTableOfContents(processed.toc);
+  }, [post]);
+
+  if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status">
+      <div className="blog-detail-loading">
+        <div className="spinner-border text-warning" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
       </div>
     );
+  }
 
-  if (!post)
+  if (!post) {
     return (
-      <div className="text-center my-5">
-        <h3 className="fw-bold text-danger">Blog not found</h3>
-        <p className="text-muted mb-4">
-          The article you’re looking for doesn’t exist or was removed.
-        </p>
-        <Link to="/blogs" className="btn btn-primary">
-          ← Back to Blogs
+      <div className="blog-detail-missing container py-5 text-center">
+        <h1>Blog not found</h1>
+        <p>The article you are looking for does not exist or is no longer available.</p>
+        <Link to="/blogs" className="btn btn-warning rounded-pill px-4">
+          Back to Blogs
         </Link>
       </div>
     );
+  }
+
+  const wordCount = stripHtml(post.content || "").split(/\s+/).filter(Boolean).length;
+  const readingMinutes = Math.max(1, Math.ceil(wordCount / 220));
+  const articleSummary = truncateText(
+    stripHtml(post.excerpt || post.content || DEFAULT_DESCRIPTION),
+    180
+  );
+  const shareUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : `https://www.ravidassiaabroad.com/blogs/${slug}`;
+  const shareTitle = post.title || "Ravidassia Abroad Blog";
+  const shareSummary = articleSummary;
+  const shareLinks = [
+    {
+      label: "WhatsApp",
+      icon: "bi-whatsapp",
+      href: `https://wa.me/?text=${encodeURIComponent(`${shareTitle} ${shareUrl}`)}`,
+    },
+    {
+      label: "Facebook",
+      icon: "bi-facebook",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+    },
+    {
+      label: "X",
+      icon: "bi-twitter-x",
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(
+        shareUrl
+      )}`,
+    },
+    {
+      label: "LinkedIn",
+      icon: "bi-linkedin",
+      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+        shareUrl
+      )}`,
+    },
+    {
+      label: "Email",
+      icon: "bi-envelope-fill",
+      href: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(
+        `${shareSummary}\n\n${shareUrl}`
+      )}`,
+    },
+  ];
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyState("Copied");
+      window.setTimeout(() => setCopyState("Copy link"), 1800);
+    } catch (err) {
+      console.error("Copy blog link failed:", err);
+      setCopyState("Copy failed");
+      window.setTimeout(() => setCopyState("Copy link"), 1800);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (!navigator.share) {
+      handleCopyLink();
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: shareTitle,
+        text: shareSummary,
+        url: shareUrl,
+      });
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        console.error("Native share failed:", err);
+      }
+    }
+  };
 
   return (
-    <div className="container py-5">
+    <main className="blog-detail-page">
       <Seo
         title={`${post.title} | Ravidassia Abroad`}
         description={truncateText(
@@ -149,129 +266,211 @@ export default function BlogDetail() {
           mainEntityOfPage: `https://www.ravidassiaabroad.com/blogs/${slug}`,
         }}
       />
-      <div className="text-center mb-5">
-        <BegampuraHeading />
-      </div>
 
-      <div className="row justify-content-center">
-        <div className="col-lg-9">
-          <article className="p-4 p-md-5 bg-white rounded-4 shadow-sm border border-light-subtle">
-            {/* Blog Header */}
-            <h1 className="fw-bold mb-3 text-center">{post.title}</h1>
+      <section className="blog-detail-hero">
+        <div className="container">
+          <div className="blog-detail-hero-shell">
+            <BegampuraHeading />
 
-            <div className="d-flex justify-content-center align-items-center mb-4 text-muted small flex-wrap">
-  <span className="me-2">
-    <i className="bi bi-person-circle me-1"></i>
-    {post.author_name || "Admin"}
-  </span>
-  <span className="mx-2">•</span>
-  <span>
-    <i className="bi bi-calendar-event me-1"></i>
-    {new Date(post.created_at).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}
-  </span>
-  <span className="mx-2">•</span>
-  <span>
-    <i className="bi bi-eye me-1"></i>
-    {post.views || 0} views
-  </span>
-</div>
+            <div className="blog-detail-meta-row">
+              <span className="blog-detail-tag">{post.category_name || "Community Blog"}</span>
+              <span>{readingMinutes} min read</span>
+              <span>{post.views || 0} views</span>
+            </div>
 
+            <h1>{post.title}</h1>
+            <p className="blog-detail-summary">{articleSummary}</p>
 
-            {/* Featured Image */}
-            {post.image_url && (
-              <div className="text-center mb-4">
-                <img
-                  src={post.image_url}
-                  alt={post.title}
-                  className="img-fluid rounded-4 shadow-sm border border-light"
-                  style={{
-                    maxHeight: "450px",
-                    objectFit: "cover",
-                  }}
-                />
+            <div className="blog-detail-author-row">
+              <div>
+                <strong>{post.author_name || "Ravidassia Abroad"}</strong>
+                <span>
+                  {new Date(post.created_at).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
               </div>
-            )}
+              <div className="blog-detail-anchor-actions">
+                {tableOfContents.length > 0 && (
+                  <a href="#blog-toc" className="btn btn-outline-light rounded-pill px-4">
+                    Jump to topics
+                  </a>
+                )}
+                <a href="#comments" className="btn btn-warning rounded-pill px-4">
+                  Join comments
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Content */}
-            <div
-              className="blog-content fs-5 lh-lg text-secondary"
-              style={{ whiteSpace: "pre-line" }}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
-            />
+      <section className="blog-detail-main">
+        <div className="container">
+          <div className="blog-detail-shell">
+            <article className="blog-detail-article">
+              {post.image_url && (
+                <div className="blog-detail-cover">
+                  <img src={post.image_url} alt={post.title} />
+                </div>
+              )}
 
-            {/* 🗨️ Comments Section */}
-            <Comments />
+              <div className="blog-detail-body-layout">
+                <aside className="blog-detail-sidebar">
+                  <div className="blog-detail-sidecard" id="blog-toc">
+                    <span className="blog-detail-sidekicker">Quick Guide</span>
+                    <h3>On this page</h3>
+                    {tableOfContents.length > 0 ? (
+                      <nav className="blog-detail-toc" aria-label="Table of contents">
+                        {tableOfContents.map((item) => (
+                          <a
+                            key={item.id}
+                            href={`#${item.id}`}
+                            className={`level-${item.level}`}
+                          >
+                            {item.text}
+                          </a>
+                        ))}
+                      </nav>
+                    ) : (
+                      <p className="blog-detail-sidecopy">
+                        This article reads straight through without section headings.
+                      </p>
+                    )}
+                  </div>
 
-            {/* Divider */}
-            <hr className="my-5 border border-2 border-primary opacity-25" />
+                  <div className="blog-detail-sidecard">
+                    <span className="blog-detail-sidekicker">Reading Notes</span>
+                    <h3>Article details</h3>
+                    <ul className="blog-detail-facts">
+                      <li>
+                        <strong>Category</strong>
+                        <span>{post.category_name || "Community Blog"}</span>
+                      </li>
+                      <li>
+                        <strong>Reading time</strong>
+                        <span>{readingMinutes} minutes</span>
+                      </li>
+                      <li>
+                        <strong>Published</strong>
+                        <span>
+                          {new Date(post.created_at).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
 
-            {/* 📰 Related Posts Section */}
-            {related.length > 0 && (
-              <section className="related-posts mt-5 py-4 border-top">
-                <h4 className="fw-semibold mb-4 text-center">
-                  📚 Related Posts
-                </h4>
-                <div className="row justify-content-center">
-                  {related.map((p) => (
-                    <div className="col-md-6 col-lg-4 mb-4" key={p.id}>
-                      <Link
-                        to={`/blogs/${p.slug}`}
-                        className="text-decoration-none text-dark"
+                  <div className="blog-detail-sidecard">
+                    <span className="blog-detail-sidekicker">Share This Post</span>
+                    <h3>Pass it on</h3>
+                    <p className="blog-detail-sidecopy">
+                      Share this article with sangat, family, and friends across platforms.
+                    </p>
+
+                    <div className="blog-detail-share-inline">
+                      <button
+                        type="button"
+                        className="blog-detail-share-primary"
+                        onClick={handleNativeShare}
                       >
-                        <div className="card h-100 shadow-sm border-0">
+                        <i className="bi bi-share-fill" aria-hidden="true"></i>
+                        Share
+                      </button>
+                      <button
+                        type="button"
+                        className="blog-detail-share-secondary"
+                        onClick={handleCopyLink}
+                      >
+                        <i className="bi bi-link-45deg" aria-hidden="true"></i>
+                        {copyState}
+                      </button>
+                    </div>
+
+                    <div className="blog-detail-share-grid">
+                      {shareLinks.map((item) => (
+                        <a
+                          key={item.label}
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="blog-detail-share-btn"
+                        >
+                          <i className={`bi ${item.icon}`} aria-hidden="true"></i>
+                          <span>{item.label}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+
+                <div className="blog-detail-content-column">
+                  <div className="blog-detail-content-intro">
+                    <p>{post.excerpt || articleSummary}</p>
+                  </div>
+
+                  <div
+                    className="blog-content"
+                    dangerouslySetInnerHTML={{ __html: renderedContent }}
+                  />
+                </div>
+              </div>
+
+              <Comments postId={post.id} postType="blogs" />
+
+              {related.length > 0 && (
+                <section className="blog-detail-related">
+                  <div className="blog-detail-related-head">
+                    <div>
+                      <span className="blog-detail-sidekicker">More to Explore</span>
+                      <h3>Related posts</h3>
+                    </div>
+                    <Link to="/blogs" className="btn btn-outline-dark rounded-pill px-4">
+                      All blogs
+                    </Link>
+                  </div>
+
+                  <div className="blog-detail-related-grid">
+                    {related.map((item) => (
+                      <Link
+                        key={item.id}
+                        to={`/blogs/${item.slug}`}
+                        className="blog-detail-related-card"
+                      >
+                        <div className="blog-detail-related-image">
                           <img
                             src={
-                              p.image_url ||
+                              item.image_url ||
                               "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80"
                             }
-                            className="card-img-top rounded-top"
-                            alt={p.title}
-                            style={{
-                              height: "200px",
-                              objectFit: "cover",
-                            }}
+                            alt={item.title}
                           />
-                          <div className="card-body">
-                            <p className="small text-muted mb-1">
-                              {p.category_name || "General"} •{" "}
-                              {new Date(p.created_at).toLocaleDateString()}
-                            </p>
-                            <h6 className="fw-semibold mb-2">{p.title}</h6>
-                            <p
-                              className="text-muted small mb-0"
-                              dangerouslySetInnerHTML={{
-                                __html: DOMPurify.sanitize(
-                                  p.excerpt?.length > 100
-                                    ? p.excerpt.slice(0, 100) + "..."
-                                    : p.excerpt || ""
-                                ),
-                              }}
-                            ></p>
-                          </div>
+                        </div>
+                        <div className="blog-detail-related-copy">
+                          <span>{item.category_name || "Community Blog"}</span>
+                          <h4>{item.title}</h4>
+                          <p>{truncateText(stripHtml(item.excerpt || ""), 105)}</p>
                         </div>
                       </Link>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                    ))}
+                  </div>
+                </section>
+              )}
 
-            {/* Back Button */}
-            <div className="text-center mt-5">
-              <Link
-                to="/blogs"
-                className="btn btn-outline-primary px-4 py-2 rounded-pill"
-              >
-                ← Back to All Blogs
-              </Link>
-            </div>
-          </article>
+              <div className="blog-detail-back">
+                <Link to="/blogs" className="btn btn-outline-dark rounded-pill px-4">
+                  Back to All Blogs
+                </Link>
+              </div>
+            </article>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

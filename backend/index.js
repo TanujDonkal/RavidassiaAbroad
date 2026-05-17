@@ -880,6 +880,28 @@ async function initDB() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS blog_comment_likes (
+      id BIGSERIAL PRIMARY KEY,
+      comment_id INT NOT NULL REFERENCES blog_comments(id) ON DELETE CASCADE,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      guest_key TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      CHECK (user_id IS NOT NULL OR guest_key IS NOT NULL)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS article_comment_likes (
+      id BIGSERIAL PRIMARY KEY,
+      comment_id INT NOT NULL REFERENCES article_comments(id) ON DELETE CASCADE,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      guest_key TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      CHECK (user_id IS NOT NULL OR guest_key IS NOT NULL)
+    );
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS site_menus (
       id SERIAL PRIMARY KEY,
       label TEXT NOT NULL,
@@ -1220,6 +1242,19 @@ async function initDB() {
   ];
 
   for (const query of businessIndexes) {
+    await pool.query(query);
+  }
+
+  const commentLikeIndexes = [
+    `CREATE INDEX IF NOT EXISTS idx_blog_comment_likes_comment_id ON blog_comment_likes(comment_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_article_comment_likes_comment_id ON article_comment_likes(comment_id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_blog_comment_likes_user_unique ON blog_comment_likes(comment_id, user_id) WHERE user_id IS NOT NULL`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_blog_comment_likes_guest_unique ON blog_comment_likes(comment_id, guest_key) WHERE guest_key IS NOT NULL`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_article_comment_likes_user_unique ON article_comment_likes(comment_id, user_id) WHERE user_id IS NOT NULL`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_article_comment_likes_guest_unique ON article_comment_likes(comment_id, guest_key) WHERE guest_key IS NOT NULL`,
+  ];
+
+  for (const query of commentLikeIndexes) {
     await pool.query(query);
   }
 
@@ -2866,6 +2901,10 @@ function getSafePublicCommentFields(type) {
   const table = type === "articles" ? "article_comments" : "blog_comments";
   const field = type === "articles" ? "article_id" : "post_id";
   return { table, field };
+}
+
+function getSafeCommentLikeTable(type) {
+  return type === "articles" ? "article_comment_likes" : "blog_comment_likes";
 }
 
 const authRateLimit = createRateLimiter({
@@ -7421,11 +7460,15 @@ app.get("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
         b.id,
         b.title,
         b.slug,
+        b.excerpt,
+        b.content,
         b.status,
         b.views,
         b.created_at,
         b.updated_at,
         b.image_url,
+        b.category_id,
+        b.tags,
         c.name AS category_name,
         u.name AS author_name
       FROM blog_posts b
@@ -7487,7 +7530,7 @@ app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
       `INSERT INTO blog_posts 
         (title, slug, content, excerpt, image_url, category_id, author_id, tags, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, title, slug, status, image_url, created_at`,
+       RETURNING id`,
       [
         title,
         slug,
@@ -7501,7 +7544,19 @@ app.post("/api/admin/blogs", requireAuth, requireAdmin, async (req, res) => {
       ]
     );
 
-    const newBlog = insertRes.rows[0];
+    const newBlogResult = await pool.query(
+      `SELECT bp.*,
+              bc.name AS category_name,
+              u.name AS author_name
+         FROM blog_posts bp
+         LEFT JOIN blog_categories bc ON bp.category_id = bc.id
+         LEFT JOIN users u ON bp.author_id = u.id
+        WHERE bp.id = $1
+        LIMIT 1`,
+      [insertRes.rows[0].id]
+    );
+
+    const newBlog = newBlogResult.rows[0];
     console.log(`📝 Blog created by ${req.user.email}: ${title} (${slug})`);
     res.json({
       message: "✅ Blog post created successfully!",
@@ -7608,8 +7663,10 @@ app.post(
 app.get("/api/:type/:id/comments", async (req, res) => {
   try {
     const { type, id } = req.params;
-
+    const authUser = decodeUserIfAny(req);
+    const guestKey = normalizeOptionalText(req.headers["x-guest-key"], 120);
     const { table, field } = getSafePublicCommentFields(type);
+    const likesTable = getSafeCommentLikeTable(type);
 
     const result = await pool.query(
       `SELECT
@@ -7619,14 +7676,28 @@ app.get("/api/:type/:id/comments", async (req, res) => {
          c.name,
          c.comment_text,
          c.created_at,
-         u.photo_url
+         u.photo_url,
+         COALESCE((
+           SELECT COUNT(*)::INT
+           FROM ${likesTable} cl
+           WHERE cl.comment_id = c.id
+         ), 0) AS like_count,
+         EXISTS(
+           SELECT 1
+           FROM ${likesTable} cl
+           WHERE cl.comment_id = c.id
+             AND (
+               ($2::INT IS NOT NULL AND cl.user_id = $2)
+               OR ($3::TEXT IS NOT NULL AND cl.guest_key = $3)
+             )
+         ) AS liked_by_current_user
        FROM ${table} c
        LEFT JOIN users u ON c.user_id = u.id
        WHERE ${field}=$1 
        AND is_approved=true 
        AND COALESCE(c.deleted_by_user,false)=false
        ORDER BY c.created_at ASC`,
-      [id]
+      [id, authUser?.id || null, guestKey || null]
     );
 
     const comments = result.rows.filter((c) => !c.parent_id);
@@ -7639,6 +7710,103 @@ app.get("/api/:type/:id/comments", async (req, res) => {
     res.json(comments);
   } catch (err) {
     console.error("❌ Fetch comments error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/:type/comments/:commentId/like", async (req, res) => {
+  try {
+    const { type, commentId } = req.params;
+    const authUser = decodeUserIfAny(req);
+    const guestKey = normalizeOptionalText(
+      req.body?.guest_key || req.headers["x-guest-key"],
+      120
+    );
+
+    if (!authUser && !guestKey) {
+      return sendValidationError(
+        res,
+        "A valid session or guest like token is required"
+      );
+    }
+
+    const { table } = getSafePublicCommentFields(type);
+    const likesTable = getSafeCommentLikeTable(type);
+
+    const commentResult = await pool.query(
+      `SELECT id
+         FROM ${table}
+        WHERE id = $1
+          AND is_approved = true
+          AND COALESCE(deleted_by_user, false) = false
+        LIMIT 1`,
+      [commentId]
+    );
+
+    if (commentResult.rowCount === 0) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    let liked = false;
+
+    if (authUser?.id) {
+      const existing = await pool.query(
+        `SELECT id
+           FROM ${likesTable}
+          WHERE comment_id = $1 AND user_id = $2
+          LIMIT 1`,
+        [commentId, authUser.id]
+      );
+
+      if (existing.rowCount > 0) {
+        await pool.query(`DELETE FROM ${likesTable} WHERE id = $1`, [
+          existing.rows[0].id,
+        ]);
+      } else {
+        await pool.query(
+          `INSERT INTO ${likesTable} (comment_id, user_id)
+           VALUES ($1, $2)`,
+          [commentId, authUser.id]
+        );
+        liked = true;
+      }
+    } else {
+      const existing = await pool.query(
+        `SELECT id
+           FROM ${likesTable}
+          WHERE comment_id = $1 AND guest_key = $2
+          LIMIT 1`,
+        [commentId, guestKey]
+      );
+
+      if (existing.rowCount > 0) {
+        await pool.query(`DELETE FROM ${likesTable} WHERE id = $1`, [
+          existing.rows[0].id,
+        ]);
+      } else {
+        await pool.query(
+          `INSERT INTO ${likesTable} (comment_id, guest_key)
+           VALUES ($1, $2)`,
+          [commentId, guestKey]
+        );
+        liked = true;
+      }
+    }
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::INT AS like_count
+         FROM ${likesTable}
+        WHERE comment_id = $1`,
+      [commentId]
+    );
+
+    res.json({
+      comment_id: Number(commentId),
+      liked,
+      like_count: Number(countResult.rows[0]?.like_count || 0),
+    });
+  } catch (err) {
+    console.error("❌ Toggle comment like error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
