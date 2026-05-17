@@ -3603,19 +3603,33 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
       return res.status(409).json({ message: "Email already registered" });
 
     const hash = await bcrypt.hash(password, 10);
-    const inserted = await pool.query(
-      `INSERT INTO users
-        (name, email, password_hash, marketing_opt_in, policy_ack_version, policy_ack_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())
-       RETURNING id, name, email, role, photo_url, phone, city, marketing_opt_in`,
-      [
-        name,
-        email,
-        hash,
-        normalizeBooleanInput(marketingOptIn),
-        CURRENT_POLICY_VERSION,
-      ]
-    );
+    const insertUser = () =>
+      pool.query(
+        `INSERT INTO users
+          (name, email, password_hash, role, marketing_opt_in, policy_ack_version, policy_ack_at)
+         VALUES ($1,$2,$3,'user',$4,$5,NOW())
+         RETURNING id, name, email, role, photo_url, phone, city, marketing_opt_in`,
+        [
+          name,
+          email,
+          hash,
+          normalizeBooleanInput(marketingOptIn),
+          CURRENT_POLICY_VERSION,
+        ]
+      );
+
+    let inserted;
+
+    try {
+      inserted = await insertUser();
+    } catch (dbErr) {
+      if (dbErr.code === "23502" && dbErr.column === "id") {
+        await ensureIdSequenceDefault("users");
+        inserted = await insertUser();
+      } else {
+        throw dbErr;
+      }
+    }
 
     const user = inserted.rows[0];
     const token = jwt.sign(
@@ -3628,6 +3642,9 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
     res.status(201).json({ message: "User created successfully", user });
   } catch (err) {
     console.error("Register error:", err);
+    if (err.code === "23505") {
+      return res.status(409).json({ message: "Email already registered" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 });

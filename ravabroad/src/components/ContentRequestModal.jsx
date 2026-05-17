@@ -88,7 +88,7 @@ export default function ContentRequestModal() {
 
   return (
     <div
-      className="modal fade"
+      className="modal fade site-content-request-modal"
       id="contentRequestModal"
       tabIndex="-1"
       aria-labelledby="contentRequestModalLabel"
@@ -110,6 +110,14 @@ export default function ContentRequestModal() {
             <button type="button" className="btn-close" data-bs-dismiss="modal" />
           </div>
           <div className="modal-body">
+            <div className="site-content-request-intro">
+              <h6 className="mb-2">Help us keep the platform accurate</h6>
+              <p className="mb-0">
+                Share a page link and enough detail for our team to review it.
+                If your link does not start with <code>https://</code>, we will
+                automatically clean it up for you.
+              </p>
+            </div>
             <form onSubmit={handleSubmit}>
               <ComplianceNotice text={GENERAL_COLLECTION_NOTICE} />
 
@@ -156,9 +164,12 @@ export default function ContentRequestModal() {
                     name="content_url"
                     value={form.content_url}
                     onChange={handleChange}
-                    placeholder="https://..."
+                    placeholder="example.com/page or https://example.com/page"
                     required
                   />
+                  <div className="form-text">
+                    Paste the page link you want us to add, remove, or review.
+                  </div>
                 </div>
                 <div className="col-12">
                   <label className="form-label">Details</label>
