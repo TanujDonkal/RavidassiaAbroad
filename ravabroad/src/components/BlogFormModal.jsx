@@ -6,19 +6,21 @@ import "../css/BlogFormModal.css";
 import { usePopup } from "../components/PopupProvider";
 import GlobalLoader from "../components/GlobalLoader";
 
+const createDefaultForm = () => ({
+  id: "",
+  title: "",
+  excerpt: "",
+  content: "",
+  image_file: null,
+  image_url: "",
+  category_id: "",
+  status: "published",
+});
+
 export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
   const popup = usePopup();
 
-  const [form, setForm] = useState({
-    id: "",
-    title: "",
-    excerpt: "",
-    content: "",
-    image_file: null,
-    image_url: "",
-    category_id: "",
-    status: "published",
-  });
+  const [form, setForm] = useState(createDefaultForm);
 
   const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -54,7 +56,11 @@ export default function BlogFormModal({ blog = null, onClose, onSubmit }) {
         status: blog.status || "published",
       });
       setPreview(blog.image_url || "");
+      return;
     }
+
+    setForm(createDefaultForm());
+    setPreview("");
   }, [blog]);
 
   // ✅ If categories arrive late, reapply category_id

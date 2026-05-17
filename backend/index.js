@@ -7664,7 +7664,10 @@ app.get("/api/:type/:id/comments", async (req, res) => {
   try {
     const { type, id } = req.params;
     const authUser = decodeUserIfAny(req);
-    const guestKey = normalizeOptionalText(req.headers["x-guest-key"], 120);
+    const guestKey = normalizeOptionalText(
+      req.query?.guestKey || req.headers["x-guest-key"],
+      120
+    );
     const { table, field } = getSafePublicCommentFields(type);
     const likesTable = getSafeCommentLikeTable(type);
 

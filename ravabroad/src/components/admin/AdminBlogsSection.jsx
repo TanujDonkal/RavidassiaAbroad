@@ -100,6 +100,7 @@ export default function AdminBlogsSection({
 
       {showBlogModal && (
         <BlogFormModal
+          key={selectedBlog?.id || "new-blog"}
           blog={selectedBlog}
           onClose={onCloseModal}
           onSubmit={onSubmitModal}

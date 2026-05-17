@@ -95,6 +95,7 @@ export default function BlogDetail() {
   const [copyState, setCopyState] = useState("Copy link");
   const [translateReady, setTranslateReady] = useState(false);
   const [translateStatus, setTranslateStatus] = useState("");
+  const [activeReaderTool, setActiveReaderTool] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -332,6 +333,10 @@ export default function BlogDetail() {
     );
   };
 
+  const toggleReaderTool = (tool) => {
+    setActiveReaderTool((current) => (current === tool ? "" : tool));
+  };
+
   return (
     <main className="blog-detail-page">
       <Seo
@@ -562,6 +567,151 @@ export default function BlogDetail() {
                 </aside>
 
                 <div className="blog-detail-content-column">
+                  <div className="blog-detail-mobile-tools">
+                    <button
+                      type="button"
+                      className={`blog-detail-tool-toggle ${
+                        activeReaderTool === "toc" ? "active" : ""
+                      }`}
+                      onClick={() => toggleReaderTool("toc")}
+                    >
+                      <i className="bi bi-list-ul" aria-hidden="true"></i>
+                      <span>Topics</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`blog-detail-tool-toggle ${
+                        activeReaderTool === "language" ? "active" : ""
+                      }`}
+                      onClick={() => toggleReaderTool("language")}
+                    >
+                      <i className="bi bi-globe2" aria-hidden="true"></i>
+                      <span>Language</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`blog-detail-tool-toggle ${
+                        activeReaderTool === "share" ? "active" : ""
+                      }`}
+                      onClick={() => toggleReaderTool("share")}
+                    >
+                      <i className="bi bi-share-fill" aria-hidden="true"></i>
+                      <span>Share</span>
+                    </button>
+                  </div>
+
+                  {activeReaderTool === "toc" && (
+                    <div className="blog-detail-inline-tool-card">
+                      <span className="blog-detail-sidekicker">Quick Guide</span>
+                      <h3>On this page</h3>
+                      {tableOfContents.length > 0 ? (
+                        <nav className="blog-detail-toc" aria-label="Table of contents">
+                          {tableOfContents.map((item) => (
+                            <a
+                              key={item.id}
+                              href={`#${item.id}`}
+                              className={`level-${item.level}`}
+                              onClick={() => setActiveReaderTool("")}
+                            >
+                              {item.text}
+                            </a>
+                          ))}
+                        </nav>
+                      ) : (
+                        <p className="blog-detail-sidecopy">
+                          This article reads straight through without section headings.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {activeReaderTool === "language" && (
+                    <div className="blog-detail-inline-tool-card">
+                      <span className="blog-detail-sidekicker">Reader Language</span>
+                      <h3>
+                        <i className="bi bi-globe2 me-2" aria-hidden="true"></i>
+                        Read in another language
+                      </h3>
+                      <p className="blog-detail-sidecopy">
+                        Switch this article into Hindi or another supported language for easier
+                        reading.
+                      </p>
+
+                      <div className="blog-detail-language-grid">
+                        <button
+                          type="button"
+                          className="blog-detail-language-btn original"
+                          onClick={() => handleTranslateLanguage("en")}
+                        >
+                          English
+                        </button>
+                        {TRANSLATION_LANGUAGES.map((item) => (
+                          <button
+                            key={item.code}
+                            type="button"
+                            className="blog-detail-language-btn"
+                            onClick={() => handleTranslateLanguage(item.code)}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="blog-detail-translate-note">
+                        {translateReady
+                          ? "Machine translation may not be perfect, but it can help readers understand long articles more easily."
+                          : "Loading translator..."}
+                      </p>
+                      {translateStatus ? (
+                        <p className="blog-detail-translate-status">{translateStatus}</p>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {activeReaderTool === "share" && (
+                    <div className="blog-detail-inline-tool-card">
+                      <span className="blog-detail-sidekicker">Share This Post</span>
+                      <h3>Pass it on</h3>
+                      <p className="blog-detail-sidecopy">
+                        Share this article with sangat, family, and friends across platforms.
+                      </p>
+
+                      <div className="blog-detail-share-inline">
+                        <button
+                          type="button"
+                          className="blog-detail-share-primary"
+                          onClick={handleNativeShare}
+                        >
+                          <i className="bi bi-share-fill" aria-hidden="true"></i>
+                          Share
+                        </button>
+                        <button
+                          type="button"
+                          className="blog-detail-share-secondary"
+                          onClick={handleCopyLink}
+                        >
+                          <i className="bi bi-link-45deg" aria-hidden="true"></i>
+                          {copyState}
+                        </button>
+                      </div>
+
+                      <div className="blog-detail-share-grid">
+                        {shareLinks.map((item) => (
+                          <a
+                            key={item.label}
+                            href={item.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="blog-detail-share-btn"
+                          >
+                            <i className={`bi ${item.icon}`} aria-hidden="true"></i>
+                            <span>{item.label}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="blog-detail-content-intro">
                     <p>{post.excerpt || articleSummary}</p>
                   </div>
