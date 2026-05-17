@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
+import "../css/ArticleDetail.css";
+import { sanitizeRichContent } from "../utils/richContent";
 
 export default function StaticArticle({ slug }) {
   const [article, setArticle] = useState(null);
@@ -36,7 +37,7 @@ export default function StaticArticle({ slug }) {
     );
 
   return (
-    <main className="container py-5">
+    <main className="container py-5 article-container article-standalone-page">
       <h1 className="text-center fw-bold text-primary mb-3">{article.title}</h1>
       {article.image_url && (
         <div className="text-center mb-4">
@@ -49,8 +50,8 @@ export default function StaticArticle({ slug }) {
         </div>
       )}
       <div
-        className="article-content fs-5 lh-lg text-secondary"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
+        className="article-body article-content"
+        dangerouslySetInnerHTML={{ __html: sanitizeRichContent(article.content) }}
       ></div>
     </main>
   );
