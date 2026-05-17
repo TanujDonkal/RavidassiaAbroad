@@ -65,7 +65,7 @@ const avatarContent = user.photo_url ? (
   <img
     src={user.photo_url}
     alt={user.name}
-    className="rounded-circle"
+    className="rounded-circle topbar-auth-avatar"
     style={{
       width: 40,
       height: 40,
@@ -74,7 +74,7 @@ const avatarContent = user.photo_url ? (
   />
 ) : (
   <div
-    className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-semibold"
+    className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-semibold topbar-auth-avatar topbar-auth-avatar-fallback"
     style={{
       width: 40,
       height: 40,
