@@ -1,3 +1,236 @@
+.article-container {
+  --article-dark: #141414;
+  --article-text: #2c2c2c;
+  --article-muted: #646464;
+  --article-gold: #f1c13a;
+  color: var(--article-text);
+}
+
+.article-standalone-page {
+  max-width: 1100px;
+}
+
+.article-container .article-body,
+.article-container .article-content {
+  background: #fff;
+  color: var(--article-text);
+  border-radius: 28px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.07);
+  font-size: 1.05rem;
+  line-height: 1.9;
+}
+
+.article-container .article-body {
+  padding: 1.6rem;
+}
+
+.article-container .article-content {
+  padding: 1.65rem;
+}
+
+.article-container .article-body :where(
+  p,
+  li,
+  span,
+  div,
+  td,
+  th,
+  strong,
+  em,
+  b,
+  i,
+  u,
+  figcaption,
+  small
+),
+.article-container .article-content :where(
+  p,
+  li,
+  span,
+  div,
+  td,
+  th,
+  strong,
+  em,
+  b,
+  i,
+  u,
+  figcaption,
+  small
+) {
+  color: var(--article-text) !important;
+  font-family: inherit !important;
+  text-shadow: none !important;
+}
+
+.article-container .article-body :where(section, article, div, span, p, ul, ol, li, table, tbody, thead, tr, td, th),
+.article-container .article-content :where(section, article, div, span, p, ul, ol, li, table, tbody, thead, tr, td, th) {
+  background: transparent !important;
+}
+
+.article-container .article-body h2,
+.article-container .article-body h3,
+.article-container .article-body h4,
+.article-container .article-body h5,
+.article-container .article-body h6,
+.article-container .article-content h2,
+.article-container .article-content h3,
+.article-container .article-content h4,
+.article-container .article-content h5,
+.article-container .article-content h6 {
+  color: var(--article-dark) !important;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 2.2rem 0 1rem;
+  scroll-margin-top: 110px;
+  font-family: inherit !important;
+}
+
+.article-container .article-body h2,
+.article-container .article-content h2 {
+  font-size: clamp(1.6rem, 2vw, 2rem);
+}
+
+.article-container .article-body h3,
+.article-container .article-content h3 {
+  font-size: clamp(1.35rem, 1.8vw, 1.6rem);
+}
+
+.article-container .article-body a,
+.article-container .article-content a {
+  color: #8b5f00;
+  text-decoration-thickness: 2px;
+}
+
+.article-container .article-body a:hover,
+.article-container .article-body a:focus-visible,
+.article-container .article-content a:hover,
+.article-container .article-content a:focus-visible {
+  color: #5f4300;
+}
+
+.article-container .article-body blockquote,
+.article-container .article-content blockquote {
+  margin: 1.6rem 0;
+  padding: 1rem 1.2rem;
+  border-left: 4px solid var(--article-gold);
+  background: #fffaf0 !important;
+  color: #554628 !important;
+  border-radius: 0 18px 18px 0;
+}
+
+.article-container .article-body ul,
+.article-container .article-body ol,
+.article-container .article-content ul,
+.article-container .article-content ol {
+  padding-left: 1.4rem;
+}
+
+.article-container .article-body ul li::marker,
+.article-container .article-body ol li::marker,
+.article-container .article-content ul li::marker,
+.article-container .article-content ol li::marker {
+  color: #8b5f00;
+}
+
+.article-container .article-body img,
+.article-container .article-body iframe,
+.article-container .article-body table,
+.article-container .article-content img,
+.article-container .article-content iframe,
+.article-container .article-content table {
+  max-width: 100%;
+}
+
+.article-container .article-body img,
+.article-container .article-content img {
+  height: auto;
+  border-radius: 18px;
+  margin: 1rem 0;
+}
+
+.article-container .article-body table,
+.article-container .article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.article-container .article-body table td,
+.article-container .article-body table th,
+.article-container .article-content table td,
+.article-container .article-content table th {
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  padding: 0.75rem;
+}
+
+.article-container .article-body pre,
+.article-container .article-body code,
+.article-container .article-content pre,
+.article-container .article-content code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace !important;
+}
+
+.article-container .article-body pre,
+.article-container .article-content pre {
+  margin: 1.4rem 0;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: #171717 !important;
+  color: #f7f7f7 !important;
+  overflow-x: auto;
+}
+
+.article-container .article-body code,
+.article-container .article-content code {
+  color: #5f4300 !important;
+  background: rgba(241, 193, 58, 0.14);
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.45rem;
+}
+
+.article-container .article-body pre code,
+.article-container .article-content pre code {
+  color: inherit !important;
+  background: transparent !important;
+  padding: 0;
+}
+
+.progress-bar-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 4px;
+  width: 0;
+  z-index: 1100;
+  background: linear-gradient(90deg, #f1c13a, #ffc933);
+  box-shadow: 0 2px 10px rgba(241, 193, 58, 0.35);
+}
+
+.toc-box {
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 24px !important;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.07) !important;
+}
+
+.toc-box h6,
+.mobile-toc h5 {
+  color: var(--article-dark) !important;
+}
+
+.toc-box button,
+.mobile-toc button {
+  color: var(--article-text) !important;
+}
+
+.toc-box button:hover,
+.toc-box button:focus-visible,
+.mobile-toc button:hover,
+.mobile-toc button:focus-visible {
+  color: #8b5f00 !important;
+}
+
 /* Floating TOC Button */
 .toc-fab {
   position: fixed;
@@ -29,6 +262,7 @@
   overflow-y: auto;
   border-radius: 1rem 1rem 0 0;
   animation: slideUp 0.25s ease-out;
+  border: 1px solid rgba(17, 17, 17, 0.08);
 }
 
 @keyframes slideUp {
@@ -40,11 +274,10 @@
   }
 }
 
-
 /* Highlighted active heading */
 .toc-box li.fw-bold button,
 .mobile-toc li.fw-bold button {
-  color: #0d6efd !important;
+  color: #8b5f00 !important;
 }
 
 /* Smooth fade for highlight change */
@@ -87,6 +320,20 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 767px) {
+  .article-container .article-body,
+  .article-container .article-content {
+    padding: 1.05rem;
+    border-radius: 22px;
+  }
 }

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import DOMPurify from "dompurify";
 import Comments from "../components/Comments";
 import { API_BASE } from "../utils/api";
 import Seo from "../components/Seo";
 import "../css/BlogDetail.css";
+import { sanitizeRichContent } from "../utils/richContent";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
@@ -36,7 +36,7 @@ function slugifyHeading(text, index) {
 }
 
 function buildReadableContent(html) {
-  const sanitized = DOMPurify.sanitize(html || "");
+  const sanitized = sanitizeRichContent(html || "");
 
   if (typeof window === "undefined" || typeof DOMParser === "undefined") {
     return { html: sanitized, toc: [] };

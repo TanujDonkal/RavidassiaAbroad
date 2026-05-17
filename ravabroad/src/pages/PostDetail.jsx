@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
-import DOMPurify from "dompurify";
 import { API_BASE } from "../utils/api";
 import Comments from "../components/Comments";
 import "../css/ArticleDetail.css";
 import Seo from "../components/Seo";
+import { sanitizeRichContent } from "../utils/richContent";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
@@ -23,6 +23,7 @@ export default function PostDetail() {
   const progressRef = useRef();
 
   const isBlog = location.pathname.includes("/blogs");
+  const sanitizedContent = post?.content ? sanitizeRichContent(post.content) : "";
 
   // 🧠 Fetch post or article
   useEffect(() => {
@@ -221,7 +222,7 @@ export default function PostDetail() {
           <article className="col-lg-9">
             <div
               className="article-body bg-white p-4 rounded shadow-sm border border-light-subtle"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
 
             {/* Comments */}
