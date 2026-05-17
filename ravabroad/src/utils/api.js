@@ -65,6 +65,13 @@ export function register(user) {
   });
 }
 
+export function verifyRegistrationOtp(payload) {
+  return apiFetch("/auth/register/verify", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function login(credentials) {
   return apiFetch("/auth/login", {
     method: "POST",
