@@ -112,9 +112,8 @@ export default function Comments({ postId: initialPostId = null, postType }) {
     let cancelled = false;
 
     const loadComments = async (resolvedPostId) => {
-      const data = await apiFetch(`/${resolvedType}/${resolvedPostId}/comments`, {
-        headers: guestKey ? { "X-Guest-Key": guestKey } : undefined,
-      });
+      const query = guestKey ? `?guestKey=${encodeURIComponent(guestKey)}` : "";
+      const data = await apiFetch(`/${resolvedType}/${resolvedPostId}/comments${query}`);
       if (cancelled) return;
 
       const normalized = normalizeCommentThread(data);
@@ -367,7 +366,6 @@ export default function Comments({ postId: initialPostId = null, postType }) {
       setLikingCommentId(comment.id);
       const response = await apiFetch(`/${resolvedType}/comments/${comment.id}/like`, {
         method: "POST",
-        headers: guestKey ? { "X-Guest-Key": guestKey } : undefined,
         body: JSON.stringify(user?.id ? {} : { guest_key: guestKey }),
       });
 
