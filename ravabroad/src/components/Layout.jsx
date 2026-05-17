@@ -152,10 +152,10 @@ export default function Layout() {
                 aria-label="Toggle navigation"
                 onClick={() => setIsMobileNavOpen((open) => !open)}
               >
-                <span className="site-navbar-toggle-lines" aria-hidden="true">
-                  <span></span>
-                  <span></span>
-                  <span></span>
+                <span className="site-navbar-toggle-icon" aria-hidden="true">
+                  <span className="site-navbar-toggle-bar"></span>
+                  <span className="site-navbar-toggle-bar"></span>
+                  <span className="site-navbar-toggle-bar"></span>
                 </span>
               </button>
             </div>
@@ -164,7 +164,7 @@ export default function Layout() {
             <div className="site-navbar-links navbar-nav ms-auto py-0">
               <NavLink to="/" end className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>Home</NavLink>
               <NavLink to="/about" className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>About</NavLink>
-              <NavLink to="/blogs" className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>Blogs / News</NavLink>
+              <NavLink to="/blogs" className="nav-item nav-link" onClick={() => setIsMobileNavOpen(false)}>Blogs</NavLink>
               <div className="nav-item dropdown">
                 <a href="/history" className="nav-link" data-bs-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" tabIndex={0}>
                   <span className="dropdown-toggle">History</span>

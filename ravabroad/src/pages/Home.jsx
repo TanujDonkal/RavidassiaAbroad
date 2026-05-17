@@ -3,6 +3,7 @@ import { Carousel } from "bootstrap";
 import { Navbar, Nav, Container } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../utils/api";
+import { usePopup } from "../components/PopupProvider";
 
 const communityFacts = [
   {
@@ -281,6 +282,7 @@ const faqs = [
 ];
 
 export default function Home() {
+  const popup = usePopup();
   const carouselRef = useRef(null);
   const [carousel, setCarousel] = useState(null);
   const [menus, setMenus] = useState([]);
@@ -322,6 +324,20 @@ export default function Home() {
       (a, b) => (a.position ?? 999) - (b.position ?? 999)
     );
   })();
+
+  const handleQuickLinkClick = (event, menu) => {
+    if (menu.path !== "/students") {
+      return;
+    }
+
+    event.preventDefault();
+    popup.open({
+      type: "info",
+      title: "Students Section Coming Soon",
+      message:
+        "Sorry, we are still working on the students section. It will be available soon.",
+    });
+  };
 
   useEffect(() => {
     document.title = "Ravidassia Abroad";
@@ -480,7 +496,11 @@ export default function Home() {
         <Container>
           <Nav className="mx-auto d-flex flex-wrap justify-content-center home-quick-links-nav">
             {quickLinks.map((menu) => (
-              <Nav.Link key={menu.id} href={menu.path}>
+              <Nav.Link
+                key={menu.id}
+                href={menu.path}
+                onClick={(event) => handleQuickLinkClick(event, menu)}
+              >
                 {menu.label}
               </Nav.Link>
             ))}
@@ -813,6 +833,7 @@ export default function Home() {
         </div>
       </div>
 
+      {false && (
       <div className="container-fluid training overflow-hidden bg-light py-5">
         <div className="container py-5">
           <div
@@ -869,7 +890,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
+      {false && (
       <div className="container-fluid contact overflow-hidden pb-5">
         <div className="container py-5">
           <div className="office pt-5">
@@ -924,7 +947,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
+      {false && (
       <div className="container-fluid py-5 bg-light home-secondary-section">
         <div className="container py-5">
           <div className="row g-4 align-items-start">
@@ -964,7 +989,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
+      {false && (
       <div className="container-fluid py-5 home-secondary-section">
         <div className="container py-5">
           <div className="section-title text-center mb-5">
@@ -996,6 +1023,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
       <button
         type="button"
