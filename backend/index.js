@@ -3681,7 +3681,7 @@ app.post("/api/auth/register", authRateLimit, async (req, res) => {
     );
 
     setAuthCookie(res, token);
-    res.status(201).json({ message: "User created successfully", user });
+    res.status(201).json({ message: "User created successfully", user, token });
   } catch (err) {
     console.error("Register error:", err);
     if (err.code === "23505") {
@@ -3729,7 +3729,7 @@ app.post("/api/auth/login", authRateLimit, async (req, res) => {
     delete user.password_hash;
     delete user.account_status;
     setAuthCookie(res, token);
-    res.json({ user });
+    res.json({ user, token });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
@@ -3782,7 +3782,7 @@ app.post("/api/auth/google", authRateLimit, async (req, res) => {
 
     delete user.password_hash;
     setAuthCookie(res, token);
-    res.json({ user });
+    res.json({ user, token });
   } catch (err) {
     console.error("❌ Google auth error:", err);
     res.status(400).json({ message: "Invalid Google token" });

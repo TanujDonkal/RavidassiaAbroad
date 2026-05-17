@@ -1,35 +1,36 @@
 // src/utils/api.js
-import { clearStoredAuth } from "./auth";
+import { clearStoredAuth, getStoredToken } from "./auth";
 
-// 🌍 Automatically detect local or production environment
+// Automatically detect local or production environment
 const isLocalhost =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1";
 
-// ✅ Use the right backend based on where the site runs
+// Use the right backend based on where the site runs
 const BASE_URL =
   (isLocalhost
     ? process.env.REACT_APP_API_URL_LOCAL
     : process.env.REACT_APP_API_URL_PROD) ||
-  "http://localhost:5000"; // fallback for safety
+  "http://localhost:5000";
 
-// ✅ We keep "/api" only here — not in each fetch path
+// We keep "/api" only here - not in each fetch path
 export const API_BASE = `${BASE_URL}/api`;
-
 
 // ----------------------------
 // Generic request wrapper
 // ----------------------------
 
 export async function apiFetch(path, options = {}) {
-  let headers = options.headers || {};
-
-  // 🧠 Detect if sending FormData (e.g. file upload)
+  const headers = { ...(options.headers || {}) };
   const isFormData = options.body instanceof FormData;
+  const storedToken = getStoredToken();
 
-  // ✅ Only set JSON header for non-FormData
   if (!isFormData) {
     headers["Content-Type"] = "application/json";
+  }
+
+  if (storedToken && !headers.Authorization) {
+    headers.Authorization = `Bearer ${storedToken}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -45,13 +46,14 @@ export async function apiFetch(path, options = {}) {
       clearStoredAuth();
     }
     console.error("API error response:", res.status, data);
-    throw new Error(data.message || "API error");
+    const error = new Error(data.message || "API error");
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
 }
-
-
 
 // ----------------------------
 // Auth endpoints
@@ -223,7 +225,11 @@ export function getExamTests(examSlug, variantSlug = "") {
   if (variantSlug) {
     params.set("variant", variantSlug);
   }
-  return apiFetch(`/students/exams/${examSlug}/tests${params.toString() ? `?${params.toString()}` : ""}`);
+  return apiFetch(
+    `/students/exams/${examSlug}/tests${
+      params.toString() ? `?${params.toString()}` : ""
+    }`
+  );
 }
 
 export function getTestOverview(testId) {
@@ -267,5 +273,3 @@ export function getExamAttempts(examSlug) {
 export function getAttemptResult(attemptId) {
   return apiFetch(`/students/attempts/${attemptId}/result`);
 }
-
-

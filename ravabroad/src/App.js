@@ -366,8 +366,8 @@ export default function App() {
           setStoredUser(data.user);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
+      .catch((err) => {
+        if (!cancelled && err?.status === 401) {
           clearStoredAuth();
         }
       });

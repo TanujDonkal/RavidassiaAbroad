@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
-import { clearStoredAuth } from "../utils/auth";
+import { clearStoredAuth, getStoredUser, setStoredUser } from "../utils/auth";
 import "../css/profile.css";
 import { MARKETING_OPT_IN_LABEL } from "../utils/compliance";
 
@@ -38,8 +38,10 @@ export default function Profile() {
   ];
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-    setUser(storedUser || {});
+    const syncUser = () => setUser(getStoredUser() || {});
+    syncUser();
+    window.addEventListener("auth-updated", syncUser);
+    return () => window.removeEventListener("auth-updated", syncUser);
   }, []);
 
   const displayPhoto =
@@ -95,8 +97,7 @@ export default function Profile() {
             ? res.marketing_opt_in
             : Boolean(user.marketing_opt_in),
       };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event("auth-updated"));
+      setStoredUser(updatedUser);
       setUser(updatedUser);
 
       popup.open({
