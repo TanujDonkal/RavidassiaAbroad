@@ -4,7 +4,7 @@ import "../css/auth.css";
 import { login, register, API_BASE } from "../utils/api";
 import { usePopup } from "../components/PopupProvider";
 import { clearPostAuthRedirect, getPostAuthRedirect } from "../utils/formDrafts";
-import { setStoredUser } from "../utils/auth";
+import { setStoredAuth } from "../utils/auth";
 import {
   LEGAL_PATHS,
   MARKETING_OPT_IN_LABEL,
@@ -45,7 +45,7 @@ export default function Auth() {
   };
 
   const finishAuth = (data, successMessage) => {
-    setStoredUser(data.user);
+    setStoredAuth(data.user, data.token);
     clearPostAuthRedirect();
     popup.open({
       title: "Welcome",

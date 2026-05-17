@@ -274,6 +274,33 @@
   font-size: 0.92rem;
 }
 
+.profile-danger-zone {
+  margin-top: 1.6rem;
+  padding-top: 1.45rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.profile-danger-kicker {
+  background: rgba(220, 53, 69, 0.12);
+  color: #8c1c2b;
+}
+
+.profile-danger-zone h4 {
+  margin: 0.8rem 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.profile-danger-zone p {
+  margin: 0;
+  max-width: 58ch;
+  color: #636363;
+  line-height: 1.65;
+}
+
 @media (max-width: 991.98px) {
   .profile-hero-card {
     flex-direction: column;
@@ -330,13 +357,15 @@
   }
 
   .profile-section-head,
-  .profile-form-footer {
+  .profile-form-footer,
+  .profile-danger-zone {
     flex-direction: column;
     align-items: stretch;
   }
 
   .profile-actions .btn,
-  .profile-form-footer .btn {
+  .profile-form-footer .btn,
+  .profile-danger-zone .btn {
     width: 100%;
   }
 
