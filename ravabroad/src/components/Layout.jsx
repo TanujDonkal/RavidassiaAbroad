@@ -3,7 +3,6 @@ import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
 import SiteSearchModal from "./SiteSearchModal";
 import ContentRequestModal from "./ContentRequestModal";
-import { usePopup } from "./PopupProvider";
 import {
   LEGAL_PATHS,
   PRIVACY_CONTACT_EMAIL,
@@ -23,7 +22,6 @@ function ScrollAndInit() {
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const popup = usePopup();
   const [user, setUser] = useState(() => getStoredUser());
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const navbarRef = useRef(null);
@@ -74,13 +72,8 @@ export default function Layout() {
   };
 
   const handleDonateClick = () => {
-    popup.open({
-      type: "info",
-      title: "Donations Coming Soon",
-      message:
-        "We are working on secure donations and Stripe support. For now, please use the Support Us or Contact page if you would like to help.",
-    });
     setIsMobileNavOpen(false);
+    window.location.assign("/support-us#donate");
   };
 
   return (

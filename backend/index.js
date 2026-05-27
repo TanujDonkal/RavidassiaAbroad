@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import helmet from "helmet";
 import multer from "multer";
+import Stripe from "stripe";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { OAuth2Client } from "google-auth-library";
@@ -40,6 +41,9 @@ const BUSINESS_STATUSES = new Set(["pending", "approved", "rejected", "hidden"])
 const BUSINESS_LISTING_TYPES = new Set(["free", "premium", "featured"]);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ra_session";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const AUTH_COOKIE_SECURE =
@@ -53,6 +57,11 @@ const OTP_MAX_ATTEMPTS = 5;
 const FRONTEND_URL = (process.env.FRONTEND_URL || "https://www.ravidassiaabroad.com")
   .trim()
   .replace(/\/+$/, "");
+const STRIPE_DONATION_CURRENCY = (
+  process.env.STRIPE_DONATION_CURRENCY || "cad"
+)
+  .trim()
+  .toLowerCase();
 const serverState = {
   dbReady: false,
   lastDbError: null,
@@ -2490,6 +2499,14 @@ function formatEnumLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function normalizeDonationAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
+  return Math.round(amount * 100) / 100;
+}
+
 async function cleanupExpiredVerificationRows() {
   await Promise.all([
     pool.query(
@@ -2931,6 +2948,11 @@ const matrimonyActionRateLimit = createRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 20,
   bucket: "matrimony-actions",
+});
+const donationCheckoutRateLimit = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  bucket: "donation-checkout",
 });
 
 const MATRIMONY_MODERATION_STATUSES = new Set([
@@ -4848,6 +4870,79 @@ app.post("/api/auth/logout", (_req, res) => {
   clearAuthCookie(res);
   res.json({ message: "Logged out successfully" });
 });
+
+app.post(
+  "/api/donations/checkout-session",
+  donationCheckoutRateLimit,
+  async (req, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({
+          message:
+            "Stripe donations are not configured yet. Please try again shortly.",
+        });
+      }
+
+      const amountCad = normalizeDonationAmount(req.body?.amountCad);
+
+      if (!amountCad || amountCad < 5 || amountCad > 10000) {
+        return sendValidationError(
+          res,
+          "Donation amount must be between 5 and 10,000 CAD."
+        );
+      }
+
+      const amountInMinorUnits = Math.round(amountCad * 100);
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        locale: "auto",
+        adaptive_pricing: { enabled: true },
+        submit_type: "donate",
+        billing_address_collection: "auto",
+        customer_creation: "always",
+        phone_number_collection: { enabled: true },
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: STRIPE_DONATION_CURRENCY,
+              unit_amount: amountInMinorUnits,
+              product_data: {
+                name: "Support Ravidassia Abroad",
+                description:
+                  "One-time donation to support temple documentation, history, sangat, and community resources.",
+              },
+            },
+          },
+        ],
+        payment_intent_data: {
+          description: "Ravidassia Abroad one-time donation",
+          metadata: {
+            purpose: "support_us_donation",
+            amount_cad: amountCad.toFixed(2),
+          },
+        },
+        metadata: {
+          purpose: "support_us_donation",
+          source: "support_us_page",
+          amount_cad: amountCad.toFixed(2),
+        },
+        success_url: getSiteUrl(
+          "/support-us?donation=success&session_id={CHECKOUT_SESSION_ID}"
+        ),
+        cancel_url: getSiteUrl("/support-us?donation=canceled"),
+      });
+
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (err) {
+      console.error("Stripe donation checkout error:", err);
+      res
+        .status(500)
+        .json({ message: "We could not start the donation checkout." });
+    }
+  }
+);
 
 // ---- SC/ST SUBMISSION ----
 app.post("/api/scst-submissions", requireAuth, formRateLimit, async (req, res) => {
